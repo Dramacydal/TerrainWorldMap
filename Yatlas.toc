@@ -1,0 +1,21 @@
+## Interface: 40200
+## Title: Yatlas
+## Version: 0.8.5
+## Notes: Yet another atlas
+## OptionalDeps: myAddOns, Ace3, LibBabble-SubZone-3.0
+## DefaultState: Enabled
+## LoadOnDemand: 0
+## SavedVariables: YatlasOptions
+
+Libs\Libs.xml
+Locale\Locales.xml
+
+mapdb.lua
+mapdb2.lua
+Points.lua
+Yatlas.lua
+Templates.xml
+Yatlas.xml
+OptionsFrame.xml
+YatlasButton.xml
+sets\index.xml
