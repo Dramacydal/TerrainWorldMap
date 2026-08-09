@@ -5,5 +5,4 @@
 	<Script file="landmarks.lua"/>
 	<Script file="graveyards.lua"/>
 	<Script file="players.lua"/>
-    <!--<Script file="gathermate.lua"/>-->
 </Ui>
