@@ -7,13 +7,13 @@ local YatlasLDB = LDB:NewDataObject("Yatlas", {
     OnClick = function(self, button)
         if(button == "RightButton") then
             MenuUtil.CreateContextMenu(self, function(owner, rootDescription)
-                rootDescription:CreateButton("Open Yatlas", function()
+                rootDescription:CreateButton(YATLAS_MENU_OPEN, function()
                     YatlasFrame:Toggle();
                 end);
-                rootDescription:CreateCheckbox("Draw child-map tiles",
+                rootDescription:CreateCheckbox(YATLAS_MENU_CHILDMAP_TILES,
                     Yatlas_IsChildMapTilesEnabled,
                     function() Yatlas_SetChildMapTiles(not Yatlas_IsChildMapTilesEnabled()); end);
-                rootDescription:CreateCheckbox("Draw tiles on Azeroth (world) map",
+                rootDescription:CreateCheckbox(YATLAS_MENU_WORLDVIEW_TILES,
                     Yatlas_IsWorldViewTilesEnabled,
                     function() Yatlas_SetWorldViewTiles(not Yatlas_IsWorldViewTilesEnabled()); end);
             end);
@@ -23,8 +23,8 @@ local YatlasLDB = LDB:NewDataObject("Yatlas", {
     end,
     OnTooltipShow = function(tooltip)
         tooltip:AddLine(YATLAS_BUTTON_TOOLTIP1, 1, 1, 1);
-        tooltip:AddLine("|cff40ff40Left-click|r: open Yatlas");
-        tooltip:AddLine("|cff40ff40Right-click|r: menu");
+        tooltip:AddLine(YATLAS_TOOLTIP_LEFTCLICK_OPEN);
+        tooltip:AddLine(YATLAS_TOOLTIP_RIGHTCLICK_MENU);
     end,
 });
 

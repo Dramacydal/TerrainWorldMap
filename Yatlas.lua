@@ -32,7 +32,7 @@ function Yatlas_ToggleTileDebug()
             f:SetLocation(f.opt.Location[1], f.opt.Location[2], true);
         end
     end
-    print("Yatlas: tile debug labels " .. (Yatlas_DebugTiles and "ON" or "OFF"));
+    print(Yatlas_DebugTiles and YATLAS_DEBUG_TILES_ON or YATLAS_DEBUG_TILES_OFF);
 end
 
 -- Whether a map tile has real terrain, per this client's own WDT data

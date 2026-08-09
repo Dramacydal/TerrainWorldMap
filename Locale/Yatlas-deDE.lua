@@ -27,6 +27,19 @@ YATLAS_BUTTON_TOOLTIP1 = "Yatlas";
 YATLAS_PLAYERJUMP = "Spielerposition";
 YATLAS_OPTIONSBUTTON = "Optionen";
 
+-- Minimap-/Weltkarten-Button: Tooltips und Rechtsklick-Kontextmen\195\188
+YATLAS_TOOLTIP_LEFTCLICK_OPEN = "|cff40ff40Linksklick|r: Yatlas \195\182ffnen";
+YATLAS_TOOLTIP_LEFTCLICK_OVERLAY_ON = "|cff40ff40Linksklick|r: gebackenes Karten-Overlay aktivieren";
+YATLAS_TOOLTIP_LEFTCLICK_OVERLAY_OFF = "|cff40ff40Linksklick|r: gebackenes Karten-Overlay deaktivieren";
+YATLAS_TOOLTIP_RIGHTCLICK_MENU = "|cff40ff40Rechtsklick|r: Men\195\188";
+YATLAS_MENU_OPEN = "Yatlas \195\182ffnen";
+YATLAS_MENU_CHILDMAP_TILES = "Kindkarten-Kacheln zeichnen";
+YATLAS_MENU_WORLDVIEW_TILES = "Kacheln auf der Azeroth-Weltkarte zeichnen";
+YATLAS_WORLDMAP_OVERLAY_ON = "Yatlas: Weltkarten-Overlay AN";
+YATLAS_WORLDMAP_OVERLAY_OFF = "Yatlas: Weltkarten-Overlay AUS";
+YATLAS_DEBUG_TILES_ON = "Yatlas: Kachel-Debug-Beschriftungen AN";
+YATLAS_DEBUG_TILES_OFF = "Yatlas: Kachel-Debug-Beschriftungen AUS";
+
 YATLAS_OPTIONS_BUTTONPOS = " Position des Minimap-Icons";
 YATLAS_OPTIONS_BUTTONPOS_TIP = "%d\�";
 YATLAS_OPTIONS_ENABLEBUTTON = "Aktiviere Minimap-Icon";
@@ -34,10 +47,10 @@ YATLAS_OPTIONS_ALPHA = "Transparenz";
 YATLAS_OPTIONS_ICONSIZE = "Icon Gr\195\182\195\159e";
 YATLAS_OPTIONS_ENABLECOORD = "Aktiviere Cursor-Koordinaten";
 
-YATLAS_OVERLAY_SHOWPOINTS_TITLE = "Zeige Punkte";
+YATLAS_POINTS_SHOWPOINTS_TITLE = "Zeige Punkte";
 -- Landmarks would tranlsate to "Landmarken", "wichtige Orte" would be translated to English: "important places"
 -- I would prefer "wichtige Orte" over "Landmarken"
-YATLAS_OVERLAY_LANDMARKS = "wichtige Orte";
+YATLAS_POINTS_LANDMARKS = "wichtige Orte";
 
 YATLAS_UNKNOWN_ZONE = "Unbekannt";
 

@@ -318,7 +318,7 @@ function Yatlas_SetWorldMapOverlay(enabled, silent)
     end
 
     if(not silent) then
-        print("Yatlas: world map overlay " .. (enabled and "ON" or "OFF"));
+        print(enabled and YATLAS_WORLDMAP_OVERLAY_ON or YATLAS_WORLDMAP_OVERLAY_OFF);
     end
 end
 
@@ -359,11 +359,11 @@ end
 
 function YatlasWorldMapButtonMixin:OnEnter()
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
-    GameTooltip:SetText("Yatlas", 1, 1, 1);
+    GameTooltip:SetText(YATLAS_BUTTON_TOOLTIP1, 1, 1, 1);
     GameTooltip:AddLine(Yatlas_IsWorldMapOverlayEnabled()
-        and "|cff40ff40Left-click|r: disable baked map overlay"
-        or  "|cff40ff40Left-click|r: enable baked map overlay");
-    GameTooltip:AddLine("|cff40ff40Right-click|r: menu");
+        and YATLAS_TOOLTIP_LEFTCLICK_OVERLAY_OFF
+        or  YATLAS_TOOLTIP_LEFTCLICK_OVERLAY_ON);
+    GameTooltip:AddLine(YATLAS_TOOLTIP_RIGHTCLICK_MENU);
     GameTooltip:Show();
 end
 
@@ -374,13 +374,13 @@ end
 function YatlasWorldMapButtonMixin:OnClick(button)
     if(button == "RightButton") then
         MenuUtil.CreateContextMenu(self, function(owner, rootDescription)
-            rootDescription:CreateButton("Open Yatlas", function()
+            rootDescription:CreateButton(YATLAS_MENU_OPEN, function()
                 YatlasFrame:Toggle();
             end);
-            rootDescription:CreateCheckbox("Draw child-map tiles",
+            rootDescription:CreateCheckbox(YATLAS_MENU_CHILDMAP_TILES,
                 Yatlas_IsChildMapTilesEnabled,
                 function() Yatlas_SetChildMapTiles(not Yatlas_IsChildMapTilesEnabled()); end);
-            rootDescription:CreateCheckbox("Draw tiles on Azeroth (world) map",
+            rootDescription:CreateCheckbox(YATLAS_MENU_WORLDVIEW_TILES,
                 Yatlas_IsWorldViewTilesEnabled,
                 function() Yatlas_SetWorldViewTiles(not Yatlas_IsWorldViewTilesEnabled()); end);
         end);
