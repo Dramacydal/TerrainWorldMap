@@ -36,34 +36,35 @@ function set.getmobilepoints(name)
 end
 
 function set.OnUpdate(name, frame, elapsed)
-    if(GetMapInfo() == frame.opt.Map) then
-        set.internal.OnWorldMapUpdate()
-    end
+    set.internal.OnWorldMapUpdate()
 end
 
 function set.internal.OnWorldMapUpdate()
     set.internal.OnWorldMapUpdateUnit("player");
-    for h = 1,GetNumPartyMembers() do
-        set.internal.OnWorldMapUpdateUnit("party"..h);
-    end
-    for h = 1,GetNumRaidMembers() do
-        set.internal.OnWorldMapUpdateUnit("raid"..h);
+    if(IsInRaid()) then
+        for h = 1,GetNumGroupMembers() do
+            set.internal.OnWorldMapUpdateUnit("raid"..h);
+        end
+    else
+        for h = 1,GetNumGroupMembers() do
+            set.internal.OnWorldMapUpdateUnit("party"..h);
+        end
     end
 end
 
 function set.internal.OnWorldMapUpdateUnit(u)
-    local map = GetMapInfo();
-    local x,y = GetPlayerMapPosition(u);
+    local map, x, y = Yatlas_GetUnitContinentPosition(u);
     local ux, uy;
 
-    if(x == 0 and y == 0 and unitlocations[u] and map == unitlocations[u][1]) then
-        -- assume we changed locations
-        unitlocations[u] = nil;
-        YAPoints_HideMobile("players", u);
+    if(map == nil) then
+        if(unitlocations[u]) then
+            unitlocations[u] = nil;
+            YAPoints_HideMobile("players", u);
+        end
         return;
     end
 
-    if(UnitIsUnit(u, "player") and u ~= "player") or 
+    if(UnitIsUnit(u, "player") and u ~= "player") or
             (UnitInParty(u) and string.sub(u, 1, 4) == "raid") then
         -- hide other representations of units
         if(unitlocations[u]) then
@@ -73,7 +74,7 @@ function set.internal.OnWorldMapUpdateUnit(u)
         return;
     end
 
-    if(Yatlas_mapareas[map] == nil or (x == 0 and y == 0)) then  
+    if(Yatlas_mapareas[map] == nil) then
         return;
     end
 
@@ -103,10 +104,8 @@ function set.internal.CreateEventFrame()
 
     eventframe = CreateFrame("frame");
 
-    eventframe:SetScript("OnEvent", function()
-        if(event == "WORLD_MAP_UPDATE") then
-            set.internal.OnWorldMapUpdate();
-        elseif(event == "RAID_ROSTER_UPDATE" or event == "PARTY_MEMBERS_CHANGED") then
+    eventframe:SetScript("OnEvent", function(self, event, ...)
+        if(event == "GROUP_ROSTER_UPDATE") then
             local q = {};
             for h,v in pairs(unitlocations) do
                 if(not UnitExists(h)) then
@@ -121,9 +120,7 @@ function set.internal.CreateEventFrame()
         end
     end)
 
-    eventframe:RegisterEvent("WORLD_MAP_UPDATE");
-    eventframe:RegisterEvent("RAID_ROSTER_UPDATE");
-    eventframe:RegisterEvent("PARTY_MEMBERS_CHANGED");
+    eventframe:RegisterEvent("GROUP_ROSTER_UPDATE");
 end
 
 function set.setuplegend(point, env, dat)

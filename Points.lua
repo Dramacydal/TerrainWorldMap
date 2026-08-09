@@ -490,7 +490,7 @@ function YAPoints_AddMobilePoint(frame, setname, name, opt, userdat)
     frame.nextmobilepoint = frame.nextmobilepoint + 1;
 
     frame.mobilepoints[setname..":"..name] = point;
-    return getn(frame.mobilepoints);
+    return #frame.mobilepoints;
 end
 
 function YAPoints_Mobile_SetLocation(setname, name, map, x, y) 
@@ -613,7 +613,8 @@ function YFOO_OnClick(self)
 end
 
 function YFOODropDown_do_toggle_normal(self)
-    YatlasOptions.Frames[current_frame:GetName()].PointCfg[self.value] = UIDropDownMenuButton_GetChecked(self)
+    -- PointCfg[name] means "hidden"; the checkbox means "shown", so invert.
+    YatlasOptions.Frames[current_frame:GetName()].PointCfg[self.value] = not UIDropDownMenuButton_GetChecked(self)
     YAPoints_ForceUpdate(current_frame)
 end
 
@@ -623,7 +624,7 @@ end
 
 -- based on code by ???
 binsert = function( t, val)
-    local iStart, iEnd, iMid, iState =  1, table.getn( t ), 1, 0
+    local iStart, iEnd, iMid, iState =  1, #t, 1, 0
 
     -- Get Insertposition
     while iStart <= iEnd do

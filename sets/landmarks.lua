@@ -33,14 +33,21 @@ function set.getpoints(name, map)
     end
 end
 
-function set.setuppoint(point, env, dat) 
+function set.setuppoint(point, env, dat)
     local text, bg = point.Foreground, point.Icon;
     local x1, x2, y1, y2;
     local r, g, b;
     local bgtextname;
     local iconsize = env.iconsize;
+    local kind = dat.userdat[5];
 
-    if(dat.userdat[5] == 4 or dat.userdat[5] == 5 or dat.userdat[5] < 0) then
+    -- kind is a string (POI atlas name) for landmarks scraped via
+    -- C_AreaPoiInfo; a sentinel number for our own instance/town tables.
+    local atlas = (type(kind) == "string") and kind or nil;
+
+    if(atlas) then
+        r, g, b = 1, 1, 1;
+    elseif(type(kind) == "number" and (kind == 4 or kind == 5 or kind < 0)) then
         x1 = 0; y1 = 0;
         x2 = 1; y2 = 1;
 
@@ -48,24 +55,24 @@ function set.setuppoint(point, env, dat)
         g = 0.6;
         b = 1;
         bgtextname = "Interface\\AddOns\\Yatlas\\images\\Icons\\Icon-Circle";
-        if(dat.userdat[5] == 5) then
+        if(kind == 5) then
             bgtextname = "Interface\\AddOns\\Yatlas\\images\\Icons\\Icon-Star";
             iconsize = iconsize+2;
-        elseif(dat.userdat[5] == -1) then
+        elseif(kind == -1) then
             r = 0.9;
             g = 0.1;
             b = 0.9;
             bgtextname = "Interface\\AddOns\\Yatlas\\images\\Icons\\Icon-Cave";
-        elseif(dat.userdat[5] == -4) then
+        elseif(kind == -4) then
             r = 0.3;
             g = 0.8;
             b = 1;
             bgtextname = "Interface\\AddOns\\Yatlas\\images\\Icons\\Icon-Exclaim";
         end
     else
-       x1, x2, y1, y2 = WorldMap_GetPOITextureCoords(dat.userdat[5]);
-       r,g,b = 1,1,1;
-       bgtextname  = "Interface\\Minimap\\POIIcons"
+        x1, x2, y1, y2 = 0, 1, 0, 1;
+        r, g, b = 0.2, 0.6, 1;
+        bgtextname = "Interface\\AddOns\\Yatlas\\images\\Icons\\Icon-Circle";
     end
 
     point:Show();
@@ -75,8 +82,13 @@ function set.setuppoint(point, env, dat)
     bg:Show();
     bg:SetHeight(iconsize);
     bg:SetWidth(iconsize);
-    bg:SetTexture(bgtextname);
-    bg:SetTexCoord(x1, x2, y1, y2);
+    if(atlas) then
+        bg:SetTexCoord(0, 1, 0, 1);
+        bg:SetAtlas(atlas, false);
+    else
+        bg:SetTexture(bgtextname);
+        bg:SetTexCoord(x1, x2, y1, y2);
+    end
     bg:SetVertexColor(r, g, b, 1);
 end
 

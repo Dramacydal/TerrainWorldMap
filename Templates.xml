@@ -48,7 +48,7 @@
 				end
 			</OnUpdate>
 			<OnEvent>
-				self:OnEvent(event);
+				self:OnEvent(event, ...);
 			</OnEvent>
 		</Scripts>
 	</Frame>
@@ -843,21 +843,10 @@
 		<!-- Point Buttons are filled in here -->
 	</Frame>
 
-	<Frame name="YatlasZoomTemplate" virtual="true">
+	<Frame name="YatlasZoomTemplate" virtual="true" inherits="BackdropTemplate">
 		<Size>
 			<AbsDimension x="48" y="72" />
 		</Size>
-		<Backdrop bgFile="Interface\Tooltips\UI-Tooltip-Background" edgeFile="Interface\Tooltips\UI-Tooltip-Border" tile="true">
-			<EdgeSize>
-				<AbsValue val="16"/>
-			</EdgeSize>
-			<TileSize>
-				<AbsValue val="16"/>
-			</TileSize>
-			<BackgroundInsets>
-				<AbsInset left="5" right="5" top="5" bottom="5"/>
-			</BackgroundInsets>
-		</Backdrop>
 		<Frames>
 			<Button name="$parentPlusButton" inherits="UIPanelButtonTemplate" text="YATLAS_ZOOMIN">
 				<Size>
@@ -898,30 +887,27 @@
 		</Frames>
 		<Scripts>
 			<OnLoad>
+				self:SetBackdrop{
+					bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+					edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+					tile = true,
+					edgeSize = 16,
+					tileSize = 16,
+					insets = { left = 5, right = 5, top = 5, bottom = 5 },
+				};
 				self:SetBackdropBorderColor(1, 1, 1);
 				self:SetBackdropColor(0, 0, 0, 1);
 			</OnLoad>
 		</Scripts>
 	</Frame>
 
-	<Slider name="YatlasOptionsSliderTemplate" orientation="VERTICAL" virtual="true" enableMouse="true">
+	<Slider name="YatlasOptionsSliderTemplate" orientation="VERTICAL" virtual="true" enableMouse="true" inherits="BackdropTemplate">
 		<Size>
 			<AbsDimension x="10" y="120"/>
 		</Size>
 		<HitRectInsets>
 			<AbsInset left="-10" right="-10" top="0" bottom="0"/>
 		</HitRectInsets>
-		<Backdrop bgFile="Interface\Buttons\UI-SliderBar-Background" edgeFile="Interface\Buttons\UI-SliderBar-Border" tile="true">
-			<EdgeSize>
-				<AbsValue val="8"/>
-			</EdgeSize>
-			<TileSize>
-				<AbsValue val="8"/>
-			</TileSize>
-			<BackgroundInsets>
-				<AbsInset left="6" right="6" top="3" bottom="3"/>
-			</BackgroundInsets>
-		</Backdrop>
 		<Layers>
 			<Layer level="ARTWORK">
 				<FontString name="$parentText" inherits="GameFontGreenSmall">
@@ -958,20 +944,21 @@
 				<AbsDimension x="32" y="32"/>
 			</Size>
 		</ThumbTexture>
+		<Scripts>
+			<OnLoad>
+				self:SetBackdrop{
+					bgFile = "Interface\\Buttons\\UI-SliderBar-Background",
+					edgeFile = "Interface\\Buttons\\UI-SliderBar-Border",
+					tile = true,
+					edgeSize = 8,
+					tileSize = 8,
+					insets = { left = 6, right = 6, top = 3, bottom = 3 },
+				};
+			</OnLoad>
+		</Scripts>
 	</Slider>
 
-	<Frame name="YatlasTooltipTemplate" virtual="true">
-		<Backdrop bgFile="Interface\Tooltips\UI-Tooltip-Background" edgeFile="Interface\Tooltips\UI-Tooltip-Border" tile="true">
-			<EdgeSize>
-				<AbsValue val="16"/>
-			</EdgeSize>
-			<TileSize>
-				<AbsValue val="16"/>
-			</TileSize>
-			<BackgroundInsets>
-				<AbsInset left="5" right="5" top="5" bottom="5"/>
-			</BackgroundInsets>
-		</Backdrop>
+	<Frame name="YatlasTooltipTemplate" virtual="true" inherits="BackdropTemplate">
 
 		<!-- FontStrings are automatically filled into Layers here as needed -->
 		

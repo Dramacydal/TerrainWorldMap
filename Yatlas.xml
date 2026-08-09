@@ -187,7 +187,7 @@
 					</OnEvent>
 				</Scripts>
 			</Button>
-			<Button name="YatlasFramePlayerJumpButton" text="YATLAS_PLAYERJUMP" inherits="UIPanelButtonTemplate2">
+			<Button name="YatlasFramePlayerJumpButton" text="YATLAS_PLAYERJUMP" inherits="UIPanelButtonTemplate">
 				<Size>
 					<AbsDimension x="108" y="24"/>
 				</Size>
@@ -573,7 +573,7 @@
 					</OnEvent>
 				</Scripts>
 			</Button>
-			<Button name="BigYatlasFramePlayerJumpButton" text="YATLAS_PLAYERJUMP" inherits="UIPanelButtonTemplate2">
+			<Button name="BigYatlasFramePlayerJumpButton" text="YATLAS_PLAYERJUMP" inherits="UIPanelButtonTemplate">
 				<Size>
 					<AbsDimension x="108" y="24"/>
 				</Size>

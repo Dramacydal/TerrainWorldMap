@@ -1,23 +1,11 @@
 <Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/../../FrameXML/UI.xsd">
-	<Frame name="YatlasOptionsFrame" hidden="true" toplevel="true" frameStrata="DIALOG" movable="true" enableMouse="true" parent="UIParent">
+	<Frame name="YatlasOptionsFrame" hidden="true" toplevel="true" frameStrata="DIALOG" movable="true" enableMouse="true" parent="UIParent" inherits="BackdropTemplate">
 		<Size>
 			<AbsDimension x="420" y="410"/>
 		</Size>
 		<Anchors>
  			<Anchor point="CENTER" />
  		</Anchors>
-
-		<Backdrop bgFile="Interface\DialogFrame\UI-DialogBox-Background" edgeFile="Interface\DialogFrame\UI-DialogBox-Border" tile="true">
-			<BackgroundInsets>
-				<AbsInset left="11" right="12" top="12" bottom="11"/>
-			</BackgroundInsets>
-			<TileSize>
-				<AbsValue val="32"/>
-			</TileSize>
-			<EdgeSize>
-				<AbsValue val="32"/>
-			</EdgeSize>
-		</Backdrop>
 
 		<Layers>
 			<Layer level="ARTWORK">
@@ -180,7 +168,7 @@
 				</Scripts>
 			</CheckButton>
 
-			<Frame name="YatlasOptionsFrameFrame" inherits="OptionFrameBoxTemplate">
+			<Frame name="YatlasOptionsFrameFrame" inherits="BackdropTemplate">
 				<Anchors>
 					<Anchor point="TOPLEFT">
 						<Offset>
@@ -198,7 +186,15 @@
 				</Size>
 				<Scripts>
 					<OnLoad>
-						self:SetBackdropColor(0,0,0)	
+						self:SetBackdrop{
+							bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
+							edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+							tile = true,
+							edgeSize = 16,
+							tileSize = 16,
+							insets = { left = 4, right = 4, top = 4, bottom = 4 },
+						};
+						self:SetBackdropColor(0,0,0)
 					</OnLoad>
 				</Scripts>
 				<Frames>
@@ -294,7 +290,7 @@
 				</Anchors>
 				<Scripts>
 					<OnClick>
-						PlaySound("gsTitleOptionOK");
+						PlaySound(SOUNDKIT.GS_TITLE_OPTION_OK);
 						YatlasOptionsFrame:Hide()
 					</OnClick>
 				</Scripts>
@@ -303,6 +299,14 @@
 
 		<Scripts>
 			<OnLoad>
+				self:SetBackdrop{
+					bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+					edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+					tile = true,
+					edgeSize = 32,
+					tileSize = 32,
+					insets = { left = 11, right = 12, top = 12, bottom = 11 },
+				};
 				UIPanelWindows[self:GetName()] = { area = "center", pushable = 0, whileDead = 1 };
 				self:RegisterEvent("VARIABLES_LOADED");
 			</OnLoad>
