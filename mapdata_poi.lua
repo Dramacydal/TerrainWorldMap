@@ -259,26 +259,3 @@ Yatlas_Mobs = {
     {"Dragons of Nightmare", "Kalimdor", 1874, -2796},
 };
 
--- 'blacklist' some of our 'graveyards'
-function YA_BL_gy(cont, c) 
-    for h,v in ipairs(Yatlas_graveyards[cont]) do
-        if(v[1] == c[1] and v[2] == c[2]) then
-            tremove(Yatlas_graveyards[cont], h);
-            return;
-        end
-    end
-end
-YA_BL_gy("Azeroth", {-831.880981, -3518.520020});   -- AB
-YA_BL_gy("Azeroth", {-1215.589966, -2531.750000});  -- AB
-YA_BL_gy("Azeroth", {536.494995, -1085.719971});    -- AV
-YA_BL_gy("Azeroth", {101.143997, -184.934006});     -- AV
-YA_BL_gy("Azeroth", {-5687.000000, -515.000000});   -- Dun Morogh Extra
-YA_BL_gy("Azeroth", {-9115.000000, 423.000000});    -- Stormwind Bogus
-YA_BL_gy("Azeroth", {-9151.980469, 410.944000});    -- Stormwind Bogus
-YA_BL_gy("Azeroth", {1822.609985, 214.673996});     -- Undercity Bogus
-YA_BL_gy("Azeroth", {-5049.450195, -809.697021});   -- Ironforge extra
-YA_BL_gy("Azeroth", {-13290.000000, 108.000000});   -- Gurubashi Arena Bogus
-YA_BL_gy("Kalimdor", {1357.099976, -4412.009766});  -- Orgrimmar Bogus
-YA_BL_gy("Kalimdor", {1459.170044, -1858.670044});  -- WSG
-YA_BL_gy("Kalimdor", {1035.270020, -2104.280029});  -- WSG
-

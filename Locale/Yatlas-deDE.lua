@@ -15,18 +15,15 @@ YATLAS_HELP_TEXT = {
     "W\195\164hlt den darzustellenden Kontinent oberhalb der Karte aus (derzeit nur".. 
     "Kalimdor und die \195\182stlichen K\195\182nigreiche). \n"..
     "Ihr k\195\182nnt verschieden Zonen ausw\195\164hlen oder zur Spielerposition springen."..
-    "Im Bereich \"Daten\" werden wichtige Orte in Form einer Legende angezeigt".. 
+    "Im Bereich \"Daten\" werden wichtige Orte in Form einer Legende angezeigt"..
     "und im Bereich \"Optionen\" k\195\182nnen Sichtbarkeit und Position des Minimap-Icons"..
-    "und auch die Transparenz des Yatlas-Fensters ver\195\164ndert werden.\n\n"..
-    "Sofern Ihr den Gatherer oder MapNotes installiert habt, werden ebendso die "..
-    "Fundorte oder Notizen dieser Addons in der Legende angezeigt."
+    "und auch die Transparenz des Yatlas-Fensters ver\195\164ndert werden.\n"
     };
 
 YATLAS_TAB_DATA = "Zeige Daten";
 YATLAS_TAB_OPTIONS = "Optionen";
 
 YATLAS_BUTTON_TOOLTIP1 = "Yatlas";
-YATLAS_BUTTON_TOOLTIP2 = "- Klicken, zum \195\182ffnen von Yatlas";
 YATLAS_PLAYERJUMP = "Spielerposition";
 YATLAS_OPTIONSBUTTON = "Optionen";
 
@@ -41,13 +38,6 @@ YATLAS_OVERLAY_SHOWPOINTS_TITLE = "Zeige Punkte";
 -- Landmarks would tranlsate to "Landmarken", "wichtige Orte" would be translated to English: "important places"
 -- I would prefer "wichtige Orte" over "Landmarken"
 YATLAS_OVERLAY_LANDMARKS = "wichtige Orte";
-YATLAS_OVERLAY_GRAVEYARDS = "Friedh\195\182fe";
-YATLAS_OVERLAY_MAPNOTES = "MapNotes";
-YATLAS_OVERLAY_GATHERER = "Gatherer";
-YATLAS_OVERLAY_GATHERER_TREASURE = "Sch\195\164tze";
-YATLAS_OVERLAY_GATHERER_ORES = "Erze";
-YATLAS_OVERLAY_GATHERER_HERBS = "Kr\195\164uter";
-YATLAS_OVERLAY_CTMAPMOD = "CTMapMod";
 
 YATLAS_UNKNOWN_ZONE = "Unbekannt";
 

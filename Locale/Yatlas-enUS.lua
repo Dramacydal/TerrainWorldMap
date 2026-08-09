@@ -17,16 +17,13 @@ YATLAS_HELP_TEXT = {
         "choose which map (currently only Kalimdor and the Eastern "..
         "Kingdoms) at the top. You can jump around by zone and zoom to "..
         "player as well.\n\n"..
-    "Mousing over a point of interest will bring up a tooltip.\n\n"..
-    "If you have Gatherer or MapNotes installed, it will shows points from "..
-        "these two addons as well.\n"
+    "Mousing over a point of interest will bring up a tooltip.\n"
     };
 
 YATLAS_TAB_DATA = "Show Data";
 YATLAS_TAB_OPTIONS = "Options";
 
 YATLAS_BUTTON_TOOLTIP1 = "Yatlas";
-YATLAS_BUTTON_TOOLTIP2 = "- Click to open the Yatlas";
 YATLAS_PLAYERJUMP = "Goto Player";
 YATLAS_OPTIONSBUTTON = "Options";
 
@@ -41,13 +38,6 @@ YATLAS_OPTIONS_ENABLECOORD = "Enable Cursor Coordinates";
 
 YATLAS_POINTS_SHOWPOINTS_TITLE = "Show Points";
 YATLAS_POINTS_LANDMARKS = "Landmarks";
-YATLAS_POINTS_GRAVEYARDS = "Graveyards";
-YATLAS_POINTS_MAPNOTES = "MapNotes";
-YATLAS_POINTS_GATHERER = "Gatherer";
-YATLAS_POINTS_GATHERER_TREASURE = "Treasure";
-YATLAS_POINTS_GATHERER_ORES = "Ores";
-YATLAS_POINTS_GATHERER_HERBS = "Herbs";
-YATLAS_POINTS_CTMAPMOD = "CTMapMod";
 
 YATLAS_UNKNOWN_ZONE = "Unknown";
 

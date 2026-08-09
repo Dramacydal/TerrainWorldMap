@@ -23,7 +23,8 @@ local YatlasLDB = LDB:NewDataObject("Yatlas", {
     end,
     OnTooltipShow = function(tooltip)
         tooltip:AddLine(YATLAS_BUTTON_TOOLTIP1, 1, 1, 1);
-        tooltip:AddLine(YATLAS_BUTTON_TOOLTIP2);
+        tooltip:AddLine("|cff40ff40Left-click|r: open Yatlas");
+        tooltip:AddLine("|cff40ff40Right-click|r: menu");
     end,
 });
 
