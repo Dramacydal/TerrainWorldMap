@@ -16,6 +16,8 @@ mapdata_poi.lua
 mapdata_tiles.lua
 Points.lua
 Yatlas.lua
+WorldMapOverlay.lua
+WorldMapButton.xml
 Templates.xml
 Yatlas.xml
 OptionsFrame.xml

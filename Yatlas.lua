@@ -147,6 +147,10 @@ function YatlasFrame_OnLoadExtra()
     SlashCmdList["YATLAS"] = function(msg)
         if(msg == "debug") then
             Yatlas_ToggleTileDebug();
+        elseif(msg == "map on") then
+            Yatlas_SetWorldMapOverlay(true);
+        elseif(msg == "map off") then
+            Yatlas_SetWorldMapOverlay(false);
         else
             YatlasFrame:Toggle();
         end
