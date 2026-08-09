@@ -5,7 +5,18 @@ local YatlasLDB = LDB:NewDataObject("Yatlas", {
     type = "launcher",
     icon = "Interface\\AddOns\\Yatlas\\images\\Button",
     OnClick = function(self, button)
-        YatlasFrame:Toggle();
+        if(button == "RightButton") then
+            MenuUtil.CreateContextMenu(self, function(owner, rootDescription)
+                rootDescription:CreateButton("Open Yatlas", function()
+                    YatlasFrame:Toggle();
+                end);
+                rootDescription:CreateCheckbox("Draw child-map tiles",
+                    Yatlas_IsChildMapTilesEnabled,
+                    function() Yatlas_SetChildMapTiles(not Yatlas_IsChildMapTilesEnabled()); end);
+            end);
+        else
+            YatlasFrame:Toggle();
+        end
     end,
     OnTooltipShow = function(tooltip)
         tooltip:AddLine(YATLAS_BUTTON_TOOLTIP1, 1, 1, 1);

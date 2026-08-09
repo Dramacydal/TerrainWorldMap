@@ -16,6 +16,7 @@
 local pre = "World\\Minimaps\\";
 
 local overlay;
+local backdrop;
 local texturePool = {};
 local worldMapButton;
 
@@ -26,6 +27,15 @@ local function GetOverlayFrame()
     overlay:SetAllPoints(WorldMapFrame:GetCanvas());
     overlay:SetFrameLevel(500);
     overlay:Hide();
+
+    -- Solid backing under every tile, so gaps (ocean/edge cells with no
+    -- WDT-valid tile, or areas not yet covered by an inset) show black
+    -- instead of Blizzard's own map art bleeding through from below. Only
+    -- meaningful on zone/continent maps -- hidden on the cosmic map (see
+    -- RefreshOverlay), which we never have tiles for anyway.
+    backdrop = overlay:CreateTexture(nil, "BACKGROUND");
+    backdrop:SetAllPoints(overlay);
+    backdrop:SetColorTexture(0, 0, 0, 1);
 
     return overlay;
 end
@@ -95,7 +105,11 @@ local function GetViewBigBox(mapID)
 
     for _, continent in ipairs(tryOrder) do
         local left, right, top, bottom = C_Map.GetMapRectOnMap(mapID, Yatlas_ContinentMapID[continent]);
-        if(left) then
+        -- GetMapRectOnMap can return a degenerate {0,0,0,0} (not nil) for a
+        -- map that isn't really geometrically related to this continent --
+        -- e.g. the "both continents"/cosmic zoom-out views -- and 0 is
+        -- truthy in Lua, so require an actual positive-area rect.
+        if(left and right > left and bottom > top) then
             local cbox = Yatlas_mapareas[continent][0];
             local cx1,cx2,cy1,cy2 = cbox[1],cbox[2],cbox[3],cbox[4];
             local bx1, by1 = (-left*(cx1-cx2) + cx1), (-top*(cy1-cy2) + cy1);
@@ -107,24 +121,87 @@ local function GetViewBigBox(mapID)
     return nil;
 end
 
+-- Draws `continent`'s tiles covering Big-coord box [bx1,bx2]x[by1,by2] into
+-- the pixel rect [targetX1,targetX2]x[targetY1,targetY2] of `overlay`,
+-- clipping (via SetTexCoord) any tile that only partially overlaps the
+-- target rect -- needed so an inset (see below) doesn't bleed its tiles
+-- past its own box into the surrounding continent art. Numbers new
+-- textures starting at startIdx+1; returns the last index used. `sublevel`
+-- (within the ARTWORK layer) controls draw order among overlapping calls --
+-- higher draws on top -- since insets must render over the main continent
+-- tiles wherever they happen to overlap.
+local function DrawTiles(continent, bx1, bx2, by1, by2, targetX1, targetY1, targetX2, targetY2, startIdx, sublevel)
+    if(not Yatlas_WDTValidTiles[continent]) then return startIdx; end
+
+    local mnx1, mny1 = Yatlas_Big2Mini_Coord(bx1, by1);
+    local mnx2, mny2 = Yatlas_Big2Mini_Coord(bx2, by2);
+    local colMin = math.floor(math.min(mnx1, mnx2));
+    local colMax = math.ceil(math.max(mnx1, mnx2));
+    local rowMin = math.floor(math.min(mny1, mny2));
+    local rowMax = math.ceil(math.max(mny1, mny2));
+
+    local targetW, targetH = targetX2-targetX1, targetY2-targetY1;
+    local function BigToTargetPixel(bigx, bigy)
+        return targetX1 + ((bx1-bigx)/(bx1-bx2))*targetW, targetY1 + ((by1-bigy)/(by1-by2))*targetH;
+    end
+
+    local idx = startIdx;
+    for col = colMin, colMax - 1 do
+        for row = rowMin, rowMax - 1 do
+            local tilekey = format("%.2dx%.2d", col, row);
+            if(Yatlas_WDTValidTiles[continent][tilekey]) then
+                local px1, py1 = BigToTargetPixel(Yatlas_Mini2Big_Coord(col, row));
+                local px2, py2 = BigToTargetPixel(Yatlas_Mini2Big_Coord(col+1, row+1));
+
+                local tx1, tx2 = math.min(px1,px2), math.max(px1,px2);
+                local ty1, ty2 = math.min(py1,py2), math.max(py1,py2);
+
+                local ix1, ix2 = math.max(tx1, targetX1), math.min(tx2, targetX2);
+                local iy1, iy2 = math.max(ty1, targetY1), math.min(ty2, targetY2);
+
+                if(ix2 > ix1 and iy2 > iy1) then
+                    idx = idx + 1;
+                    local tex = AcquireTexture(idx);
+                    tex:ClearAllPoints();
+                    tex:SetDrawLayer("ARTWORK", sublevel or 0);
+                    tex:SetPoint("TOPLEFT", overlay, "TOPLEFT", ix1, -iy1);
+                    tex:SetWidth(ix2-ix1);
+                    tex:SetHeight(iy2-iy1);
+                    tex:SetTexture(pre..continent.."\\"..format("map%.2d_%.2d", col, row));
+                    tex:SetTexCoord((ix1-tx1)/(tx2-tx1), (ix2-tx1)/(tx2-tx1), (iy1-ty1)/(ty2-ty1), (iy2-ty1)/(ty2-ty1));
+                    tex:Show();
+                end
+            end
+        end
+    end
+
+    return idx;
+end
+
 local function RefreshOverlay()
     if(not overlay or not overlay:IsShown()) then return; end
 
     local mapID = WorldMapFrame:GetMapID();
     if(not mapID) then
         ReleaseTexturesFrom(1);
+        backdrop:Hide();
         ShowExplorationPins();
         return;
     end
 
     -- Big-coord box of the current view: bx1/by1 = max X/Y, bx2/by2 = min
-    -- X/Y, matching Yatlas_mapareas' own {x1,x2,y1,y2} convention.
+    -- X/Y, matching Yatlas_mapareas' own {x1,x2,y1,y2} convention. Also nil
+    -- on the cosmic map (the "World" view showing all continents as small
+    -- globes) -- there's no single continent's tile mosaic to show there.
     local continent, bx1, bx2, by1, by2 = GetViewBigBox(mapID);
     if(not continent) then
         ReleaseTexturesFrom(1);
+        backdrop:Hide();
         ShowExplorationPins();
         return;
     end
+
+    backdrop:Show();
 
     -- Blizzard's "explored area" pin (and Leatrix_Maps' "Show unexplored
     -- areas" option, which forces it to paint even normally-unrevealed
@@ -141,43 +218,50 @@ local function RefreshOverlay()
         return;
     end
 
-    -- Which tile-grid cells cover the view box, and where each one lands
-    -- (as a view-fraction, then a pixel rect) within the current view.
-    local mnx1, mny1 = Yatlas_Big2Mini_Coord(bx1, by1);
-    local mnx2, mny2 = Yatlas_Big2Mini_Coord(bx2, by2);
+    local idx = DrawTiles(continent, bx1, bx2, by1, by2, 0, 0, frameW, frameH, 0);
 
-    local colMin = math.floor(math.min(mnx1, mnx2));
-    local colMax = math.ceil(math.max(mnx1, mnx2));
-    local rowMin = math.floor(math.min(mny1, mny2));
-    local rowMax = math.ceil(math.max(mny1, mny2));
-
-    local function BigToViewFrac(bigx, bigy)
-        return (bx1-bigx)/(bx1-bx2), (by1-bigy)/(by1-by2);
-    end
-
-    local idx = 0;
-    for col = colMin, colMax - 1 do
-        for row = rowMin, rowMax - 1 do
-            local tilekey = format("%.2dx%.2d", col, row);
-            if(Yatlas_WDTValidTiles[continent] and Yatlas_WDTValidTiles[continent][tilekey]) then
-                local vx1, vy1 = BigToViewFrac(Yatlas_Mini2Big_Coord(col, row));
-                local vx2, vy2 = BigToViewFrac(Yatlas_Mini2Big_Coord(col+1, row+1));
-
-                local px1, px2 = math.min(vx1,vx2)*frameW, math.max(vx1,vx2)*frameW;
-                local py1, py2 = math.min(vy1,vy2)*frameH, math.max(vy1,vy2)*frameH;
-
-                if(px2 >= 0 and px1 <= frameW and py2 >= 0 and py1 <= frameH) then
-                    idx = idx + 1;
-                    local tex = AcquireTexture(idx);
-                    tex:ClearAllPoints();
-                    tex:SetPoint("TOPLEFT", overlay, "TOPLEFT", px1, -py1);
-                    tex:SetWidth(px2-px1);
-                    tex:SetHeight(py2-py1);
-                    tex:SetTexture(pre..continent.."\\"..format("map%.2d_%.2d", col, row));
-                    tex:SetTexCoord(0, 1, 0, 1);
-                    tex:Show();
+    -- Continent-level view: also draw any "orphan" zones that C_Map's own
+    -- hierarchy nominally parents here, but whose real terrain (per
+    -- Yatlas_UiMapID2Zone) lives on a *different* continent -- e.g. Eversong
+    -- Woods/Ghostlands/Isle of Quel'Danas under Eastern Kingdoms,
+    -- Azuremyst/Bloodmyst Isle under Kalimdor.
+    --
+    -- Grouped by foreign continent, with ONE shared transform per group
+    -- (union of the zones' real boxes -> union of Blizzard's own inset
+    -- rects for them), not one transform per zone: Blizzard picks each
+    -- zone's inset box independently for its own little map icon, so
+    -- fitting them independently would drift neighbouring zones (e.g.
+    -- Eversong Woods and Isle of Quel'Danas) apart even though their real
+    -- coordinates are adjacent.
+    if(YatlasOptions.WorldMapOverlayChildMaps and mapID == Yatlas_ContinentMapID[continent]) then
+        local groups = {};
+        for _, childInfo in ipairs(C_Map.GetMapChildrenInfo(mapID) or {}) do
+            local known = Yatlas_UiMapID2Zone[childInfo.mapID];
+            if(known and known[1] ~= continent) then
+                local left, right, top, bottom = C_Map.GetMapRectOnMap(childInfo.mapID, mapID);
+                local box = left and Yatlas_mapareas[known[1]][known[2]];
+                if(box) then
+                    local g = groups[known[1]];
+                    if(not g) then
+                        groups[known[1]] = { bx1=box[1], bx2=box[2], by1=box[3], by2=box[4],
+                            left=left, right=right, top=top, bottom=bottom };
+                    else
+                        g.bx1 = math.max(g.bx1, box[1]);
+                        g.bx2 = math.min(g.bx2, box[2]);
+                        g.by1 = math.max(g.by1, box[3]);
+                        g.by2 = math.min(g.by2, box[4]);
+                        g.left = math.min(g.left, left);
+                        g.right = math.max(g.right, right);
+                        g.top = math.min(g.top, top);
+                        g.bottom = math.max(g.bottom, bottom);
+                    end
                 end
             end
+        end
+
+        for foreignContinent, g in pairs(groups) do
+            idx = DrawTiles(foreignContinent, g.bx1, g.bx2, g.by1, g.by2,
+                g.left*frameW, g.top*frameH, g.right*frameW, g.bottom*frameH, idx, 1);
         end
     end
 
@@ -209,8 +293,18 @@ function Yatlas_IsWorldMapOverlayEnabled()
     return YatlasOptions.WorldMapOverlay;
 end
 
+function Yatlas_SetChildMapTiles(enabled)
+    YatlasOptions.WorldMapOverlayChildMaps = enabled;
+    RefreshOverlay();
+end
+
+function Yatlas_IsChildMapTilesEnabled()
+    return YatlasOptions.WorldMapOverlayChildMaps;
+end
+
 -- Icon on the stock WorldMapFrame (see WorldMapButton.xml): left-click
--- toggles this overlay, right-click opens Yatlas' own window.
+-- toggles this overlay, right-click opens a context menu (open Yatlas /
+-- toggle child-map tiles), same as the minimap button (YatlasButton.lua).
 YatlasWorldMapButtonMixin = {};
 
 function YatlasWorldMapButtonMixin:OnLoad()
@@ -224,7 +318,7 @@ function YatlasWorldMapButtonMixin:OnEnter()
     GameTooltip:AddLine(Yatlas_IsWorldMapOverlayEnabled()
         and "|cff40ff40Left-click|r: disable baked map overlay"
         or  "|cff40ff40Left-click|r: enable baked map overlay");
-    GameTooltip:AddLine("|cff40ff40Right-click|r: open Yatlas");
+    GameTooltip:AddLine("|cff40ff40Right-click|r: menu");
     GameTooltip:Show();
 end
 
@@ -234,7 +328,14 @@ end
 
 function YatlasWorldMapButtonMixin:OnClick(button)
     if(button == "RightButton") then
-        YatlasFrame:Toggle();
+        MenuUtil.CreateContextMenu(self, function(owner, rootDescription)
+            rootDescription:CreateButton("Open Yatlas", function()
+                YatlasFrame:Toggle();
+            end);
+            rootDescription:CreateCheckbox("Draw child-map tiles",
+                Yatlas_IsChildMapTilesEnabled,
+                function() Yatlas_SetChildMapTiles(not Yatlas_IsChildMapTilesEnabled()); end);
+        end);
     else
         Yatlas_SetWorldMapOverlay(not Yatlas_IsWorldMapOverlayEnabled(), true);
     end
@@ -252,6 +353,9 @@ initFrame:RegisterEvent("PLAYER_LOGIN");
 initFrame:SetScript("OnEvent", function()
     if(YatlasOptions.WorldMapOverlay == nil) then
         YatlasOptions.WorldMapOverlay = true;
+    end
+    if(YatlasOptions.WorldMapOverlayChildMaps == nil) then
+        YatlasOptions.WorldMapOverlayChildMaps = true;
     end
 
     GetOverlayFrame();
