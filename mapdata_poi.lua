@@ -28,52 +28,8 @@ Yatlas_WorldMapIds = {
 };
 
 
--- These MUST MATCH the values returned by GetMapZones()
--- (These are the id versions)
-Yatlas_ZoneIds = {
-    ["Azeroth"] =   {
-	-- trimmed of Cataclysm-only area IDs (Vashj'ir/Twilight Highlands/
-	-- Gilneas/Cape of Stranglethorn: 4706, 4815, 4922, 5144, 5145,
-	-- 5146, 5287, 5339, 5351) -- none of these exist in TBC Anniversary.
-	0, 1, 3, 4, 8, 10, 11, 12, 28, 33, 38, 40, 41, 44, 45,
-	46, 47, 51, 85, 130, 139, 267, 1497, 1519, 1537
-    },
-    ["Kalimdor"] =  {
-	-- trimmed of Cataclysm-only area IDs (Southern Barrens/Uldum/
-	-- Ahn'Qiraj: The Fallen Kingdom: 4709, 5034, 5695) -- none of these
-	-- exist in TBC Anniversary.
-	0, 14, 15, 16, 17, 141, 148, 215, 331, 357, 361, 400,
-	405, 406, 440, 490, 493, 616, 618, 1377, 1637, 1638,
-	1657
-    },
-    ["Expansion01"] = {
-	0, 3430, 3433, 3483, 3487, 3518, 3519, 3520, 3521, 3522,
-	3523, 3524, 3525, 3557, 3703, 4080
-    },
-    ["Northrend"] = {
-	0, 65, 66, 67, 210, 394, 495, 2817, 3537, 3711, 4197,
-	4395, 4742
-    },
-}
-
-Yatlas_PaperZoneNames = {};     -- we don't fill this in by hand 
+Yatlas_PaperZoneNames = {};     -- we don't fill this in by hand
 Yatlas_Landmarks = {};          -- this is filled in automatically too
-
--- Adjustment for dropdown menu
-Yatlas_mapareas_adjust = {
-    [148] = {-1,0},         -- Darkshore
-    [361] = {-0.95,0},      -- Felwood
-    [357] = {1.2, .1},      -- Feralas
-    [618] = {0.7, -0.5},    -- Winterspring
-    
-    [36] = {-0.3, 0},       -- Alterac
-    [12] = {0, 0.4},        -- Elwynn Forest
-    [267] = {0.3, -0.3},    -- Hillsbrad
-    [33] = {-1.4, -1},      -- STV
-    [8] = {0.4, 0},         -- Swamp of Sorrows
-    [40] = {-0.1, 0},       -- Westfall
-    [11] = {-0.7, -0.9}     -- Wetlands
-};
 
 -- Instances (entrances)
 Yatlas_instances = {

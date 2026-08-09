@@ -1,0 +1,876 @@
+﻿-- Map data extracted from Map.dbc
+Yatlas_WorldMapIds2 = {
+	["Azeroth"] = 0,
+	["Kalimdor"] = 1,
+	["test"] = 13,
+	["ScottTest"] = 25,
+	["PVPZone01"] = 30,
+	["Shadowfang"] = 33,
+	["StormwindJail"] = 34,
+	["StormwindPrison"] = 35,
+	["DeadminesInstance"] = 36,
+	["PVPZone02"] = 37,
+	["Collin"] = 42,
+	["WailingCaverns"] = 43,
+	["Monastery"] = 44,
+	["RazorfenKraulInstance"] = 47,
+	["Blackfathom"] = 48,
+	["Uldaman"] = 70,
+	["GnomeragonInstance"] = 90,
+	["SunkenTemple"] = 109,
+	["RazorfenDowns"] = 129,
+	["EmeraldDream"] = 169,
+	["MonasteryInstances"] = 189,
+	["TanarisInstance"] = 209,
+	["BlackRockSpire"] = 229,
+	["BlackrockDepths"] = 230,
+	["OnyxiaLairInstance"] = 249,
+	["CavernsOfTime"] = 269,
+	["SchoolofNecromancy"] = 289,
+	["Zul'gurub"] = 309,
+	["Stratholme"] = 329,
+	["Mauradon"] = 349,
+	["DeeprunTram"] = 369,
+	["OrgrimmarInstance"] = 389,
+	["MoltenCore"] = 409,
+	["DireMaul"] = 429,
+	["AlliancePVPBarracks"] = 449,
+	["HordePVPBarracks"] = 450,
+	["development"] = 451,
+	["BlackwingLair"] = 469,
+	["PVPZone03"] = 489,
+	["AhnQiraj"] = 509,
+	["PVPZone04"] = 529,
+	["Expansion01"] = 530,
+	["AhnQirajTemple"] = 531,
+	["Karazahn"] = 532,
+	["Stratholme Raid"] = 533,
+	["HyjalPast"] = 534,
+	["HellfireMilitary"] = 540,
+	["HellfireDemon"] = 542,
+	["HellfireRampart"] = 543,
+	["HellfireRaid"] = 544,
+	["CoilfangPumping"] = 545,
+	["CoilfangMarsh"] = 546,
+	["CoilfangDraenei"] = 547,
+	["CoilfangRaid"] = 548,
+	["TempestKeepRaid"] = 550,
+	["TempestKeepArcane"] = 552,
+	["TempestKeepAtrium"] = 553,
+	["TempestKeepFactory"] = 554,
+	["AuchindounShadow"] = 555,
+	["AuchindounDemon"] = 556,
+	["AuchindounEthereal"] = 557,
+	["AuchindounDraenei"] = 558,
+	["PVPZone05"] = 559,
+	["HillsbradPast"] = 560,
+	["bladesedgearena"] = 562,
+	["BlackTemple"] = 564,
+	["GruulsLair"] = 565,
+	["NetherstormBG"] = 566,
+	["ZulAman"] = 568,
+	["Northrend"] = 571,
+	["PVPLordaeron"] = 572,
+	["ExteriorTest"] = 573,
+	["Valgarde70"] = 574,
+	["UtgardePinnacle"] = 575,
+	["Nexus70"] = 576,
+	["Nexus80"] = 578,
+	["SunwellPlateau"] = 580,
+	["Transport176244"] = 582,
+	["Transport176231"] = 584,
+	["Sunwell5ManFix"] = 585,
+	["Transport181645"] = 586,
+	["Transport177233"] = 587,
+	["Transport176310"] = 588,
+	["Transport175080"] = 589,
+	["Transport176495"] = 590,
+	["Transport164871"] = 591,
+	["Transport186238"] = 592,
+	["Transport20808"] = 593,
+	["Transport187038"] = 594,
+	["StratholmeCOT"] = 595,
+	["Transport187263"] = 596,
+	["CraigTest"] = 597,
+	["Sunwell5Man"] = 598,
+	["Ulduar70"] = 599,
+	["DrakTheronKeep"] = 600,
+	["Azjol_Uppercity"] = 601,
+	["Ulduar80"] = 602,
+	["UlduarRaid"] = 603,
+	["GunDrak"] = 604,
+	["development_nonweighted"] = 605,
+	["QA_DVD"] = 606,
+	["NorthrendBG"] = 607,
+	["DalaranPrison"] = 608,
+	["DeathKnightStart"] = 609,
+	["Transport_Tirisfal _Vengeance_Landing"] = 610,
+	["Transport_Menethil_Valgarde"] = 612,
+	["Transport_Orgrimmar_Warsong_Hold"] = 613,
+	["Transport_Stormwind_Valiance_Keep"] = 614,
+	["ChamberOfAspectsBlack"] = 615,
+	["NexusRaid"] = 616,
+	["DalaranArena"] = 617,
+	["OrgrimmarArena"] = 618,
+	["Azjol_LowerCity"] = 619,
+	["Transport_Moa'ki_Unu'pe"] = 620,
+	["Transport_Moa'ki_Kamagua"] = 621,
+	["Transport192241"] = 622,
+	["Transport192242"] = 623,
+	["WintergraspRaid"] = 624,
+	["unused"] = 627,
+	["IsleofConquest"] = 628,
+	["IcecrownCitadel"] = 631,
+	["IcecrownCitadel5Man"] = 632,
+	["AbyssalMaw"] = 637,
+	["Gilneas"] = 638,
+	["Transport_AllianceAirshipBG"] = 641,
+	["Transport_HordeAirshipBG"] = 642,
+	["AbyssalMaw_Interior"] = 643,
+	["Uldum"] = 644,
+	["BlackRockSpire_4_0"] = 645,
+	["Deephome"] = 646,
+	["Transport_Orgrimmar_to_Thunderbluff"] = 647,
+	["LostIsles"] = 648,
+	["ArgentTournamentRaid"] = 649,
+	["ArgentTournamentDungeon"] = 650,
+	["ElevatorSpawnTest"] = 651,
+	["Gilneas2"] = 654,
+	["GilneasPhase1"] = 655,
+	["GilneasPhase2"] = 656,
+	["SkywallDungeon"] = 657,
+	["QuarryofTears"] = 658,
+	["LostIslesPhase1"] = 659,
+	["Deephomeceiling"] = 660,
+	["LostIslesPhase2"] = 661,
+	["Transport197195"] = 662,
+	["HallsOfReflection"] = 668,
+	["BlackwingDescent"] = 669,
+	["GrimBatolDungeon"] = 670,
+	["GrimBatolRaid"] = 671,
+	["Transport197347"] = 672,
+	["Transport197348"] = 673,
+	["Transport197349-2"] = 674,
+	["Transport197349"] = 712,
+	["Transport197350"] = 713,
+	["Transport201834"] = 718,
+	["MountHyjalPhase1"] = 719,
+	["Firelands1"] = 720,
+	["Firelands2"] = 721,
+	["Stormwind"] = 723,
+	["ChamberofAspectsRed"] = 724,
+	["DeepholmeDungeon"] = 725,
+	["CataclysmCTF"] = 726,
+	["STV_Mine_BG"] = 727,
+	["TheBattleforGilneas"] = 728,
+	["MaelstromZone"] = 730,
+	["DesolaceBomb"] = 731,
+	["TolBarad"] = 732,
+	["AhnQirajTerrace"] = 734,
+	["TwilightHighlandsDragonmawPhase"] = 736,
+	["Transport200100"] = 738,
+	["Transport200101"] = 739,
+	["Transport200102"] = 740,
+	["Transport200103"] = 741,
+	["Transport203729"] = 742,
+	["Transport203730"] = 743,
+	["UldumPhaseOasis"] = 746,
+	["Transport 203732"] = 747,
+	["Transport203858"] = 748,
+	["Transport203859"] = 749,
+	["Transport203860"] = 750,
+	["RedgridgeOrcBomb"] = 751,
+	["RedridgeBridgePhaseOne"] = 752,
+	["RedridgeBridgePhaseTwo"] = 753,
+	["SkywallRaid"] = 754,
+	["UldumDungeon"] = 755,
+	["BaradinHold"] = 757,
+	["UldumPhasedEntrance"] = 759,
+	["TwilightHighlandsPhasedEntrance"] = 760,
+	["Gilneas_BG_2"] = 761,
+	["Transport 203861"] = 762,
+	["Transport 203862"] = 763,
+	["UldumPhaseWreckedCamp"] = 764,
+	["Transport203863"] = 765,
+	["Transport 2033864"] = 766,
+	["Transport 2033865"] = 767,
+	["Zul_Gurub5Man"] = 859,
+	["FirelandsDailies"] = 861,
+};
+
+-- Data from AreaTable.dbc, resolved live via C_Map.GetAreaInfo instead of a
+-- hand-maintained name table -- this always matches whatever era/locale
+-- this client actually has data for, instead of a stale scraped snapshot.
+Yatlas_areadb = setmetatable({}, {
+    __index = function(t, id)
+        local name = C_Map.GetAreaInfo(id)
+        if(name) then
+            rawset(t, id, name)
+        end
+        return name
+    end,
+})
+
+
+-- ID mapped to AreaTable.dbc;
+-- Coordination from WorldMapArea.dbc
+-- Azeroth/Kalimdor/Expansion01 blocks live in mapdata_continents.lua
+-- (generated by scripts/gen_mapareas.js, loads right after this file).
+Yatlas_mapareas = {
+	["PVPZone01"] = {
+		[2597] = {1781.249878, -2456.250000, 1085.416626, -1739.583252},	-- Alterac Valley
+	},
+	["PVPZone03"] = {
+		[3277] = {2041.666626, 895.833313, 1627.083252, 862.499939},		-- Warsong Gulch
+	},
+	["PVPZone04"] = {
+		[3358] = {1858.333252, 102.083328, 1508.333252, 337.500000},		-- Arathi Basin
+	},
+	["Stratholme Raid"] = {
+		[3456] = {-2520.833252, -4377.083008, 3597.916504, 2360.416504},
+	},
+	["NetherstormBG"] = {
+		[3820] = {2660.416504, 389.583313, 2918.750000, 1404.166626},
+	},
+	["Northrend"] = {
+		[0] = {9217.152344, -8534.246094, 10593.375, -1240.890015},    --Northrend
+		[65] = {3627.083252, -1981.249878, 5575, 1835.416626},    --Dragonblight
+		[66] = {-600, -5593.75, 7668.749512, 4339.583008},    --ZulDrak
+		[67] = {1841.666626, -5270.833008, 10197.91602, 5456.25},    --TheStormPeaks
+		[210] = {5443.75, -827.083313, 9427.083008, 5245.833008},    --IcecrownGlacier
+		[394] = {-1110.416626, -6360.416504, 5516.666504, 2016.666626},    --GrizzlyHills
+		[495] = {-1397.916626, -7443.749512, 3116.666504, -914.583313},    --HowlingFjord
+		[2817] = {1443.75, -1279.166626, 6502.083008, 4687.5},    --CrystalsongForest
+		[3537] = {8570.833008, 2806.25, 4897.916504, 1054.166626},    --BoreanTundra
+		[3711] = {6929.166504, 2572.916504, 7287.499512, 4383.333008},    --SholazarBasin
+		[4197] = {4329.166504, 1354.166626, 5716.666504, 3733.333252},    --LakeWintergrasp
+		[4395] = {3000, -1279.166626, 6502.083008, 4687.5},    --Dalaran, coordination not recorded in WorldMapArea.dbc, refer to CrystalsongForest and with some adjustment
+		[4742] = {2797.916504, -879.166626, 10781.25, 8329.166016},    --HrothgarsLanding
+	},
+	["UtgardePinnacle"] = {
+		[1196] = {3274.999756, -3274.999756, 2166.666504, -2200.000000},
+	},
+	["Nexus80"] = {
+		[4228] = {2337.500000, -262.500000, 1956.249878, 222.916656},
+	},
+	["StratholmeCOT"] = {
+		[4100] = {2152.083252, 327.083313, 2297.916504, 1081.250000},
+	},
+	["Ulduar70"] = {
+		[4264] = {2766.666504, -633.333313, 2200.000000, -66.666664},
+	},
+	["DrakTheronKeep"] = {
+		[4196] = {-377.083313, -1004.166626, -168.750000, -587.500000},
+	},
+	["Azjol_Uppercity"] = {
+		[4277] = {1020.833313, -52.083332, 872.916626, 158.333328},
+	},
+	["Ulduar80"] = {
+		[4272] = {2500.000000, -899.999939, 2200.000000, -66.666664},
+	},
+	["UlduarRaid"] = {
+		[4273] = {1583.333252, -1704.166626, 1168.750000, -1022.916626},
+	},
+	["GunDrak"] = {
+		[4416] = {1310.416626, 166.666656, 2122.916504, 1360.416626},
+	},
+	["NorthrendBG"] = {
+		[4384] = {787.500000, -956.249939, 1883.333252, 720.833313},
+	},
+	["DalaranPrison"] = {
+		[4415] = {983.333313, 600.000000, 2006.249878, 1749.999878},
+	},
+	["DeathKnightStart"] = {
+		[4298] = {-4047.916504, -7210.416504, 3087.500000, 979.166626},
+	},
+	["ChamberOfAspectsBlack"] = {
+		[4493] = {1133.333252, -29.166666, 3616.666504, 2841.666504},
+	},
+	["NexusRaid"] = {
+		[4500] = {2766.666504, -633.333313, 2200.000000, -66.666664},
+	},
+	["Azjol_LowerCity"] = {
+		[4494] = {-233.333328, -1206.250000, 849.999939, 202.083328},
+	},
+	["WintergraspRaid"] = {
+		[4603] = {1033.333252, -1566.666626, 600.000000, -1133.333252},
+	},
+	["IsleofConquest"] = {
+		[4710] = {525.000000, -2125.000000, 1708.333252, -58.333332},
+	},
+	["ArgentTournamentRaid"] = {
+		[4722] = {2100.000000, -499.999969, 2200.000000, 466.666656},
+	},
+	["ArgentTournamentDungeon"] = {
+		[4723] = {2100.000000, -499.999969, 2200.000000, 466.666656},
+	},
+}
+
+-- WorldSafeLocs.dbc
+-- Locations of where you spawn as a ghost when you die (aka.. the graveyard spawn points). 
+Yatlas_graveyards = {
+--[[
+	["IsleofConquest"] = {
+		{1212.036499, -762.696167},
+		{347.640625, -836.161438},
+		{635.385437, -279.657990},
+		{774.178833, -1094.281250},
+		{774.838562, -660.218750},
+		{455.206604, -314.593750},
+		{1141.489624, -1226.222290},
+		{278.355896, -876.965271},
+		{1302.604126, -814.651062},
+	},
+	["OrgrimmarArena"] = {
+		{763.561951, -273.998627},
+		{763.933960, -295.010376},
+		{762.909424, -284.281494},
+	},
+	["DalaranArena"] = {
+		{1292.135376, 790.993042},
+		{1218.006958, 764.795166},
+		{1361.760376, 817.336792},
+	},
+	["DeathKnightStart"] = {
+		{2364.417236, -5771.315918},
+		{1886.776978, -5784.586426},
+		{2116.194580, -5286.936523},
+	},
+	["NorthrendBG"] = {
+		{1388.803589, 203.354874},
+		{1396.060181, -288.036896},
+		{1122.278442, 4.416178},
+		{964.595276, -189.784012},
+		{1457.193726, -53.713272},
+		{1618.809204, 31.282932},
+		{1623.703125, -94.827797},
+		{1617.168579, 67.125053},
+		{1232.385620, -65.729332},
+	},
+	["PVPLordaeron"] = {
+		{1277.868652, 1744.902466},
+		{1295.126099, 1586.443970},
+		{1285.810547, 1667.896851},
+	},
+]]
+	["Northrend"] = {
+		{1958.129761, -3682.21875}, --Howling Fjord, Northwest GY
+		{728.265625, -2992.265137}, --Howling Fjord, Tuskarr GY
+		{117.0234375, -3698.800781}, --Howling Fjord, Island GY
+		{1191.766602, -4115.084473}, --Howling Fjord, Central GY
+		{2243.119141, -4650.642578}, --Howling Fjord, North GY
+		{1923.724243, -5986.354492}, --Howling Fjord, Vengance GY
+		{717.7784424, -5878.413574}, --Howling Fjord, Southeast GY
+		{205.003479, -5944.014648}, --Howling Fjord, South Beach GY
+		{57.91775131, -4649.07666}, --Howling Fjord, South GY
+		{668.0244751, -4931.679199}, --Howling Fjord, Valgarde GY
+		{1808.77002, -5608.609863}, --Howling Fjord, Northeast GY
+		{5537.461914, 2904.909668}, --Wintergrasp, Fortress (East)
+		{3041.212402, 4314.904297}, --Borean Tundra, Tuskar GY
+		{3100.182861, -1983.395874}, --Grizzly Hills, Vileprey GY
+		{3534.130127, -2882.061279}, --Grizzly Hills, Amberpine GY
+		{4352.775391, -4247.986328}, --Grizzly Hills, Westfall GY
+		{4117.908691, -4816.408691}, --Grizzly Hills, Eastern GY
+		{3967.282959, -2316.643555}, --Grizzly Hills, Northwestern GY
+		{2933.637207, -2836.776611}, --Grizzly Hills, Southwestern GY
+		{4323.392578, -3606.845459}, --Grizzly Hills, Central GY
+		{4604.763184, -976.6495361}, --Dragonblight, Northeastern GY
+		{3667.905518, -1044.361938}, --Dragonblight, Wintergarde GY
+		{3218.739502, -700.3674927}, --Dragonblight, Forsaken East GY
+		{3843.014893, 1425.518188}, --Dragonblight, Agmar's Hammer GY
+		{3498.378418, 2100.415771}, --Dragonblight, Star's Rest GY
+		{2772.183838, 1042.39917}, --Dragonblight, Moa'ki Harbor GY
+		{3599.17041, 2846.069092}, --Dragonblight, Borean Border GY
+		{3538.169678, 275.5101013}, --Dragonblight, Wyrmrest GY
+		{4812.894531, 1022.494019}, --Dragonblight, Wrathgate Horde GY
+		{4466.173828, 1257.022095}, --Dragonblight, Wrathgate Alliance GY
+		{2842.000488, 5973.158203}, --Borean Tundra, Warsong Hold GY
+		{2007.96228, 5936.552246}, --Borean Tundra, Riplash GY
+		{3621.884521, 6805.535156}, --Borean Tundra, Coldarra GY
+		{3559.929443, 5818.793945}, --Borean Tundra, Amber Ledge GY
+		{4223.4375, 5335.883789}, --Borean Tundra, Fizzcrank GY
+		{4514.808105, 5661.557129}, --Borean Tundra, Bor'Gorok GY
+		{3041.141357, 3843.492676}, --Borean Tundra, Death's Stand GY
+		{3576.159424, 4087.609863}, --Borean Tundra, Taunka'le GY
+		{2842.964111, 6655.171875}, --Borean Tundra, Coast of Echoes GY
+		{2478.592773, 5289.40918}, --Borean Tundra, Valiance Keep GY
+		{5537.569336, 2905.035156}, --Wintergrasp, Fortress (West)
+		{5104.354004, 2302.234375}, --Wintergrasp, Siege Factory (Defense NE)
+		{5101.043457, 3461.448242}, --Wintergrasp, Siege Factory (Defense NW)
+		{5031.505371, 3710.427002}, --Wintergrasp, Horde Starting Area
+		{5140.354004, 2182.007813}, --Wintergrasp, Alliance Starting Area
+		{4317.970703, 2407.424805}, --Wintergrasp, Siege Factory (SE)
+		{4335.810059, 3234.558838}, --Wintergrasp, Siege Factory (SW)
+		{4826.361328, 5467.171387}, --Sholazar Basin, South GY
+		{1335.471558, -4785.180176}, --Howling Fjord, Utgarde GY
+		{5620.522461, 5840.974121}, --Sholazar Basin, Nesingwary GY
+		{5538.257324, 4851.613281}, --Sholazar Basin, Central GY
+		{6246.948242, 5164.337402}, --Sholazar Basin, Northwest GY
+		{6274.768066, 4409.439453}, --Sholazar Basin, Northeast GY
+		{5519.070801, 3593.2771}, --Sholazar Basin, East GY
+		{5703.967285, -2467.939453}, --Zul'Drak, Western GY
+		{5557.910645, -1615.608032}, --Zul'Drak, Northwestern GY
+		{5244.652344, -2133.331299}, --Zul'Drak, Southwestern GY
+		{4939.806641, -2958.486572}, --Zul'Drak, Southern GY
+		{5798.515137, -3286.552979}, --Zul'Drak, Central GY
+		{5522.764648, -4101.729004}, --Zul'Drak, Southeastern GY
+		{6618.708984, -4795.516113}, --Zul'Drak, Gun'Drak GY
+		{5849.213867, 763.31073}, --Crystalsong Forest, Dalaran GY
+		{1103.07666, -4977.50293}, --Howling Fjord, Utgarde 2 GY
+		{6351.793457, 5643.560547}, --Sholazar Basin, Stormwright GY
+		{5041.85498, -642.7241821}, --Crystalsong Forest, Alliance GY
+		{6070.447266, 85.97040558}, --Icecrown, Argent Vanguard
+		{7080.4375, -141.2238464}, --Storm Peaks, Valkyrion GY
+		{9021.610352, -1166.618774}, --Storm Peaks, Ulduar GY
+		{7915.028809, -2453.761719}, --Storm Peaks, Temple East GY
+		{8105.495605, -996.5811768}, --Storm Peaks, Temple West GY
+		{7463.799805, -3320.100098}, --Storm Peaks, Frostfield GY
+		{5882.891602, 666.8056641}, --Crystalsong Forest, West GY
+		{5597.146973, -595.5305786}, --Crystalsong Forest, Horde GY
+		{3421.198975, -1280.933838}, --Dragonblight, Naxxramas GY
+		{3793.732178, 2064.344971}, --Dragonblight, Icemist GY
+		{8188.079102, 2859.480957}, --Icecrown Glacier, Quarry GY
+		{7233.663574, 2159.703613}, --Icecrown Glacier, Vrykul Central GY
+		{7886.05127, 718.7763062}, --Icecrown Glacier, Northeast Ice GY
+		{4421.29541, -1981.247803}, --Grizzly Hills, Drak'tharon GY
+		{7825.225098, -2023.124146}, --Storm Peaks, Temple of the Makers GY
+		{8387.583984, -214.2780457}, --Storm Peaks, Snowdrift GY
+		{6947.002441, -545.4080811}, --Storm Peaks, Temple of Storms GY
+		{6422.349121, -1184.34729}, --Storm Peaks, K3 GY
+		{5036.333008, 4494.316895}, --Sholazar Basin, Frenzyheart GY
+		{7149.745117, 3691.576416}, --Icecrown Glacier, Jotunheim GY
+		{7092.461914, -1440.909912}, --Storm Peaks, Foot Steppes GY
+		{5463.84375, 2840.679688}, --Wintergrasp, Fortress Graveyard (Indoors)
+		{4680.722168, 51.01665497}, --Dragonblight, Crystal Vice GY
+		{8466.048828, 450.3702393}, --Icecrown, Argent Tournament GY
+		{6447.486816, 2060.855957}, --Icecrown Glacier, Citadel GY
+		{2585.825439, -5808.930664}, --Howling Fjord, Frostblade GY
+	},
+--[[
+	["NetherstormBG"] = {
+		{2523.686035, 1596.597290},
+		{1807.735962, 1539.415649},
+		{2013.061890, 1677.238037},
+		{2012.403442, 1455.412354},
+		{2351.785400, 1455.399048},
+		{2355.297852, 1683.713989},
+	},
+	["bladesedgearena"] = {
+		{6292.658691, 288.579498},
+		{6184.982422, 236.011444},
+		{6238.930176, 262.963470},
+	},
+	["PVPZone05"] = {
+		{4027.601563, 2972.784424},
+		{4085.449707, 2866.828613},
+		{4055.848145, 2921.781982},
+		{4055.504395, 2919.660645},
+	},
+]]
+	["Expansion01"] = {
+		{10458.54785, -6364.614258}, -- Eversong Woods, Sunstrider Isle
+		{8936.564453, -7439.902832}, -- Eversong Woods, Farstrider Lodge GY
+		{7694.177246, -6730.109863}, -- Ghostlands, Tranquillien
+		{7015.225586, -7299.999023}, -- Ghostlands, Sanctum
+		{6730.494141, -7936.892578}, -- Ghostlands, Amani Pass
+		{-4123.13916, -13660.07227}, -- Azuremyst Isle, Ammen Vale
+		{158.0601654, 2562.729736}, -- Hellfire Peninsula, Thrallmar
+		{-803.0117188, 2702.592041}, -- Hellfire Peninsula, Honor Hold
+		{9407, -6847.669922}, -- Eversong Woods, Silvermoon City
+		{8709.458984, -6671.760742}, -- Eversong Woods, Fairbreeze GY
+		{-4312.775391, -12441.04395}, -- Azuremyst, Azure Watch GY
+		{-3324.305908, -12089.91113}, -- Azuremyst, Stillpine GY
+		{-2020.590088, -11983.50488}, -- Bloodmyst, Blood Watch GY
+		{-1754.207031, -11067.31543}, -- Bloodmyst, Wilderness GY
+		{335.8858643, 7625.117188}, -- Zangarmarsh, Zabra'jin GY
+		{-2495.866455, 6802.258301}, -- Nagrand, SE Graveyard
+		{181.4750519, 4361.576172}, -- Hellfire Peninsula, Temple
+		{-695.8752441, 4118.209473}, -- Hellfire Peninsula, Falcon Watch
+		{248.3389282, 7084.928223}, -- Zangarmarsh, PvP GY
+		{211.3148956, 6200.033203}, -- Zangarmarsh, Telredor GY
+		{-212.4522552, 5579.671875}, -- Zangarmarsh, Cenarion GY
+		{-1066.973022, 8066.544434}, -- Nagrand, Northwind Cleft
+		{-1654.373047, 7938.994141}, -- Nagrand, Halaa GY
+		{-1793.415649, 4931.607422}, -- Terokkar Forest, Shattrath GY
+		{-2540.151611, 3866.647949}, -- Terokkar Forest, Wilderness GY
+		{0, 0}, -- Reuse
+		{-1289.793823, 9166.72168}, -- Nagrand, Portal Plateau
+		{-856.2137451, 6600.060547}, -- Nagrand, Elemental Plateau
+		{-2033.528198, 8479.527344}, -- Nagrand, SW Graveyard
+		{700.0906372, 2207.990723}, -- Hellfire Peninsula, Throne of Kil'Jaedan
+		{-249.7649231, 1023.318726}, -- Hellfire Peninsula, Dark Portal
+		{-3562.40625, 4666.441895}, -- Terokkar Forest, Bone Wastes GY
+		{874.9109497, 7284.719727}, -- Zangarmarsh, Harborage GY
+		{337.124939, 8616.865234}, -- Zangarmarsh, Sporeggar GY
+		{4363.881348, 3093.743408}, -- Netherstorm, Stormspire GY
+		{3032.436768, 3594.280029}, -- Netherstorm, Area 52 GY
+		{-2999.226563, 2439.059814}, -- Shadowmoon Valley, Shadowmoon Village GY
+		{-4022.987793, 2048.57959}, -- Shadowmoon Valley, Wildhammer GY
+		{1955.904053, 6768.811035}, -- Blade's Edge, Sylvanaar GY
+		{2218.900879, 6017.354004}, -- Blade's Edge, Thunderlord GY
+		{-3942.589111, 3686.286865}, -- Terokkar Forest, Skettis GY
+		{552.1880493, 1995.149048}, -- Hellfire Peninsula, Force Camps (Alliance)
+		{3065.004395, 5426.416016}, -- Blade's Edge, Evergrove GY
+		{3872.658936, 5514.40625}, -- Blade's Edge, North Ridge GY
+		{2296.352295, 7023.231445}, -- Blade's Edge, West Ridge GY
+		{2312.272217, 5083.930176}, -- Blade's Edge, East Ridge GY
+		{2980.191895, 1869.824707}, -- Netherstorm, Cosmowrench GY
+		{-1272.424927, 2436.845947}, -- Hellfire Peninsula, Spinebreaker GY
+		{-3134.535645, 719.4840698}, -- Shadowmoon Valley, Altar GY
+		{-4117.032227, 1058.257568}, -- Shadowmoon Valley, Sanctum GY
+		{2362.672363, 2327.414063}, -- Netherstorm, Kirin'Var GY
+		{2011.386475, 5575.785645}, -- Blade's Edge, Toshley GY
+		{3522.843262, 6821.624023}, -- Blade's Edge, Raven Wood GY
+		{3447.3125, 4803.822266}, -- Blade's Edge, NE Ridge GY
+		{-1148.084595, 5897.619629}, -- Terokkar Forest, Ogre GY
+		{-3524.266602, 619.5283203}, -- Black Temple, Alliance GY
+		{-3624.932861, 600.006958}, -- Black Temple, Horde GY
+		{-1424.370483, 4359.581055}, -- Terokkar Forest, Razorthorn Rise GY
+		{12851.75488, -6854.800781}, -- Isle of Quel'Danas, Staging Area GY
+		{12851.75488, -6854.800781}, -- Isle of Quel'Danas, Staging Area GY
+		{12851.75488, -6854.800781}, -- Isle of Quel'Danas, Staging Area GY
+		{-2433.643066, 4660.96875}, -- Terokkar Forest, Lake Jorune GY
+	},
+--[[
+	["PVPZone04"] = {
+		{684.013977, 681.219971},
+		{1313.900024, 1310.739990},
+		{834.726379, 784.978699},
+		{1016.588318, 955.184692},
+		{1201.869507, 1163.130615},
+		{1211.523682, 781.556946},
+		{772.755676, 1213.113770},
+		{1354.699951, 1270.270020},
+		{713.710022, 638.364014},
+	},
+	["PVPZone03"] = {
+		{1523.811523, 1481.757568},
+		{933.331482, 1433.723999},
+		{1415.329956, 1554.790039},
+		{1029.140015, 1387.489990},
+	},
+	["development"] = {
+		{16310.325195, 16268.939453},
+		{16223.823242, 16278.573242},
+		{16614.810547, 16662.978516},
+		{16620.740234, 16622.701172},
+		{16619.519531, 16577.455078},
+		{16423.000000, 16237.000000},
+		{16223.823242, 16278.573242},
+		{1463.218750, 16470.080078},
+		{66.296875, 60.125000},
+		{-10425.292969, 7329.169434},
+		{-10431.206055, 7377.977539},
+		{-10414.653320, 7414.448730},
+	},
+	["PVPZone02"] = {
+		{-661.528442, -485.309021},
+		{-448.188599, -1027.863037},
+	},
+	["PVPZone01"] = {
+		{-157.409195, 31.206272},
+		{-1437.670044, -610.088989},
+		{873.001770, -491.283630},
+		{676.000000, -374.000000},
+		{-1090.476807, -253.308670},
+		{73.417755, -496.433105},
+		{-531.217834, -405.231384},
+		{-1496.065063, -333.338409},
+		{643.000000, 44.000000},
+	},
+]]
+	["Kalimdor"] = {
+		{-592.6014404, -2523.492432}, -- The Barrens, The Crossroads
+		{-448.3108826, 2512.645752}, -- Desolace, Ethel Rethor GY
+		{233.2638855, -4793.625}, -- Durotar, Razor Hill GY
+		{1358.550049, -4436.529785}, -- Durotar, Orgrimmar GY
+		{-2942.232666, -152.503479}, -- Mulgore, Red Cloud Mesa GY
+		{7158.04541, -486.7354736}, -- Darkshore, New Auberdine GY
+		{-4612.339844, -1890.459961}, -- Thousand Needles, The Great Lift GY (OLD)
+		{-6432.256348, -278.2921143}, -- Silithus, Valor's Rest
+		{-2175.65625, -341.5295105}, -- Mulgore, Bloodhoof Village GY
+		{10054.2998, 2117.120117}, -- Teldrassil, Darnassus GY
+		{9701.254883, 945.6204224}, -- Teldrassil, Dolanaar GY
+		{2633.411133, -629.7351685}, -- Ashenvale, Astranaar GY
+		{10384.80957, 811.531189}, -- Teldrassil, Aldrassil GY
+		{8289.981445, 962.803833}, -- Teldrassil, Rut'theran Village GY
+		{-3525.743164, -4315.373535}, -- Dustwallow Marsh, Theramore Isle GY
+		{-7142.869629, -3885.302002}, -- Tanaris, Gadgetzan GY
+		{-2517.647705, -1970.996582}, -- The Barrens, Camp Taurajo GY
+		{-1081.400024, -3478.679932}, -- The Barrens, Ratchet
+		{-4484.339844, 2142.22998}, -- Feralas, New Feathermoon Stronghold GY (A)
+		{-4445.189941, 370.8370056}, -- Feralas, Camp Mojache GY (H)
+		{-5353.120117, -3939.300049}, -- Thousand Needles, Splithoof Heights GY (MOVED)
+		{4719.670898, -5954.722168}, -- Azshara, Northern Azshara GY
+		{773.663208, 383.8767395}, -- Stonetalon Mountains, Webwinder Path GY
+		{3809.428955, -1597.651001}, -- Felwood, Morlos'Aran
+		{-7078.069824, -2404.27002}, -- Un'Goro Crater, The Marshlands
+		{5243.961426, 180.9320221}, -- Darkshore, Twilight Vale GY
+		{6876.944336, -4660.725586}, -- Winterspring, Everlook GY
+		{2421.723633, -2953.618896}, -- Ashenvale, Kargathia GY
+		{16310.3252, 16268.93945}, -- GM Island
+		{4028.299561, -5441.565918}, -- Azshara, (Overlooks) The Shattered Strand GY
+		{4793.111816, -6845.921875}, -- Azshara, Bitter Reaches GY
+		{-3127.586914, -3046.746582}, -- Dustwallow Marsh, Brackenwall Village GY
+		{7425.867188, -2808.890625}, -- Moonglade GY
+		{5953.008789, -1208.602417}, -- Felwood, Irontree Woods
+		{-777.982666, -4984.777832}, -- Durotar, Sen'jin Village GY
+		{-636.5020142, -4292.549805}, -- Durotar, Valley of Trials GY
+		{1035.27002, -2104.280029}, -- Warsong Gulch - Horde Exit Loc
+		{1459.170044, -1858.670044}, -- Warsong Gulch - Alliance Exit Loc
+		{-4586.25, 1633.189941}, -- Feralas, Dire Maul Stonemaul Hold GY
+		{1177.6875, -4464.067871}, -- Durotar, Northern Durotar GY
+		{-981.78302, -74.63715363}, -- Mulgore, Thunder Bluff GY
+		{-6831.317383, 891.4373169}, -- Silithus, Cenarion Hold
+		{-7991.57373, 1557.803955}, -- Silithus, Scarab Wall (AQ Only)
+		{-8159.522461, -4628.715332}, -- Tanaris, CoT GY
+		{-4032.190918, -3413.807373}, -- Dustwallow Marsh, Tabetha's GY
+		{-4632.75, -3129.428955}, -- Dustwallow Marsh, Mudsprocket GY
+		{-7353.196289, -1315.427124}, -- Un'Goro Crater, Central GY
+		{-6160.104004, -1142.501709}, -- Un'Goro Crater, Marshal's GY
+		{476.1875, 1469.838501}, -- Stonetalon Mountains, Charred Vale GY
+		{2730.087646, 1286.925415}, -- Stonetalon Mountains, Peak GY
+		{-7754.589844, -4972.009766}, -- Tanaris, Pirate GY
+		{-8642.400391, -4036.929932}, -- Tanaris, Central GY
+		{5633.320313, -4758.878418}, -- Winterspring, South GY
+		{6499.684082, -2383.901123}, -- Winterspring, West GY
+		{-3971.572998, -2014.045166}, -- The Barrens, South GY
+		{-6115.442871, -1339.496582}, -- Un'Goro Crater, Shaper's Terrace GY
+		{-3769.467529, -4883.15625}, -- Dustwallow Marsh, Theramore Safe
+		{1339.98999, -4477.609863}, -- Durotar, Orgrimmar Safe 2
+		{7766.875, -4100.873535}, -- Winterspring, Wintersaber GY
+		{6620.385254, -3541.751709}, -- Winterspring, Crossroad GY
+		{4451.993164, -4289.873535}, -- Winterspring, Darkwhisper GY
+		{2706.120605, -6097.32666}, -- Azshara, Southern Azshara GY
+		{3529.19873, -6580.022461}, -- Azshara, Bilgewater Harbor GY
+		{-1436.579956, 1972.800049}, -- Desolace, Ghost Walker Post GY
+		{-1783.512329, 2857.267578}, -- Desolace, Sar'theris Strand GY
+		{-1967.22229, 1723.910889}, -- Desolace, Mannoroc Coven GY
+		{-1554.800049, 982.2199707}, -- Desolace, Magram Village GY
+		{-479.875, 1223.390015}, -- Desolace, Roadside GY
+		{2928.991943, 380.2510986}, -- Ashenvale, Shrine of Aessina GY
+		{2291.299072, -1731.707642}, -- Ashenvale, Nightsong GY
+		{1284.357666, -298.8888855}, -- Stonetalon Mountains, Windshear Crag GY
+		{1697.927124, 1043.953125}, -- Stonetalon Mountains, Mirkfallon GY
+		{161.3862915, -1693.857544}, -- The Barrens, Forgotten Pools
+		{790.0621948, -2541.625977}, -- The Barrens, North GY
+		{-1887.986572, -3055.971924}, -- The Barrens, Raptor Grounds
+		{-1480.13208, -2143.872803}, -- The Barrens, Central GY
+		{271.8382874, -3313.755371}, -- The Barrens, East GY
+		{-2725.265625, -1115.392334}, -- Mulgore, Southeast GY
+		{-1171.670166, -1129.756958}, -- Mulgore, Red Rocks GY
+		{-5433.419922, -2290.76001}, -- Thousand Needles, Freewind Post GY (MOVED)
+		{-6182.589844, -3990.899902}, -- Thousand Needles, Speed Barge GY (MOVED)
+		{-9044.899414, -2721.878174}, -- Tanaris, Southwest GY
+		{-7751.654785, -3010.435791}, -- Tanaris, Abyssal Sands GY
+		{-5526.97998, 1450.469971}, -- Feralas, Ruins of Isildien GY
+		{-4336.790039, -383.4859924}, -- Feralas, Lower Wilds GY
+		{-3332.570068, 2276.820068}, -- Feralas, Twin Colossals GY
+		{-7967.791504, 784.5016479}, -- Silithus, Hive'Regal
+		{-7051.924805, 1290.272827}, -- Silithus, Twilight Base Camp
+		{6252.282227, 240.4221497}, -- Darkshore, Central GY
+		{-103.0850677, -694.211792}, -- Stonetalon Mountains, Southeast GY
+		{-647.2069702, -1118.609985}, -- The Barrens, Honor's Stand (disabled)
+		{-4556.135254, -3599.677002}, -- Dustwallow Marsh, The Wyrmbog GY
+		{-1044.97998, -5417.069824}, -- Durotar, Echo Isles GY
+		{-1483.199951, -2143.699951}, -- South Barrens 4.x - Overgrowth GY
+		{-1886.519165, -3054.274414}, -- South Barrens 4.x - East Overgrowth
+		{-3970.923584, -2013.12854}, -- South Barrens 4.x - Firestone Point Graveyard
+		{-2514.784668, -1965.885376}, -- South Barrens 4.x - Camp Taurajo Graveyard
+		{5419.361816, -588.069458}, -- Felwood, Shatter Scar GY
+		{6469.762207, -1899.293457}, -- Felwood, Felpaw Village GY
+		{2589.584229, -4770.522461}, -- Azshara, Orgrimmar Rear Gate GY
+		{3049.973877, -4123.633789}, -- Azshara, Valormok GY
+		{4954.344727, -1872.78125}, -- Mount Hyjal 4.x - Aessina GY
+		{5417.885254, -3190.723877}, -- Mount Hyjal 4.x - Crater GY
+		{4640.699707, -4548.928711}, -- Mount Hyjal 4.x - Darkwhisper Gorge GY
+		{3741.398438, -3323.987793}, -- Mount Hyjal 4.x - Ascendant's Circle GY
+		{-3138.790039, 2537.580078}, -- Feralas, Camp Ataya GY (H)
+		{-3324.73999, 1849.300049}, -- Feralas, Dreamer's Rest GY (A)
+		{-4596.890137, 3227.939941}, -- Feralas, Ruins of Feathermoon GY
+		{4943.25, -2647.889893}, -- Mount Hyjal 4.x - Aviana GY
+		{4931.200195, -6446.419922}, -- Azshara, Arcane Pinnacle GY
+		{3814.530029, 761.2189941}, -- Ashenvale, Zoram Strand GY
+		{-1473.300049, 2969.48999}, -- Desolace, Maraudon GY
+		{-4985.759766, -1012.169983}, -- Thousand Needles, High Perch GY (NEW)
+		{-5532.180176, -1550.050049}, -- Thousand Needles, Twilight Hammer Base GY (NEW)
+		{-4877.27002, -2158.199951}, -- Thousand Needles, Razorfen Downs GY (NEW)
+		{-6210.22998, -4577.740234}, -- Thousand Needles, Southsea Holdfast GY (NEW)
+		{-1169.130005, -1715.430054}, -- South Barrens 4.x - Western Overgrowth GY
+		{-3335.26001, -2229.459961}, -- South Barrens 4.x - Fort Triumph GY
+		{1020.02002, 1615.780029}, -- Stonetalon Mountains, Charred Vale Overlook GY
+		{1458.699951, 1277.420044}, -- Stonetalon Mountains, Cave GY
+		{7746.259766, -406.3819885}, -- Darkshore, Gary's Rock
+		{-4920.649902, -1833.170044}, -- Thousand Needles, Darkcloud Pinnacle GY (NEW)
+		{5164.819824, -4667.189941}, -- Winterspring, Gorge Upper Ledge
+		{-10000.09961, 417.072998}, -- Uldum Graveyard 000
+		{-8800.290039, -1615.959961}, -- Uldum Graveyard 001
+		{-10720, -1550.27002}, -- Uldum Graveyard 002
+		{-9338.980469, -1066.890015}, -- Uldum Graveyard 003
+		{-8814.299805, 90.32119751}, -- Uldum Graveyard 004
+		{-10249, -2112.889893}, -- Uldum Graveyard 005
+		{-11195.90039, -592.6019897}, -- Uldum Graveyard 006
+		{3366.669922, -4419.430176}, -- Azshara, Gallywix Pleasure Palace GY
+		{-9167.94043, 1602.219971}, -- Ahn'Qiraj:TFK - Terrace GY
+		{-844.1680298, -1978.030029}, -- Northern Barrens 4.x - Wailing Caverns GY
+		{-11481.5, -2145.889893}, -- Uldum - Vortex Pinnacle GY
+		{1922.140015, -4345.560059}, -- Durotar, Orgrimmar - Ragefire GY
+		{-6854.870117, -2846.97998}, -- Tanaris, Zul'Farrak GY
+		{-3789.75, 1251.75}, -- Feralas, Dire Maul Dungeon GY
+		{-9605.839844, -3637.110107}, -- Tanaris, Southern End GY
+		{-733.723999, -2228.72998}, -- Northern Barrens 4.x - Wailing Caverns (Micro) GY
+		{4268.560059, 733.0939941}, -- Ashenvale, Blackfathom (Micro) GY
+		{-4497.700195, -1711.040039}, -- South Barrens 4.x - Razorfen Kraul GY
+		{-4672.299805, -2509.52002}, -- South Barrens 4.x - Razorfen Downs (Micro) GY
+		{-5752.310059, 736.815979}, -- The Steam Pools
+		{8695.280273, 946.4619751}, -- Teldrassil, Rut'theran Village (Horde) GY
+	},
+	["Azeroth"] = {
+		{-9115, 423}, -- Stormwind
+		{-9193.910156, -2312.77002}, -- Redridge Mountains
+		{-10774.2627, -1189.671875}, -- Duskwood, Darkshire
+		{-10527.49805, 1165.734375}, -- Westfall, Sentinel Hill GY
+		{-5687, -515}, -- Dun Morogh
+		{-5351.229004, -2881.582275}, -- Loch Modan, Thelsamar
+		{-3289.123779, -2435.991211}, -- Wetlands, Crossroads GY
+		{-6289.852539, -3493.059082}, -- Badlands, Graveyard NE 
+		{-11110.37695, -1833.240723}, -- Deadwind Pass, Morgan's Plot
+		{1882.939941, 1629.109985}, -- Tirisfal Glades, Deathknell
+		{1822.609985, 214.673996}, -- Tirisfal Glades, Undercity
+		{516.1943359, 1589.806641}, -- Silverpine Forest, The Sepulcher
+		{-18.67768097, -981.1714478}, -- Hillsbrad Foothills, Tarren Mill
+		{-1307.655151, -3192.148926}, -- Arathi Highlands, Eastern Road
+		{-6164.226074, 336.3211365}, -- Dun Morogh, Anvilmar
+		{-5680.044434, -518.9204712}, -- Dun Morogh, Kharanos
+		{-5049.450195, -809.6970215}, -- Dun Morogh, Ironforge
+		{-6980.509766, -2332.540039}, -- Badlands, Kargath
+		{-9396.769531, -2026}, -- Redridge Mountains, Lakeshire
+		{-8941.30957, -185.1779938}, -- Elwynn Forest, Northshire
+		{-9339.719727, 170.1999969}, -- Elwynn Forest, Goldshire
+		{-9151.980469, 410.9440002}, -- Elwynn Forest, Stormwind
+		{-10567.7998, -3377.199951}, -- Swamp of Sorrows, Stonard GY
+		{-14283.44434, 293.40625}, -- Stranglethorn Vale, Booty Bay GY
+		{-732.7993774, -592.5019531}, -- Hillsbrad Foothills, Southshore
+		{2348.669922, 492.0270081}, -- Tirisfal Glades, Brill
+		{323.5126343, -2227.195801}, -- The Hinterlands, Aerie Peak
+		{-10846.59961, -2949.340088}, -- Blasted Lands, Dreadmaul Hold GY
+		{-11542.50684, -228.4635468}, -- Stranglethorn Vale, Northern Stranglethorn GY
+		{2604.52002, -543.3900146}, -- Tirisfal Glades, Faol's Rest
+		{-3347.719971, -856.7130127}, -- Wetlands, Baradin Bay GY
+		{908.3233032, -1520.286133}, -- Western Plaguelands, Chillwind Camp
+		{2054.919922, -5021.540039}, -- Eastern Plaguelands, Pestilent Scar
+		{1750.343506, -669.789856}, -- Western Plaguelands, Bulwark
+		{908.3233032, -1520.286133}, -- TEST for GM Client Only - Do Not Bug
+		{1390.180054, -3699.5}, -- Eastern Plaguelands, Darrowshire
+		{-6450.609863, -1113.51001}, -- Searing Gorge, Thorium Point
+		{-191.9660034, -4340.859863}, -- The Hinterlands, The Overlook Cliffs
+		{101.1439972, -184.9340057}, -- Alterac Valley, Alliance Exit
+		{536.4949951, -1085.719971}, -- Alterac Valley, Horde Exit
+		{-5165.52002, -874.6640015}, -- Dun Morogh, Gates of Ironforge
+		{1780.109985, 221.7610016}, -- Tirisfal Glades, Ruins of Lordaeron
+		{-9552.459961, -1374.050049}, -- Elwynn Forest, Eastvale Logging Camp
+		{1236.890015, -2411.98999}, -- Western Plaguelands, Caer Darrow
+		{-831.8809814, -3518.52002}, -- Arathi Basin - Horde Exit
+		{-1215.589966, -2531.75}, -- Arathi Basin - Alliance Exit
+		{2647.550049, -4014.389893}, -- Eastern Plaguelands, Blackwood Lake
+		{-10606.7998, 294.0480042}, -- Duskwood, Ravenhill
+		{1980.119995, -3654.600098}, -- Eastern Plaguelands, Graveyard CG Tower
+		{101.1439972, -184.9340057}, -- Alterac Valley, Alliance Exit
+		{101.1439972, -184.9340057}, -- Alterac Valley, Alliance Exit
+		{-382.9114685, 1117.41626}, -- Silverpine Forest, South GY
+		{1839.768433, -2149.68457}, -- Western Plaguelands, Central GY
+		{-6867.313477, -1539.837891}, -- Searing Gorge, SE GY
+		{-7101.034668, -3488.314209}, -- Badlands, South GY
+		{791.432373, -419.448822}, -- Alterac Valley - DO NOT EDIT
+		{2366.632813, -5774.416504}, -- Eastern Plaguelands, Ebon Hold GY
+		{-8290.62207, 1403.522217}, -- Stormwind City, Stormwind Safe
+		{977.8510132, 1283.699951}, -- The Great Sea - Safe Point Tirisfal
+		{2359.219971, -5661.060059}, -- Eastern Plaguelands: Acherus
+		{1773.330322, 768.8083496}, -- Undercity - Alliance - Wrath Gate
+		{791.432373, -419.448822}, -- AAAAA Test Port Loc
+		{801.3300171, -429.9500122}, -- Alterac Mountains - Central GY
+		{-1343.262329, -2046.725708}, -- Arathi Highlands, Stromgarde
+		{-898.7259521, -1473.56311}, -- Hillsbrad Foothills, Thoradin's Wall
+		{3120.060059, -4811.370117}, -- Eastern Plaguelands, Northdale
+		{3339.80249, -3229.784668}, -- Eastern Plaguelands, Stratholme
+		{2208.664795, -2923.056641}, -- Eastern Plaguelands, West GY
+		{2663.411865, -1725.172974}, -- Western Plaguelands, Hearthglen
+		{-567.5830078, 124.7259979}, -- Hillsbrad Foothills, Hillsbrad Fields GY
+		{581.7966309, -3827.56958}, -- The Hinterlands, Seradane
+		{-192.3868256, -3043.90332}, -- The Hinterlands, Shadra'Alor
+		{-2953.304932, -1758.102905}, -- Wetlands, Sundown Marsh GY
+		{-3949.807373, -2876.526123}, -- Wetlands, South Road GY
+		{-3343.097656, -3424.859619}, -- Wetlands, Raptor Ridge GY
+		{-13323.20801, 154.6892395}, -- Stranglethorn Vale, Gurubashi Arena GY
+		{-12549.04883, -587.828125}, -- Stranglethorn Vale, Central GY
+		{-12000.86621, 429.637146}, -- Stranglethorn Vale, Savage Coast GY
+		{-10839.2334, -480.7642212}, -- Duskwood, Central GY
+		{-11218.65527, 1711.245728}, -- Westfall, Dagger Hills GY
+		{-9979.970703, 1757.777832}, -- Westfall, Longshore
+		{-11806.7002, -2962.669922}, -- Blasted Lands, Dark Portal GY
+		{-9955.629883, -3918.540039}, -- Swamp of Sorrows, Alliance Hub GY
+		{-10347.2002, -2585.030029}, -- Swamp of Sorrows, Splinterspear GY
+		{-9473.003906, -3009.032227}, -- Redridge Mountains, Stonewatch
+		{-9564.740234, -605.881958}, -- Elwynn Forest, Tower of Azora
+		{-7923.563477, -1353.225098}, -- Burning Steppes, Blackrock Mountain
+		{-7596.939941, -1103.780029}, -- Burning Steppes, East GY
+		{-5280.52002, 317.756012}, -- Dun Morogh, Iceflow Lake
+		{-5475.179688, -1845.843994}, -- Dun Morogh, East Road
+		{-5329.975586, -3779.334717}, -- Loch Modan, The Loch
+		{-6800.419922, 4561.220215}, -- Vashj'ir, Central Ruins GY
+		{-6118.899902, 4113.700195}, -- Vashj'ir, Silver Tide Trench GY
+		{-5001.810059, 3444.669922}, -- Vashj'ir, Mid Kelp Shelf GY
+		{-4630.959961, 3796.370117}, -- Vashj'ir, Early Kelp Shelf GY
+		{-7227.220215, 4284.52002}, -- Vashj'ir, Vrykul Shelf GY
+		{-2838.017334, -2569.807373}, -- Wetlands, Near Dun Modr GY
+		{-6296.77002, 6046.689941}, -- Vashj'ir, Marianas Face GY
+		{-6820.060059, 6121.640137}, -- Vashj'ir, Korthun's End GY
+		{-5845.600098, 6797.459961}, -- Vashj'ir, Deepfin Ridge GY
+		{-4911.240234, -1686.97998}, -- Dun Morogh, Ironforge Airfield
+		{-7588.819824, -1114.680054}, -- Burning Steppes, Forgewright's Tomb
+		{-8466.129883, 902.3460083}, -- Stormwind Cemetery, GY
+		{-10635.2998, -4006.969971}, -- Swamp of Sorrows, Pool of Tears GY
+		{-12186.7998, -3280.540039}, -- Blasted Lands, Red Reaches GY
+		{-12186, -2566.580078}, -- Blasted Lands, Tainted Forest GY
+		{-5587.100098, 5456.669922}, -- Vashj'ir, The Abyssal Maw
+		{-12920.59961, -345.0759888}, -- Stranglethorn Vale - Corpse Catcher 000
+		{-12834.2998, -337.0450134}, -- Stranglethorn Vale - Corpse Catcher 001
+		{-12731.09961, -125.6930008}, -- Stranglethorn Vale - Corpse Catcher 002
+		{-12766.59961, -22.4375}, -- Stranglethorn Vale - Corpse Catcher 003
+		{-3064.449951, -4090.780029}, -- Twilight Highlands, Vermillion Redoubt GY
+		{-2721.929932, -5637.990234}, -- Twilight Highlands, Kirthaven GY
+		{-2733.639893, -5936.390137}, -- Twilight Highlands, Krazzworks GY
+		{-3897.870117, -6230.069824}, -- Twilight Highlands, Dragonmaw Port GY
+		{-4204.080078, -5461.910156}, -- Twilight Highlands, Smoot's Patrol GY
+		{-4674.140137, -6372.620117}, -- Twilight Highlands, Twilight Shore GY
+		{1880.22998, -1680.630005}, -- Western Plaguelands, Argent Areal GY
+		{-908.7139893, 1625.819946}, -- Ruins of Gilneas, Forward Command GY
+		{-1189.589966, 1153.469971}, -- Ruins of Gilneas, Emberstone Village GY
+		{-4153.02002, -3690.399902}, -- Twilight Highlands, Grim Batol GY
+		{-4146.430176, -4775.140137}, -- Twilight Highlands, Victory Point GY
+		{-4796.930176, -4870.529785}, -- Twilight Highlands, Crushblow GY
+		{-3720.149902, -5189.950195}, -- Twilight Highlands, Bloodgulch GY
+		{-7987.379883, -2369.320068}, -- Burning Steppes, Center East GY
+		{-4637.220215, -4040.620117}, -- Twilight Highlands, The Twilight Citadel GY
+		{-6556.950195, -1957.02002}, -- Searing Gorge, Dustfire GY
+		{-7316.970215, -1648.839966}, -- Searing Gorge, Sea of Cinders GY
+		{-7292.379883, -976.3590088}, -- Searing Gorge, Near Blackrock GY
+		{-6865.22998, -1081.079956}, -- Searing Gorge, Micro Entrance GY
+		{-1227.869995, 412.5}, -- Hillsbrad Foothills, Purgation Isle GY
+		{-8786.879883, 829.0830078}, -- Stormwind Stockade, GY
+		{-10976.40039, 1619.810059}, -- Westfall, Moonbrook GY
+		{-11217.09961, 1618.949951}, -- Westfall, Deadmines (Micro) GY
+		{-225.2169952, 1519.329956}, -- Silverpine Forest, Shadowfang Keep GY
+		{2837.590088, -679.151001}, -- Tirisfal Glades, Scarlet Moastery GY
+		{-6081.310059, -2972.030029}, -- Badlands, Uldaman GY
+		{-10289.5, -3978.399902}, -- Swamp of Sorrows, Sunken Temple GY
+		{-7195.669922, -911.4550171}, -- Burning Steppes, Blackrock Depths GY
+		{1187.339966, -2613.550049}, -- Western Plaguelands, Scholo GY
+		{-7533.830078, -1214.670044}, -- Burning Steppes, Blackrock Spire GY
+		{-5117.830078, 896.242981}, -- Dun Morogh, Gnomeregan (Micro) GY
+		{-5092.169922, -5852.629883}, -- Twilight Highlands, Forbidding Sea (Obsidian Forest) GY
+		{-6550.589844, -4681.540039}, -- Badlands, Forbidding Sea GY
+		{-11947.59961, -982.7340088}, -- Stranglethorn Vale, Zul'Gurub GY
+	},
+};
+

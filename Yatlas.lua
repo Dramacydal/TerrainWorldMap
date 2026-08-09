@@ -20,7 +20,45 @@ YA_FRAME_OPTION_DEFAULTS = {
 local dummyv = nil;
 local nilfunc = function() end
 
--- Yatlas_ContinentMapID is defined in mapdb2.lua (loads before this file).
+-- Debug: overlay each map tile with its grid-cell coordinate and the live
+-- zone reported there. Toggle with "/yatlas debug".
+Yatlas_DebugTiles = false;
+
+function Yatlas_ToggleTileDebug()
+    Yatlas_DebugTiles = not Yatlas_DebugTiles;
+    for _, fname in ipairs({"YatlasFrame", "BigYatlasFrame"}) do
+        local f = _G[fname];
+        if(f and f.opt) then
+            f:SetLocation(f.opt.Location[1], f.opt.Location[2], true);
+        end
+    end
+    print("Yatlas: tile debug labels " .. (Yatlas_DebugTiles and "ON" or "OFF"));
+end
+
+-- Whether a map tile has real terrain, per this client's own WDT data
+-- (Yatlas_WDTValidTiles, mapdata_tiles.lua -- ground truth extracted from
+-- world/maps/<continent>/<continent>.wdt's rootADT field, since a tile's
+-- minimap preview texture can exist even when no terrain does, e.g.
+-- leftover Cataclysm-only art with no TBC-era ADT behind it). Used both to
+-- gate map-tile rendering and for the "/yatlas debug" tile overlay, which
+-- also reports the specific named zone (Yatlas_mapareas) when there is one.
+function Yatlas_GetLiveZoneNameForBigCoord(map, bigx, bigy, tilekey)
+    local valid = tilekey and Yatlas_WDTValidTiles[map] and Yatlas_WDTValidTiles[map][tilekey];
+    if(not valid) then return nil; end
+
+    local areas = Yatlas_mapareas[map];
+    if(areas) then
+        for id, box in pairs(areas) do
+            if(id ~= 0 and bigx < box[1] and bigx > box[2] and bigy < box[3] and bigy > box[4]) then
+                return Yatlas_areadb[id];
+            end
+        end
+    end
+
+    return "|cff8080ff(terrain)|r";
+end
+
+-- Yatlas_ContinentMapID is defined in mapdata_poi.lua (loads before this file).
 
 local Yatlas_ContinentByMapID = {};
 for h,v in pairs(Yatlas_ContinentMapID) do
@@ -106,14 +144,15 @@ function YatlasFrame_OnLoadExtra()
     YatlasFrame.YA_PD_ResetList = "YA_PD_ResetList";
     
     SLASH_YATLAS1 = "/yatlas";
-    SlashCmdList["YATLAS"] = function() YatlasFrame:Toggle() end
+    SlashCmdList["YATLAS"] = function(msg)
+        if(msg == "debug") then
+            Yatlas_ToggleTileDebug();
+        else
+            YatlasFrame:Toggle();
+        end
+    end
 
     YatlasFrame.hoverTooltip = "YatlasTooltip";
-
-    -- initalize zones
-    for h,v in pairs(Yatlas_WorldMapIds) do
-	Yatlas_PaperZoneNames[h] = {Yatlas_GetMapZones(h)};
-    end
 
     -- wrap mapnotes for updates
     if(MapNotes_DeleteNote) then
@@ -419,11 +458,6 @@ function YatlasFrameDropDownButton2_OnClick(self)
 
         mx, my = Yatlas_Big2Mini_Coord(x,y);
 
-        if(Yatlas_mapareas_adjust[z]) then
-            mx = Yatlas_mapareas_adjust[z][1] + mx;
-            my = Yatlas_mapareas_adjust[z][2] + my;
-        end
-
         frame:SetLocation(mx-(512/2)/zoom, my-(512/2)/zoom);
 
         -- SetLocation() re-derives a zone from the new view's center via
@@ -548,7 +582,11 @@ function YatlasFrameTemplate:SetZoom(z, nocenter)
         end
     end
     while(_G[lm.."MapTexture"..textureno]) do
-        _G[lm.."MapTexture"..textureno]:Hide();
+        local extratex = _G[lm.."MapTexture"..textureno];
+        extratex:Hide();
+        if(extratex.debugLabel) then
+            extratex.debugLabel:Hide();
+        end
         textureno = textureno + 1;
     end
 
@@ -610,9 +648,22 @@ function YatlasFrameTemplate:SetLocation(x,y,forceupdate)
             for hy = 1,hzoom_real do
                 local tex = texturelayout[hx][hy];
 
-                -- get info
-                v[hx][hy] = Yatlas_mapdb1[mymap][format("%.2dx%.2d",zx+hx-1,zy+hy-1)];
-                if(v[hx][hy] == nil) then
+                -- get info: the tile's texture filename is derived
+                -- directly from its grid coordinate (e.g. "11x09" ->
+                -- "map11_09" under World\Minimaps\<continent>\) -- that
+                -- convention holds for the vast majority of tiles. We only
+                -- draw it if this spot falls inside a known TBC-era zone
+                -- (see Yatlas_GetLiveZoneNameForBigCoord), which skips
+                -- Cataclysm-only terrain that doesn't exist on this client
+                -- without needing a hand-maintained tile table at all.
+                local col, row = zx+hx-1, zy+hy-1;
+                local tilekey = format("%.2dx%.2d", col, row);
+                local cbx, cby = Yatlas_Mini2Big_Coord(col+0.5, row+0.5);
+                local livezone = Yatlas_GetLiveZoneNameForBigCoord(mymap, cbx, cby, tilekey);
+
+                if(livezone) then
+                    v[hx][hy] = { format("map%.2d_%.2d", col, row) };
+                else
                     v[hx][hy] = dummyv;
                 end
 
@@ -623,6 +674,21 @@ function YatlasFrameTemplate:SetLocation(x,y,forceupdate)
                 else
                     tex:SetTexture("Interface\\Buttons\\WHITE8X8");
                     tex:SetVertexColor(0,0,0,1);
+                end
+
+                -- debug: label this tile with its grid coordinate and the
+                -- live zone name the client reports at that spot.
+                if(Yatlas_DebugTiles) then
+                    if(not tex.debugLabel) then
+                        tex.debugLabel = vf:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge");
+                        tex.debugLabel:SetPoint("CENTER", tex, "CENTER");
+                        tex.debugLabel:SetJustifyH("CENTER");
+                    end
+
+                    tex.debugLabel:SetText(tilekey.."\n"..(livezone or "|cffff4040(none)|r"));
+                    tex.debugLabel:Show();
+                elseif(tex.debugLabel) then
+                    tex.debugLabel:Hide();
                 end
             end
         end
@@ -1037,19 +1103,6 @@ end
 
 function Yatlas_Big2Mini_Coord(x,y)
     return (x/-MINI2BIGX + 32),(y/-MINI2BIGY + 32);
-end
-
-function Yatlas_GetMapZones(map)
-    -- map zone ids to name
-    local ret = {};    
-    if(Yatlas_ZoneIds[map]) then
-	for h,v in ipairs(Yatlas_ZoneIds[map]) do
-    	    tinsert(ret, Yatlas_areadb[v]);
-	end
-    end
-    table.sort(ret);
-    
-    return unpack(ret);
 end
 
 -- YatlasOptionsFrame
