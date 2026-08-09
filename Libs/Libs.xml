@@ -5,6 +5,9 @@
 <Script file="LibStub\LibStub.lua"/>
 <Include file="LibBabble-SubZone-3.0\lib.xml"/>
 <Include file="AceLocale-3.0\AceLocale-3.0.xml"/>
+<Script file="CallbackHandler-1.0\CallbackHandler-1.0.lua"/>
+<Script file="LibDataBroker-1.1\LibDataBroker-1.1.lua"/>
+<Script file="LibDBIcon-1.0\LibDBIcon-1.0.lua"/>
 <!--@end-no-lib-strip@-->
 
 </Ui>

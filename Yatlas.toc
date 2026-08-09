@@ -17,5 +17,5 @@ Yatlas.lua
 Templates.xml
 Yatlas.xml
 OptionsFrame.xml
-YatlasButton.xml
+YatlasButton.lua
 sets\index.xml

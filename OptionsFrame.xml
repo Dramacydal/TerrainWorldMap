@@ -1,7 +1,7 @@
 <Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/../../FrameXML/UI.xsd">
 	<Frame name="YatlasOptionsFrame" hidden="true" toplevel="true" frameStrata="DIALOG" movable="true" enableMouse="true" parent="UIParent" inherits="BackdropTemplate">
 		<Size>
-			<AbsDimension x="420" y="410"/>
+			<AbsDimension x="420" y="384"/>
 		</Size>
 		<Anchors>
  			<Anchor point="CENTER" />
@@ -75,50 +75,10 @@
 						else
 							YatlasOptions.ShowButton = false;
 						end
-						YatlasButton_Update(YatlasFrame)
+						YatlasButton_Update()
 					</OnClick>
 				</Scripts>
 			</CheckButton>
-			<Slider name="YatlasOptionsButtonSlider" inherits="OptionsSliderTemplate">
-				<Size>
-					<AbsDimension x="180" y="16"/>
-				</Size>
-				<Anchors>
-					<Anchor point="TOPLEFT">
-						<Offset>
-							<AbsDimension x="56" y="-64" />
-						</Offset>
-					</Anchor>
-				</Anchors>
-				<Scripts>
-					<OnLoad>
-						self:SetFrameLevel(self:GetFrameLevel() + 4);
-						_G[self:GetName().."Text"]:SetText(YATLAS_OPTIONS_BUTTONPOS);
-						_G[self:GetName().."High"]:SetText();
-						_G[self:GetName().."Low"]:SetText();
-						YatlasOptionsButtonSlider:SetMinMaxValues(0,360);
-						YatlasOptionsButtonSlider:SetValueStep(1);
-					</OnLoad>
-					<OnValueChanged>
-						if(YatlasButton_GetPosition() ~= YatlasOptionsButtonSlider:GetValue()) then
-							YatlasButton_SetPosition(YatlasOptionsButtonSlider:GetValue())
-							if(self:IsVisible()) then
-								GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
-								GameTooltip:SetText(format(YATLAS_OPTIONS_BUTTONPOS_TIP,
-										YatlasOptionsButtonSlider:GetValue()));
-							end
-						end
-					</OnValueChanged>
-					<OnEnter>
-						GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
-						GameTooltip:SetText(format(YATLAS_OPTIONS_BUTTONPOS_TIP,
-								YatlasOptionsButtonSlider:GetValue()));
-					</OnEnter>
-					<OnLeave>
-						GameTooltip:Hide();
-					</OnLeave>
-				</Scripts>
-			</Slider>
 			<CheckButton name="YatlasOptionsTrackOnShow" inherits="UICheckButtonTemplate">
 				<Size>
 					<AbsDimension x="24" y="24"/>
@@ -126,7 +86,7 @@
 				<Anchors>
 					<Anchor point="TOPLEFT">
 						<Offset>
-							<AbsDimension x="24" y="-90" />
+							<AbsDimension x="24" y="-64" />
 						</Offset>
 					</Anchor>
 				</Anchors>
@@ -172,12 +132,12 @@
 				<Anchors>
 					<Anchor point="TOPLEFT">
 						<Offset>
-							<AbsDimension x="24" y="-140" />
+							<AbsDimension x="24" y="-114" />
 						</Offset>
 					</Anchor>
 					<Anchor point="TOPRIGHT">
 						<Offset>
-							<AbsDimension x="-24" y="-140" />
+							<AbsDimension x="-24" y="-114" />
 						</Offset>
 					</Anchor>
 				</Anchors>
