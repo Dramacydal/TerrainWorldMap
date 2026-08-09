@@ -1,13 +1,23 @@
-local BZ = Yatlas_GetLocaleLibBabble("LibBabble-SubZone-3.0");
+-- uiMapIDs for the top-level continents Yatlas knows how to render, as
+-- reported by this client (2.5.6 / TBC Anniversary) via
+-- C_Map.GetMapChildrenInfo(946, Enum.UIMapType.Continent, true).
+-- No Northrend entry: this client doesn't have a Northrend continent map.
+-- Kept separate from Yatlas_WorldMapIds (below), which sets/mapnotes.lua
+-- and sets/gatherer.lua still key their external data off of.
+Yatlas_ContinentMapID = {
+    ["Kalimdor"] = 1414,
+    ["Azeroth"] = 1415,      -- Eastern Kingdoms
+    ["Expansion01"] = 1945,  -- Outland
+};
 
 -- Yatlas map mapping
 -- Display_Name - Actual Map Folder Name
+-- Display name is resolved live via C_Map.GetMapInfo so it always matches
+-- this client's own locale/era instead of a stale scraped translation.
 YA_MAPS = {
-    [BZ["Eastern Kingdoms"]] = {"Azeroth"},
-    [BZ["Kalimdor"]] = {"Kalimdor"},
-    [BZ["Outland"]] = {"Expansion01"},
-    [BZ["Northrend"]] = {"Northrend"},
-    --
+    [C_Map.GetMapInfo(Yatlas_ContinentMapID["Azeroth"]).name] = {"Azeroth"},
+    [C_Map.GetMapInfo(Yatlas_ContinentMapID["Kalimdor"]).name] = {"Kalimdor"},
+    [C_Map.GetMapInfo(Yatlas_ContinentMapID["Expansion01"]).name] = {"Expansion01"},
 };
 
 Yatlas_WorldMapIds = {
@@ -22,14 +32,19 @@ Yatlas_WorldMapIds = {
 -- (These are the id versions)
 Yatlas_ZoneIds = {
     ["Azeroth"] =   {
+	-- trimmed of Cataclysm-only area IDs (Vashj'ir/Twilight Highlands/
+	-- Gilneas/Cape of Stranglethorn: 4706, 4815, 4922, 5144, 5145,
+	-- 5146, 5287, 5339, 5351) -- none of these exist in TBC Anniversary.
 	0, 1, 3, 4, 8, 10, 11, 12, 28, 33, 38, 40, 41, 44, 45,
-	46, 47, 51, 85, 130, 139, 267, 1497, 1519, 1537, 4706,
-	4815, 4922, 5144, 5145, 5146, 5287, 5339, 5351
+	46, 47, 51, 85, 130, 139, 267, 1497, 1519, 1537
     },
     ["Kalimdor"] =  {
+	-- trimmed of Cataclysm-only area IDs (Southern Barrens/Uldum/
+	-- Ahn'Qiraj: The Fallen Kingdom: 4709, 5034, 5695) -- none of these
+	-- exist in TBC Anniversary.
 	0, 14, 15, 16, 17, 141, 148, 215, 331, 357, 361, 400,
 	405, 406, 440, 490, 493, 616, 618, 1377, 1637, 1638,
-	1657, 4709, 5034, 5695
+	1657
     },
     ["Expansion01"] = {
 	0, 3430, 3433, 3483, 3487, 3518, 3519, 3520, 3521, 3522,

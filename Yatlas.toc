@@ -2,7 +2,7 @@
 ## Title: Yatlas
 ## Version: 0.8.5
 ## Notes: Yet another atlas
-## OptionalDeps: LibBabble-SubZone-3.0
+## IconTexture: Interface\AddOns\Yatlas\images\Button
 ## DefaultState: Enabled
 ## LoadOnDemand: 0
 ## SavedVariables: YatlasOptions

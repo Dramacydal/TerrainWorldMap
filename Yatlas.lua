@@ -20,17 +20,7 @@ YA_FRAME_OPTION_DEFAULTS = {
 local dummyv = nil;
 local nilfunc = function() end
 
--- uiMapIDs for the top-level continents Yatlas knows how to render, as
--- reported by this client (2.5.6 / TBC Anniversary) via
--- C_Map.GetMapChildrenInfo(946, Enum.UIMapType.Continent, true).
--- No Northrend entry: this client doesn't have a Northrend continent map.
--- Kept separate from Yatlas_WorldMapIds (mapdb2.lua), which sets/mapnotes.lua
--- and sets/gatherer.lua still key their external data off of.
-Yatlas_ContinentMapID = {
-    ["Kalimdor"] = 1414,
-    ["Azeroth"] = 1415,      -- Eastern Kingdoms
-    ["Expansion01"] = 1945,  -- Outland
-};
+-- Yatlas_ContinentMapID is defined in mapdb2.lua (loads before this file).
 
 local Yatlas_ContinentByMapID = {};
 for h,v in pairs(Yatlas_ContinentMapID) do
@@ -435,6 +425,22 @@ function YatlasFrameDropDownButton2_OnClick(self)
         end
 
         frame:SetLocation(mx-(512/2)/zoom, my-(512/2)/zoom);
+
+        -- SetLocation() re-derives a zone from the new view's center via
+        -- GetZoneIDs(), which picks whichever zone's (overlapping)
+        -- bounding box it happens to hit first -- that can silently
+        -- relabel the dropdown to a neighboring zone. We already know
+        -- exactly which zone was picked, so re-assert it here.
+        local dd2 = _G[lm.."DropDown2"];
+        if(dd2) then
+            for i,v in ipairs(frame.zonepulldowns) do
+                if(v == z) then
+                    UIDropDownMenu_SetSelectedID(dd2, i);
+                    UIDropDownMenu_SetText(dd2, Yatlas_areadb[z]);
+                    break;
+                end
+            end
+        end
     end
 end
 

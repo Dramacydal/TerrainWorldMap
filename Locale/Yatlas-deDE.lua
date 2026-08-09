@@ -27,12 +27,11 @@ YATLAS_TAB_OPTIONS = "Optionen";
 
 YATLAS_BUTTON_TOOLTIP1 = "Yatlas";
 YATLAS_BUTTON_TOOLTIP2 = "- Klicken, zum \195\182ffnen von Yatlas";
-YATLAS_BUTTON_TOOLTIP3 = "- Rechtsklicken, zum Schieben des Minimap-Buttons";
 YATLAS_PLAYERJUMP = "Spielerposition";
 YATLAS_OPTIONSBUTTON = "Optionen";
 
 YATLAS_OPTIONS_BUTTONPOS = " Position des Minimap-Icons";
-YATLAS_OPTIONS_BUTTONPOS_TIP = "%d\°";
+YATLAS_OPTIONS_BUTTONPOS_TIP = "%d\ï¿½";
 YATLAS_OPTIONS_ENABLEBUTTON = "Aktiviere Minimap-Icon";
 YATLAS_OPTIONS_ALPHA = "Transparenz";
 YATLAS_OPTIONS_ICONSIZE = "Icon Gr\195\182\195\159e";

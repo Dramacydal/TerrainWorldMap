@@ -8,9 +8,8 @@ local YatlasLDB = LDB:NewDataObject("Yatlas", {
         YatlasFrame:Toggle();
     end,
     OnTooltipShow = function(tooltip)
-        tooltip:AddLine(YATLAS_BUTTON_TOOLTIP1);
+        tooltip:AddLine(YATLAS_BUTTON_TOOLTIP1, 1, 1, 1);
         tooltip:AddLine(YATLAS_BUTTON_TOOLTIP2);
-        tooltip:AddLine(YATLAS_BUTTON_TOOLTIP3);
     end,
 });
 

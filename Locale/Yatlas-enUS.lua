@@ -27,7 +27,6 @@ YATLAS_TAB_OPTIONS = "Options";
 
 YATLAS_BUTTON_TOOLTIP1 = "Yatlas";
 YATLAS_BUTTON_TOOLTIP2 = "- Click to open the Yatlas";
-YATLAS_BUTTON_TOOLTIP3 = "- Right-click and drag to move the minimap button.";
 YATLAS_PLAYERJUMP = "Goto Player";
 YATLAS_OPTIONSBUTTON = "Options";
 
