@@ -3,9 +3,7 @@
 --
 -- Zone bounding boxes for the 3 open-world continents, extracted straight
 -- from this client's own Map/UiMap/UiMapAssignment DBC data (rather than
--- hand-collected). Loads after mapdata_zones.lua, which declares Yatlas_mapareas
--- and fills in the non-continent blocks (battlegrounds, WotLK dungeons/
--- raids, etc.) that this generator doesn't cover.
+-- hand-collected). Loads after mapdata_zones.lua, which declares Yatlas_mapareas.
 
 Yatlas_mapareas["Azeroth"] = {
 	[0] = {18171.970703125, -22569.2109375, 11176.34375, -15973.34375},    --Azeroth
@@ -76,4 +74,68 @@ Yatlas_mapareas["Expansion01"] = {
 	[3557] = {-11066.3671875, -12123.137695312, -3609.6833496094, -4314.37109375},    --TheExodar
 	[3703] = {6135.2587890625, 4829.0087890625, -1473.9544677734, -2344.7878417969},    --ShattrathCity
 	[4080] = {-5302.0830078125, -8629.166015625, 13568.749023438, 11350},    --IsleofQuel'Danas
+}
+
+Yatlas_UiMapID2Zone = {
+	[1411] = {"Kalimdor", 14},
+	[1412] = {"Kalimdor", 215},
+	[1413] = {"Kalimdor", 17},
+	[1416] = {"Azeroth", 36},
+	[1417] = {"Azeroth", 45},
+	[1418] = {"Azeroth", 3},
+	[1419] = {"Azeroth", 4},
+	[1420] = {"Azeroth", 85},
+	[1421] = {"Azeroth", 130},
+	[1422] = {"Azeroth", 28},
+	[1423] = {"Azeroth", 139},
+	[1424] = {"Azeroth", 267},
+	[1425] = {"Azeroth", 47},
+	[1426] = {"Azeroth", 1},
+	[1427] = {"Azeroth", 51},
+	[1428] = {"Azeroth", 46},
+	[1429] = {"Azeroth", 12},
+	[1430] = {"Azeroth", 41},
+	[1431] = {"Azeroth", 10},
+	[1432] = {"Azeroth", 38},
+	[1433] = {"Azeroth", 44},
+	[1434] = {"Azeroth", 33},
+	[1435] = {"Azeroth", 8},
+	[1436] = {"Azeroth", 40},
+	[1437] = {"Azeroth", 11},
+	[1438] = {"Kalimdor", 141},
+	[1439] = {"Kalimdor", 148},
+	[1440] = {"Kalimdor", 331},
+	[1441] = {"Kalimdor", 400},
+	[1442] = {"Kalimdor", 406},
+	[1443] = {"Kalimdor", 405},
+	[1444] = {"Kalimdor", 357},
+	[1445] = {"Kalimdor", 15},
+	[1446] = {"Kalimdor", 440},
+	[1447] = {"Kalimdor", 16},
+	[1448] = {"Kalimdor", 361},
+	[1449] = {"Kalimdor", 490},
+	[1450] = {"Kalimdor", 493},
+	[1451] = {"Kalimdor", 1377},
+	[1452] = {"Kalimdor", 618},
+	[1453] = {"Azeroth", 1519},
+	[1454] = {"Kalimdor", 1637},
+	[1455] = {"Azeroth", 1537},
+	[1456] = {"Kalimdor", 1638},
+	[1457] = {"Kalimdor", 1657},
+	[1458] = {"Azeroth", 1497},
+	[1941] = {"Expansion01", 3430},
+	[1942] = {"Expansion01", 3433},
+	[1943] = {"Expansion01", 3524},
+	[1944] = {"Expansion01", 3483},
+	[1946] = {"Expansion01", 3521},
+	[1947] = {"Expansion01", 3557},
+	[1948] = {"Expansion01", 3520},
+	[1949] = {"Expansion01", 3522},
+	[1950] = {"Expansion01", 3525},
+	[1951] = {"Expansion01", 3518},
+	[1952] = {"Expansion01", 3519},
+	[1953] = {"Expansion01", 3523},
+	[1954] = {"Expansion01", 3487},
+	[1955] = {"Expansion01", 3703},
+	[1957] = {"Expansion01", 4080},
 }

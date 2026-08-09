@@ -101,6 +101,16 @@ function main() {
 	// renumbers these (see header comment for the live /run check).
 	const ourUiMapID = { 'Azeroth': '1415', 'Kalimdor': '1414', 'Expansion01': '1945' };
 
+	// uiMapID -> {continent, areaID}, so callers with a WorldMapFrame-style
+	// uiMapID (not an AreaID) can look up its Yatlas_mapareas box directly --
+	// needed because a handful of zones (Draenei/Blood Elf starting isles)
+	// are filed under a *different* continent's MapID here than where
+	// C_Map's own uiMap hierarchy nominally parents them (e.g. Eversong
+	// Woods is a "child" of Eastern Kingdoms in C_Map's map tree for world-
+	// map navigation purposes, but its actual UiMapAssignment row -- and
+	// its real WDT terrain -- is filed under Expansion01/Outland).
+	const uiMapIDIndex = {};
+
 	let fullOutput = "-- GENERATED FILE -- do not hand-edit, regenerate with scripts/gen_mapareas.js\n"
 		+ "-- and replace this file wholesale. See scripts/README.md for details.\n"
 		+ "--\n"
@@ -121,11 +131,13 @@ function main() {
 			const R0 = parseFloat(r.Region_0), R1 = parseFloat(r.Region_1);
 			const R3 = parseFloat(r.Region_3), R4 = parseFloat(r.Region_4);
 			const name = uiMapName[r.UiMapID] || '?';
+			const areaID = parseInt(r.AreaID, 10);
 			out.push({
-				areaID: parseInt(r.AreaID, 10),
+				areaID, uiMapID: r.UiMapID,
 				x1: R4, x2: R1, y1: R3, y2: R0,
 				name,
 			});
+			uiMapIDIndex[r.UiMapID] = { continent: contName, areaID };
 		}
 		out.sort((a, b) => a.areaID - b.areaID);
 
@@ -148,6 +160,13 @@ function main() {
 
 		fullOutput += lua;
 	}
+
+	fullOutput += '\nYatlas_UiMapID2Zone = {\n';
+	for (const uiMapID of Object.keys(uiMapIDIndex).sort((a, b) => parseInt(a, 10) - parseInt(b, 10))) {
+		const e = uiMapIDIndex[uiMapID];
+		fullOutput += `\t[${uiMapID}] = {"${e.continent}", ${e.areaID}},\n`;
+	}
+	fullOutput += '}\n';
 
 	fs.writeFileSync(outFile, fullOutput);
 	console.error(`\nWritten: ${outFile}`);

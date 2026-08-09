@@ -32,6 +32,18 @@ to overwrite on its own without touching `mapdata_zones.lua`. Yatlas only
 ever renders these 3 continents, so no other keys (battlegrounds, dungeons,
 raids, Northrend) belong in this table.
 
+The same file also emits `Yatlas_UiMapID2Zone[uiMapID] = {continent, areaID}`,
+a straight index from a WorldMapFrame-style uiMapID to its
+`Yatlas_mapareas[continent][areaID]` box. `WorldMapOverlay.lua` uses it as
+ground truth ahead of any C_Map-hierarchy guess, because a few zones (the
+Draenei and Blood Elf starting isles) are filed under a *different*
+continent's DBC `MapID` than where C_Map's own uiMap tree nominally parents
+them for world-map navigation -- e.g. Eversong Woods is a "child" of Eastern
+Kingdoms in C_Map's hierarchy (Blizzard draws a compressed inset icon for it
+near Tirisfal), but its real `UiMapAssignment` row -- and its real WDT
+terrain -- is filed under Expansion01/Outland, same as the original
+hand-collected Yatlas data already had it.
+
 **Usage:**
 ```
 node gen_mapareas.js <csv-dir> <out-file.lua>

@@ -47,52 +47,80 @@ local function ReleaseTexturesFrom(fromIndex)
     end
 end
 
--- Big world coords -> normalized [0,1] position within `continent`'s own
--- continent-level map. Inverse of the transform sets/players.lua already
--- uses to place the player dot from a C_Map normalized position.
-local function BigToContinentNorm(continent, bigx, bigy)
-    local box = Yatlas_mapareas[continent] and Yatlas_mapareas[continent][0];
-    if(not box) then return nil; end
-    local x1,x2,y1,y2 = box[1],box[2],box[3],box[4];
-    return (x1-bigx)/(x1-x2), (y1-bigy)/(y1-y2);
-end
-
--- Where a mini-grid (tile) corner ends up in the CURRENTLY DISPLAYED map's
--- own normalized [0,1] space, given that map's rect within the continent.
-local function MiniCornerToViewNorm(continent, left, right, top, bottom, mx, my)
-    local bigx, bigy = Yatlas_Mini2Big_Coord(mx, my);
-    local cnx, cny = BigToContinentNorm(continent, bigx, bigy);
-    if(not cnx) then return nil; end
-    return (cnx-left)/(right-left), (cny-top)/(bottom-top);
-end
-
 local function ShowExplorationPins()
     for pin in WorldMapFrame:EnumeratePinsByTemplate("MapExplorationPinTemplate") do
         pin:Show();
     end
 end
 
+-- Big-coord bounding box of the currently displayed map, plus which
+-- continent's tile mosaic it should be drawn from. Three sources, in
+-- priority order:
+--
+-- 1. Yatlas_UiMapID2Zone (mapdata_continents.lua, generated from the same
+--    UiMapAssignment DBC rows as the zone boxes) -- ground truth. Needed
+--    because a handful of zones (Draenei/Blood Elf starting isles) are
+--    filed under a *different* continent's DBC MapID than where C_Map's
+--    own uiMap hierarchy nominally parents them: Eversong Woods is a
+--    "child" of Eastern Kingdoms in C_Map's tree for world-map navigation
+--    (Blizzard draws a compressed inset icon for it near Tirisfal), but
+--    its real UiMapAssignment row -- and its real WDT terrain -- is filed
+--    under Expansion01/Outland, exactly like the original hand-collected
+--    Yatlas data already had it.
+-- 2. mapID is itself one of our 3 known continents.
+-- 3. C_Map.GetMapRectOnMap against each known continent -- a geometric
+--    guess for ordinary zones we don't have a UiMapAssignment box for.
+--    Not reliable for zones covered by case 1 (see above), which is why
+--    that lookup takes priority over this one.
+local function GetViewBigBox(mapID)
+    local known = Yatlas_UiMapID2Zone[mapID];
+    if(known) then
+        local box = Yatlas_mapareas[known[1]][known[2]];
+        if(box) then return known[1], box[1], box[2], box[3], box[4]; end
+    end
+
+    for continent, continentMapID in pairs(Yatlas_ContinentMapID) do
+        if(mapID == continentMapID) then
+            local box = Yatlas_mapareas[continent][0];
+            return continent, box[1], box[2], box[3], box[4];
+        end
+    end
+
+    local hint = Yatlas_GetContinentForMapID(mapID);
+    local tryOrder = {};
+    if(hint) then table.insert(tryOrder, hint); end
+    for continent in pairs(Yatlas_ContinentMapID) do
+        if(continent ~= hint) then table.insert(tryOrder, continent); end
+    end
+
+    for _, continent in ipairs(tryOrder) do
+        local left, right, top, bottom = C_Map.GetMapRectOnMap(mapID, Yatlas_ContinentMapID[continent]);
+        if(left) then
+            local cbox = Yatlas_mapareas[continent][0];
+            local cx1,cx2,cy1,cy2 = cbox[1],cbox[2],cbox[3],cbox[4];
+            local bx1, by1 = (-left*(cx1-cx2) + cx1), (-top*(cy1-cy2) + cy1);
+            local bx2, by2 = (-right*(cx1-cx2) + cx1), (-bottom*(cy1-cy2) + cy1);
+            return continent, bx1, bx2, by1, by2;
+        end
+    end
+
+    return nil;
+end
+
 local function RefreshOverlay()
     if(not overlay or not overlay:IsShown()) then return; end
 
     local mapID = WorldMapFrame:GetMapID();
-    local continent = mapID and Yatlas_GetContinentForMapID(mapID);
-    if(not continent) then
+    if(not mapID) then
         ReleaseTexturesFrom(1);
         ShowExplorationPins();
         return;
     end
 
-    local continentMapID = Yatlas_ContinentMapID[continent];
-
-    -- Normalized rect of the currently displayed map within its continent.
-    local left, right, top, bottom;
-    if(mapID == continentMapID) then
-        left, right, top, bottom = 0, 1, 0, 1;
-    else
-        left, right, top, bottom = C_Map.GetMapRectOnMap(mapID, continentMapID);
-    end
-    if(not left) then
+    -- Big-coord box of the current view: bx1/by1 = max X/Y, bx2/by2 = min
+    -- X/Y, matching Yatlas_mapareas' own {x1,x2,y1,y2} convention.
+    local continent, bx1, bx2, by1, by2 = GetViewBigBox(mapID);
+    if(not continent) then
         ReleaseTexturesFrom(1);
         ShowExplorationPins();
         return;
@@ -113,47 +141,41 @@ local function RefreshOverlay()
         return;
     end
 
-    -- Which tile-grid cells cover the visible rect: convert the rect's own
-    -- corners (continent-normalized) to Big coords, then to fractional mini
-    -- (tile-grid) coords via the existing Yatlas transform.
-    local function ContinentNormToMini(nx, ny)
-        local boxc = Yatlas_mapareas[continent][0];
-        local x1,x2,y1,y2 = boxc[1],boxc[2],boxc[3],boxc[4];
-        local bigx, bigy = (-nx*(x1-x2) + x1), (-ny*(y1-y2) + y1);
-        return Yatlas_Big2Mini_Coord(bigx, bigy);
-    end
-
-    local mnx1, mny1 = ContinentNormToMini(left, top);
-    local mnx2, mny2 = ContinentNormToMini(right, bottom);
+    -- Which tile-grid cells cover the view box, and where each one lands
+    -- (as a view-fraction, then a pixel rect) within the current view.
+    local mnx1, mny1 = Yatlas_Big2Mini_Coord(bx1, by1);
+    local mnx2, mny2 = Yatlas_Big2Mini_Coord(bx2, by2);
 
     local colMin = math.floor(math.min(mnx1, mnx2));
     local colMax = math.ceil(math.max(mnx1, mnx2));
     local rowMin = math.floor(math.min(mny1, mny2));
     local rowMax = math.ceil(math.max(mny1, mny2));
 
+    local function BigToViewFrac(bigx, bigy)
+        return (bx1-bigx)/(bx1-bx2), (by1-bigy)/(by1-by2);
+    end
+
     local idx = 0;
     for col = colMin, colMax - 1 do
         for row = rowMin, rowMax - 1 do
             local tilekey = format("%.2dx%.2d", col, row);
             if(Yatlas_WDTValidTiles[continent] and Yatlas_WDTValidTiles[continent][tilekey]) then
-                local vx1, vy1 = MiniCornerToViewNorm(continent, left, right, top, bottom, col, row);
-                local vx2, vy2 = MiniCornerToViewNorm(continent, left, right, top, bottom, col+1, row+1);
+                local vx1, vy1 = BigToViewFrac(Yatlas_Mini2Big_Coord(col, row));
+                local vx2, vy2 = BigToViewFrac(Yatlas_Mini2Big_Coord(col+1, row+1));
 
-                if(vx1 and vx2) then
-                    local px1, px2 = math.min(vx1,vx2)*frameW, math.max(vx1,vx2)*frameW;
-                    local py1, py2 = math.min(vy1,vy2)*frameH, math.max(vy1,vy2)*frameH;
+                local px1, px2 = math.min(vx1,vx2)*frameW, math.max(vx1,vx2)*frameW;
+                local py1, py2 = math.min(vy1,vy2)*frameH, math.max(vy1,vy2)*frameH;
 
-                    if(px2 >= 0 and px1 <= frameW and py2 >= 0 and py1 <= frameH) then
-                        idx = idx + 1;
-                        local tex = AcquireTexture(idx);
-                        tex:ClearAllPoints();
-                        tex:SetPoint("TOPLEFT", overlay, "TOPLEFT", px1, -py1);
-                        tex:SetWidth(px2-px1);
-                        tex:SetHeight(py2-py1);
-                        tex:SetTexture(pre..continent.."\\"..format("map%.2d_%.2d", col, row));
-                        tex:SetTexCoord(0, 1, 0, 1);
-                        tex:Show();
-                    end
+                if(px2 >= 0 and px1 <= frameW and py2 >= 0 and py1 <= frameH) then
+                    idx = idx + 1;
+                    local tex = AcquireTexture(idx);
+                    tex:ClearAllPoints();
+                    tex:SetPoint("TOPLEFT", overlay, "TOPLEFT", px1, -py1);
+                    tex:SetWidth(px2-px1);
+                    tex:SetHeight(py2-py1);
+                    tex:SetTexture(pre..continent.."\\"..format("map%.2d_%.2d", col, row));
+                    tex:SetTexCoord(0, 1, 0, 1);
+                    tex:Show();
                 end
             end
         end
