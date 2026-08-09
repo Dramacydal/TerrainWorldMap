@@ -189,79 +189,112 @@ local function RefreshOverlay()
         return;
     end
 
-    -- Big-coord box of the current view: bx1/by1 = max X/Y, bx2/by2 = min
-    -- X/Y, matching Yatlas_mapareas' own {x1,x2,y1,y2} convention. Also nil
-    -- on the cosmic map (the "World" view showing all continents as small
-    -- globes) -- there's no single continent's tile mosaic to show there.
-    local continent, bx1, bx2, by1, by2 = GetViewBigBox(mapID);
-    if(not continent) then
-        ReleaseTexturesFrom(1);
-        backdrop:Hide();
-        ShowExplorationPins();
-        return;
-    end
-
-    backdrop:Show();
-
-    -- Blizzard's "explored area" pin (and Leatrix_Maps' "Show unexplored
-    -- areas" option, which forces it to paint even normally-unrevealed
-    -- tiles) draws its own painted map art at frame level ~2001, above our
-    -- overlay (500) by design -- it would otherwise show through on top of
-    -- our baked tiles wherever the player has explored. Since we're
-    -- replacing Blizzard's art entirely for this map, suppress it.
-    for pin in WorldMapFrame:EnumeratePinsByTemplate("MapExplorationPinTemplate") do
-        pin:Hide();
-    end
-
     local frameW, frameH = overlay:GetWidth(), overlay:GetHeight();
     if(not frameW or frameW == 0 or not frameH or frameH == 0) then
         return;
     end
 
-    local idx = DrawTiles(continent, bx1, bx2, by1, by2, 0, 0, frameW, frameH, 0);
+    -- Big-coord box of the current view: bx1/by1 = max X/Y, bx2/by2 = min
+    -- X/Y, matching Yatlas_mapareas' own {x1,x2,y1,y2} convention. Also nil
+    -- on "world" maps that group whole continents together (the "Azeroth"
+    -- map showing Kalimdor + Eastern Kingdoms side by side, or the true
+    -- cosmic map above that) -- those aren't themselves on any one
+    -- continent's tile mosaic, so they're handled separately below.
+    local continent, bx1, bx2, by1, by2 = GetViewBigBox(mapID);
+    local idx = 0;
 
-    -- Continent-level view: also draw any "orphan" zones that C_Map's own
-    -- hierarchy nominally parents here, but whose real terrain (per
-    -- Yatlas_UiMapID2Zone) lives on a *different* continent -- e.g. Eversong
-    -- Woods/Ghostlands/Isle of Quel'Danas under Eastern Kingdoms,
-    -- Azuremyst/Bloodmyst Isle under Kalimdor.
-    --
-    -- Grouped by foreign continent, with ONE shared transform per group
-    -- (union of the zones' real boxes -> union of Blizzard's own inset
-    -- rects for them), not one transform per zone: Blizzard picks each
-    -- zone's inset box independently for its own little map icon, so
-    -- fitting them independently would drift neighbouring zones (e.g.
-    -- Eversong Woods and Isle of Quel'Danas) apart even though their real
-    -- coordinates are adjacent.
-    if(YatlasOptions.WorldMapOverlayChildMaps and mapID == Yatlas_ContinentMapID[continent]) then
-        local groups = {};
-        for _, childInfo in ipairs(C_Map.GetMapChildrenInfo(mapID) or {}) do
-            local known = Yatlas_UiMapID2Zone[childInfo.mapID];
-            if(known and known[1] ~= continent) then
-                local left, right, top, bottom = C_Map.GetMapRectOnMap(childInfo.mapID, mapID);
-                local box = left and Yatlas_mapareas[known[1]][known[2]];
-                if(box) then
-                    local g = groups[known[1]];
-                    if(not g) then
-                        groups[known[1]] = { bx1=box[1], bx2=box[2], by1=box[3], by2=box[4],
-                            left=left, right=right, top=top, bottom=bottom };
-                    else
-                        g.bx1 = math.max(g.bx1, box[1]);
-                        g.bx2 = math.min(g.bx2, box[2]);
-                        g.by1 = math.max(g.by1, box[3]);
-                        g.by2 = math.min(g.by2, box[4]);
-                        g.left = math.min(g.left, left);
-                        g.right = math.max(g.right, right);
-                        g.top = math.min(g.top, top);
-                        g.bottom = math.max(g.bottom, bottom);
+    if(continent) then
+        -- Blizzard's "explored area" pin (and Leatrix_Maps' "Show
+        -- unexplored areas" option, which forces it to paint even
+        -- normally-unrevealed tiles) draws its own painted map art at
+        -- frame level ~2001, above our overlay (500) by design -- it would
+        -- otherwise show through on top of our baked tiles wherever the
+        -- player has explored. Since we're replacing Blizzard's art
+        -- entirely for this map, suppress it.
+        for pin in WorldMapFrame:EnumeratePinsByTemplate("MapExplorationPinTemplate") do
+            pin:Hide();
+        end
+        backdrop:Show();
+
+        idx = DrawTiles(continent, bx1, bx2, by1, by2, 0, 0, frameW, frameH, idx);
+
+        -- Continent-level view: also draw any "orphan" zones that C_Map's
+        -- own hierarchy nominally parents here, but whose real terrain (per
+        -- Yatlas_UiMapID2Zone) lives on a *different* continent -- e.g.
+        -- Eversong Woods/Ghostlands/Isle of Quel'Danas under Eastern
+        -- Kingdoms, Azuremyst/Bloodmyst Isle under Kalimdor.
+        --
+        -- Grouped by foreign continent, with ONE shared transform per group
+        -- (union of the zones' real boxes -> union of Blizzard's own inset
+        -- rects for them), not one transform per zone: Blizzard picks each
+        -- zone's inset box independently for its own little map icon, so
+        -- fitting them independently would drift neighbouring zones (e.g.
+        -- Eversong Woods and Isle of Quel'Danas) apart even though their
+        -- real coordinates are adjacent.
+        if(YatlasOptions.WorldMapOverlayChildMaps and mapID == Yatlas_ContinentMapID[continent]) then
+            local groups = {};
+            for _, childInfo in ipairs(C_Map.GetMapChildrenInfo(mapID) or {}) do
+                local known = Yatlas_UiMapID2Zone[childInfo.mapID];
+                if(known and known[1] ~= continent) then
+                    local left, right, top, bottom = C_Map.GetMapRectOnMap(childInfo.mapID, mapID);
+                    local box = left and Yatlas_mapareas[known[1]][known[2]];
+                    if(box) then
+                        local g = groups[known[1]];
+                        if(not g) then
+                            groups[known[1]] = { bx1=box[1], bx2=box[2], by1=box[3], by2=box[4],
+                                left=left, right=right, top=top, bottom=bottom };
+                        else
+                            g.bx1 = math.max(g.bx1, box[1]);
+                            g.bx2 = math.min(g.bx2, box[2]);
+                            g.by1 = math.max(g.by1, box[3]);
+                            g.by2 = math.min(g.by2, box[4]);
+                            g.left = math.min(g.left, left);
+                            g.right = math.max(g.right, right);
+                            g.top = math.min(g.top, top);
+                            g.bottom = math.max(g.bottom, bottom);
+                        end
+                    end
+                end
+            end
+
+            for foreignContinent, g in pairs(groups) do
+                idx = DrawTiles(foreignContinent, g.bx1, g.bx2, g.by1, g.by2,
+                    g.left*frameW, g.top*frameH, g.right*frameW, g.bottom*frameH, idx, 1);
+            end
+        end
+    else
+        -- "World" view grouping whole continents together (e.g. the
+        -- "Azeroth" map showing Kalimdor + Eastern Kingdoms side by side):
+        -- draw each known continent that's a direct child here into its own
+        -- rect, same GetMapRectOnMap-based placement mechanism as the
+        -- orphan zones above, just one level up. Explicitly NOT the true
+        -- cosmic map one level further out -- Expansion01 (and others) can
+        -- show up as a direct child there too, which would draw Outland
+        -- floating in space with no matching "whole world" layout for it.
+        local mapInfo = C_Map.GetMapInfo(mapID);
+        if(YatlasOptions.WorldMapOverlayWorldView and mapInfo and mapInfo.mapType == Enum.UIMapType.World) then
+            for _, childInfo in ipairs(C_Map.GetMapChildrenInfo(mapID) or {}) do
+                for childContinent, childContinentMapID in pairs(Yatlas_ContinentMapID) do
+                    if(childInfo.mapID == childContinentMapID) then
+                        local left, right, top, bottom = C_Map.GetMapRectOnMap(childContinentMapID, mapID);
+                        if(left and right > left and bottom > top) then
+                            local box = Yatlas_mapareas[childContinent][0];
+                            idx = DrawTiles(childContinent, box[1], box[2], box[3], box[4],
+                                left*frameW, top*frameH, right*frameW, bottom*frameH, idx, 0);
+                        end
                     end
                 end
             end
         end
 
-        for foreignContinent, g in pairs(groups) do
-            idx = DrawTiles(foreignContinent, g.bx1, g.bx2, g.by1, g.by2,
-                g.left*frameW, g.top*frameH, g.right*frameW, g.bottom*frameH, idx, 1);
+        if(idx > 0) then
+            for pin in WorldMapFrame:EnumeratePinsByTemplate("MapExplorationPinTemplate") do
+                pin:Hide();
+            end
+            backdrop:Show();
+        else
+            backdrop:Hide();
+            ShowExplorationPins();
         end
     end
 
@@ -302,6 +335,18 @@ function Yatlas_IsChildMapTilesEnabled()
     return YatlasOptions.WorldMapOverlayChildMaps;
 end
 
+-- Off by default: drawing every visible tile of both continents at once
+-- (the "Azeroth" world view) is noticeably heavier than a single
+-- continent/zone view.
+function Yatlas_SetWorldViewTiles(enabled)
+    YatlasOptions.WorldMapOverlayWorldView = enabled;
+    RefreshOverlay();
+end
+
+function Yatlas_IsWorldViewTilesEnabled()
+    return YatlasOptions.WorldMapOverlayWorldView;
+end
+
 -- Icon on the stock WorldMapFrame (see WorldMapButton.xml): left-click
 -- toggles this overlay, right-click opens a context menu (open Yatlas /
 -- toggle child-map tiles), same as the minimap button (YatlasButton.lua).
@@ -335,6 +380,9 @@ function YatlasWorldMapButtonMixin:OnClick(button)
             rootDescription:CreateCheckbox("Draw child-map tiles",
                 Yatlas_IsChildMapTilesEnabled,
                 function() Yatlas_SetChildMapTiles(not Yatlas_IsChildMapTilesEnabled()); end);
+            rootDescription:CreateCheckbox("Draw tiles on Azeroth (world) map",
+                Yatlas_IsWorldViewTilesEnabled,
+                function() Yatlas_SetWorldViewTiles(not Yatlas_IsWorldViewTilesEnabled()); end);
         end);
     else
         Yatlas_SetWorldMapOverlay(not Yatlas_IsWorldMapOverlayEnabled(), true);
@@ -356,6 +404,9 @@ initFrame:SetScript("OnEvent", function()
     end
     if(YatlasOptions.WorldMapOverlayChildMaps == nil) then
         YatlasOptions.WorldMapOverlayChildMaps = true;
+    end
+    if(YatlasOptions.WorldMapOverlayWorldView == nil) then
+        YatlasOptions.WorldMapOverlayWorldView = false;
     end
 
     GetOverlayFrame();

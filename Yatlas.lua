@@ -82,19 +82,52 @@ function Yatlas_GetContinentForMapID(mapID)
 end
 
 -- Replaces the old GetPlayerMapPosition(u); returns nil if the unit isn't on
--- one of Yatlas' 4 known continents (no WorldMapFrame navigation needed).
+-- one of Yatlas' 3 known continents (no WorldMapFrame navigation needed).
+-- Returns (continent, x, y) where x/y are normalized [0,1] *within that
+-- continent's own Yatlas_mapareas[continent][0] box* -- callers (Yatlas.lua's
+-- "Goto Player", sets/players.lua) both convert via that box directly.
+--
+-- A few zones (Draenei/Blood Elf starting isles) are filed under a
+-- *different* continent's DBC MapID than where C_Map's own uiMap hierarchy
+-- nominally parents them for world-map navigation -- e.g. Azuremyst Isle is
+-- a "child" of Kalimdor in C_Map's tree, but its real UiMapAssignment row
+-- (Yatlas_UiMapID2Zone, ground truth) -- and its real WDT terrain -- is
+-- filed under Expansion01/Outland. Querying GetPlayerMapPosition against
+-- the hierarchy-hinted continent for these returns Blizzard's compressed
+-- inset-icon position instead of a real location, which Yatlas' own terrain
+-- transform then maps to nonsense (e.g. open ocean on Kalimdor). So: query
+-- the immediate zone's own position when we have ground truth for it, and
+-- convert through its own real box instead of blindly trusting the hint.
 function Yatlas_GetUnitContinentPosition(u)
     local mapID = C_Map.GetBestMapForUnit(u);
     if(not mapID) then return nil; end
 
-    local continent = Yatlas_GetContinentForMapID(mapID);
-    if(not continent) then return nil; end
+    local continent, zoneBox, queryMapID;
 
-    local pos = C_Map.GetPlayerMapPosition(Yatlas_ContinentMapID[continent], u);
+    local known = Yatlas_UiMapID2Zone[mapID];
+    if(known) then
+        continent = known[1];
+        zoneBox = Yatlas_mapareas[continent][known[2]];
+        queryMapID = mapID;
+    else
+        continent = Yatlas_GetContinentForMapID(mapID);
+        if(not continent) then return nil; end
+        zoneBox = Yatlas_mapareas[continent][0];
+        queryMapID = Yatlas_ContinentMapID[continent];
+    end
+    if(not zoneBox) then return nil; end
+
+    local pos = C_Map.GetPlayerMapPosition(queryMapID, u);
     if(not pos) then return nil; end
 
-    local x, y = pos:GetXY();
-    return continent, x, y;
+    local nx, ny = pos:GetXY();
+    local zx1,zx2,zy1,zy2 = zoneBox[1],zoneBox[2],zoneBox[3],zoneBox[4];
+    local bigx = -nx*(zx1-zx2) + zx1;
+    local bigy = -ny*(zy1-zy2) + zy1;
+
+    local cbox = Yatlas_mapareas[continent][0];
+    local cx1,cx2,cy1,cy2 = cbox[1],cbox[2],cbox[3],cbox[4];
+    return continent, (cx1-bigx)/(cx1-cx2), (cy1-bigy)/(cy1-cy2);
 end
 
 YatlasFrameTemplate = {};

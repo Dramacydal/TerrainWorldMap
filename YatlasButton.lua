@@ -13,6 +13,9 @@ local YatlasLDB = LDB:NewDataObject("Yatlas", {
                 rootDescription:CreateCheckbox("Draw child-map tiles",
                     Yatlas_IsChildMapTilesEnabled,
                     function() Yatlas_SetChildMapTiles(not Yatlas_IsChildMapTilesEnabled()); end);
+                rootDescription:CreateCheckbox("Draw tiles on Azeroth (world) map",
+                    Yatlas_IsWorldViewTilesEnabled,
+                    function() Yatlas_SetWorldViewTiles(not Yatlas_IsWorldViewTilesEnabled()); end);
             end);
         else
             YatlasFrame:Toggle();
