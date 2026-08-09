@@ -238,11 +238,6 @@ function BigYatlasFrame_OnLoadExtra()
     SLASH_BIGYATLAS1 = "/bigyatlas";
     SlashCmdList["BIGYATLAS"] = function() BigYatlasFrame:Toggle() end
 
-    BigYatlasFrame.RawBigShow = BigYatlasFrame.Show;
-    BigYatlasFrame.Show = function(self)
-        SetupFullscreenScale(self);
-        return self:RawBigShow();
-    end
 
     BigYatlasFrame.hoverTooltip = "BigYatlasTooltip";
 end
