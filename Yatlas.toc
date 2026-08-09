@@ -20,6 +20,6 @@ WorldMapOverlay.lua
 WorldMapButton.xml
 Templates.xml
 Yatlas.xml
-OptionsFrame.xml
+Settings.lua
 YatlasButton.lua
 sets\index.xml

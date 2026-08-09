@@ -10,6 +10,9 @@ local YatlasLDB = LDB:NewDataObject("Yatlas", {
                 rootDescription:CreateButton(YATLAS_MENU_OPEN, function()
                     YatlasFrame:Toggle();
                 end);
+                rootDescription:CreateButton(YATLAS_MENU_SETTINGS, function()
+                    YatlasOptions_Toggle();
+                end);
                 rootDescription:CreateCheckbox(YATLAS_MENU_CHILDMAP_TILES,
                     Yatlas_IsChildMapTilesEnabled,
                     function() Yatlas_SetChildMapTiles(not Yatlas_IsChildMapTilesEnabled()); end);

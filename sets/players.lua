@@ -15,8 +15,6 @@ local addpoint = function(name, unit)
     else
         YAPoints_SetupMobilePointF(nil, name, unit, "Icon","SetVertexColor",0.4,0.6,1,1);
     end
-    YAPoints_SetupMobilePointF(nil, name, unit, "Icon","SetWidth",16);
-    YAPoints_SetupMobilePointF(nil, name, unit, "Icon","SetHeight",16);
     YAPoints_SetupMobilePointF(nil, name, unit, "Icon","SetTexCoord",0,1,0,1);
     YAPoints_SetupMobilePointF(nil, name, unit, "Icon","Show");
 end

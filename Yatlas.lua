@@ -12,7 +12,7 @@ YA_FRAME_OPTION_DEFAULTS = {
     ["Map"] = "Kalimdor",
     ["Location"] = {31.0625, 33.250},
     ["Alpha"] = 1,
-    ["IconSize"] = 14,
+    ["IconSize"] = 1.0,
     ["PointCfg"] = {},
     ["Zoom"] = 256,
     ["Width"] = 539,
@@ -328,6 +328,12 @@ function YatlasFrameTemplate:OnEvent(event, ...)
         self:EnsureExistingOptions();
 
         self.opt = YatlasOptions.Frames[framename];
+
+        -- Stale saved data from before IconSize became a 0.1-3.0 multiplier (was an absolute pixel size).
+        if(self.opt.IconSize == nil or self.opt.IconSize > 3.5) then
+            self.opt.IconSize = 1.0;
+        end
+
         if(self.opt.Width and self.opt.Height) then
             self:SetSize(self.opt.Width, self.opt.Height);
         end
@@ -1217,16 +1223,6 @@ function Yatlas_Big2Mini_Coord(x,y)
     return (x/-MINI2BIGX + 32),(y/-MINI2BIGY + 32);
 end
 
--- YatlasOptionsFrame
-
-function YatlasOptionsFrame_Update()
-    local opt = YatlasOptions.Frames["YatlasFrame"];
-    if(opt) then
-        YatlasOptionsAlphaSlider:SetValue(opt.Alpha);
-        YatlasOptionsIconSizeSlider:SetValue(opt.IconSize);
-    end
-end
-
 -- YatlasTooltip
 YatlasTooltipTemplate = {};
 
@@ -1327,10 +1323,3 @@ function YatlasTooltipTemplate:Clear()
 end
 
 
-function YatlasOptions_Toggle()
-	if(YatlasOptionsFrame:IsShown()) then
-		YatlasOptionsFrame:Hide()
-	else
-		YatlasOptionsFrame:Show();
-	end
-end

@@ -10,6 +10,13 @@ local binsert;
 local nilfunc = function () end
 local emptylist = {};
 
+-- default on-map icon size in pixels at the IconSize option's neutral value (1.0)
+local YA_ICON_BASE_SIZE = 14;
+
+function Yatlas_GetIconSize(lm)
+    return YA_ICON_BASE_SIZE * (YatlasOptions.Frames[lm].IconSize or 1);
+end
+
 function YAPoints_RegisterSet(set)
     sets[set.name] = set;
 end
@@ -173,7 +180,7 @@ function YAPoints_Update(frame, x, y)
         current_lm = lm,
         current_frame = current_frame,
         zoom = z,
-        iconsize = YatlasOptions.Frames[lm].IconSize
+        iconsize = Yatlas_GetIconSize(lm)
     };
 
     -- draw visible points
@@ -202,7 +209,7 @@ function YAPoints_Update(frame, x, y)
                 point:Show();
 
                 -- this gets changed around a lot
-                env.iconsize = YatlasOptions.Frames[lm].IconSize;
+                env.iconsize = Yatlas_GetIconSize(lm);
 
                 -- call functions
                 point.dat = val;
@@ -377,7 +384,7 @@ end
 function YP_SetOffset(point, x, y) 
     local z = current_frame:GetZoom();
     local lm = current_frame:GetName();
-    local iconsz = YatlasOptions.Frames[lm].IconSize;
+    local iconsz = Yatlas_GetIconSize(lm);
 
     point:ClearAllPoints();
     point:SetPoint("TOPLEFT", current_viewframe, "TOPLEFT", 
@@ -548,6 +555,9 @@ function YMP_Update(point, frame)
     if(map == point.locmap and
             point.locx > minx and point.locx < maxx and
             point.locy > miny and point.locy < maxy) then
+        local iconsz = Yatlas_GetIconSize(frame:GetName());
+        point.Icon:SetWidth(iconsz);
+        point.Icon:SetHeight(iconsz);
         point:SetOffset(point.locx, point.locy);
         point:Show();
     else

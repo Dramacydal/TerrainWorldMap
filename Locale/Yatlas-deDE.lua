@@ -33,6 +33,7 @@ YATLAS_TOOLTIP_LEFTCLICK_OVERLAY_ON = "|cff40ff40Linksklick|r: gebackenes Karten
 YATLAS_TOOLTIP_LEFTCLICK_OVERLAY_OFF = "|cff40ff40Linksklick|r: gebackenes Karten-Overlay deaktivieren";
 YATLAS_TOOLTIP_RIGHTCLICK_MENU = "|cff40ff40Rechtsklick|r: Men\195\188";
 YATLAS_MENU_OPEN = "Yatlas \195\182ffnen";
+YATLAS_MENU_SETTINGS = "Einstellungen";
 YATLAS_MENU_CHILDMAP_TILES = "Kindkarten-Kacheln zeichnen";
 YATLAS_MENU_WORLDVIEW_TILES = "Kacheln auf der Azeroth-Weltkarte zeichnen";
 YATLAS_WORLDMAP_OVERLAY_ON = "Yatlas: Weltkarten-Overlay AN";

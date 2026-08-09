@@ -33,6 +33,7 @@ YATLAS_TOOLTIP_LEFTCLICK_OVERLAY_ON = "|cff40ff40Left-click|r: enable baked map 
 YATLAS_TOOLTIP_LEFTCLICK_OVERLAY_OFF = "|cff40ff40Left-click|r: disable baked map overlay";
 YATLAS_TOOLTIP_RIGHTCLICK_MENU = "|cff40ff40Right-click|r: menu";
 YATLAS_MENU_OPEN = "Open Yatlas";
+YATLAS_MENU_SETTINGS = "Settings";
 YATLAS_MENU_CHILDMAP_TILES = "Draw child-map tiles";
 YATLAS_MENU_WORLDVIEW_TILES = "Draw tiles on Azeroth (world) map";
 YATLAS_WORLDMAP_OVERLAY_ON = "Yatlas: world map overlay ON";
