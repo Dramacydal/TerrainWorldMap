@@ -106,9 +106,7 @@ function main() {
 		+ "--\n"
 		+ "-- Zone bounding boxes for the 3 open-world continents, extracted straight\n"
 		+ "-- from this client's own Map/UiMap/UiMapAssignment DBC data (rather than\n"
-		+ "-- hand-collected). Loads after mapdata_zones.lua, which declares Yatlas_mapareas\n"
-		+ "-- and fills in the non-continent blocks (battlegrounds, WotLK dungeons/\n"
-		+ "-- raids, etc.) that this generator doesn't cover.\n\n";
+		+ "-- hand-collected). Loads after mapdata_zones.lua, which declares Yatlas_mapareas.\n\n";
 
 	for (const [contName, mapID] of Object.entries(continents)) {
 		if (!mapID) {

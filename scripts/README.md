@@ -26,10 +26,11 @@ addon's original ~2011 hand-collected coordinates (which, it turns out, are
 measurably stale — see "why regenerate" below).
 
 `mapdata_continents.lua` loads right after `mapdata_zones.lua` in `Yatlas.toc`.
-`mapdata_zones.lua` declares `Yatlas_mapareas` and fills in everything this
-generator doesn't cover (battlegrounds, WotLK dungeons/raids, etc.) —
-`mapdata_continents.lua` just adds three more keys to that same table, so
-it's safe to overwrite on its own without touching `mapdata_zones.lua`.
+`mapdata_zones.lua` just declares an empty `Yatlas_mapareas = {}` table —
+`mapdata_continents.lua` adds the three continent keys to it, so it's safe
+to overwrite on its own without touching `mapdata_zones.lua`. Yatlas only
+ever renders these 3 continents, so no other keys (battlegrounds, dungeons,
+raids, Northrend) belong in this table.
 
 **Usage:**
 ```
