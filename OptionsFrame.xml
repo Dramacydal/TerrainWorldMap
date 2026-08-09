@@ -158,28 +158,6 @@
 					</OnLoad>
 				</Scripts>
 				<Frames>
-					<Button name="YatlasOptionsFrameSelect" inherits="UIDropDownMenuTemplate">
-						<Anchors>
-							<Anchor point="TOPLEFT">
-								<Offset>
-									<AbsDimension x="10" y="-12"/>
-								</Offset>
-							</Anchor>
-						</Anchors>
-						<Scripts>
-							<OnLoad>
-								self:RegisterEvent("VARIABLES_LOADED");
-							</OnLoad>
-							<OnEvent>
-								if(event == "VARIABLES_LOADED") then
-									UIDropDownMenu_Initialize(self, YatlasOptionsFrameSelect_Initialize);
-									UIDropDownMenu_SetSelectedID(self, 1);
-									UIDropDownMenu_SetWidth(self, 150);
-									YatlasOptionsFrame_Update();
-								end
-							</OnEvent>
-						</Scripts>
-					</Button>
 					<Slider name="YatlasOptionsAlphaSlider" inherits="OptionsSliderTemplate">
 						<Size>
 							<AbsDimension x="180" y="16"/>
@@ -201,9 +179,8 @@
 								self:SetValueStep(.05);
 							</OnLoad>
 							<OnValueChanged>
-								local frame = YatlasOptionsFrameSelect.currFrame;
-								frame:SetAlpha(YatlasOptionsAlphaSlider:GetValue());
-								YatlasOptions.Frames[frame:GetName()].Alpha = YatlasOptionsAlphaSlider:GetValue();
+								YatlasFrame:SetAlpha(YatlasOptionsAlphaSlider:GetValue());
+								YatlasOptions.Frames["YatlasFrame"].Alpha = YatlasOptionsAlphaSlider:GetValue();
 							</OnValueChanged>
 						</Scripts>
 					</Slider>
@@ -228,11 +205,10 @@
 								self:SetValueStep(1);
 							</OnLoad>
 							<OnValueChanged>
-								local frame = YatlasOptionsFrameSelect.currFrame;
 								local v = YatlasOptionsIconSizeSlider:GetValue();
-								if(YatlasOptions.Frames[frame:GetName()].IconSize ~= v) then
-									YatlasOptions.Frames[frame:GetName()].IconSize = v;
-								    YAPoints_Update(frame);
+								if(YatlasOptions.Frames["YatlasFrame"].IconSize ~= v) then
+									YatlasOptions.Frames["YatlasFrame"].IconSize = v;
+								    YAPoints_Update(YatlasFrame);
 								end
 							</OnValueChanged>
 						</Scripts>
@@ -274,7 +250,7 @@
 
 			</OnEvent>
 			<OnShow>
-				
+				YatlasOptionsFrame_Update();
 			</OnShow>
 		</Scripts>
 	</Frame>

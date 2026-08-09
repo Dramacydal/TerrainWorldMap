@@ -605,10 +605,6 @@ function YFOO_OnClick(self)
         current_frame = current_frame:GetParent()
     end
 
-    if(current_frame:GetName() == "BigYatlasFrame") then
-        BigYatlasTooltip:Hide();
-    end
-
     ToggleDropDownMenu(1, nil, _G[self:GetName().."DropDown"], self:GetName(), 0, 0);
 end
 

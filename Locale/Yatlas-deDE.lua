@@ -57,7 +57,6 @@ YATLAS_UNKNOWN_ZONE = "Unbekannt";
 YATLAS_BIGDRAGMESSAGE = "Klicke und ziehe die Karte um den Ausschnitt zu verschieben."
 
 BINDING_NAME_YATLAS_TOGGLE = "Ein- und Ausblenden des Yatlas-Fensters";
-BINDING_NAME_YATLAS_BIG_TOGGLE = "Ein- und Ausblenden des gro\195\159en Yatlas-Fensters";
 BINDING_HEADER_YATLAS = YATLAS_TITLE;
 
 end

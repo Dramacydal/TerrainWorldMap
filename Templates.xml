@@ -97,7 +97,10 @@
 
 	<Frame name="YatlasFrameTemplatePreBuilt" virtual="true" inherits="YatlasFrameTemplate" enableMouse="true">
 		<Layers>
-			<Layer level="BACKGROUND">
+			<!-- ARTWORK, not BACKGROUND: on YatlasFrame these tiles need to sit
+			above the native backdrop's own BACKGROUND-layer fill (see
+			YatlasFrame_OnLoadExtra), since both are regions of this same frame. -->
+			<Layer level="ARTWORK">
 				<Texture name="$parentMapTexture1" inherits="YatlasMapTextureTemplate" />
 				<Texture name="$parentMapTexture2" inherits="YatlasMapTextureTemplate" />
 				<Texture name="$parentMapTexture3" inherits="YatlasMapTextureTemplate" />

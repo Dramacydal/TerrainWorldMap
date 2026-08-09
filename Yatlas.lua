@@ -8,13 +8,15 @@ local MINI2BIGY = 533.3333;
 YatlasOptions = {}
 
 YA_FRAME_OPTION_DEFAULTS = {
-    ["Locked"] = true,
+    ["Locked"] = false,
     ["Map"] = "Kalimdor",
     ["Location"] = {31.0625, 33.250},
     ["Alpha"] = 1,
     ["IconSize"] = 14,
     ["PointCfg"] = {},
     ["Zoom"] = 256,
+    ["Width"] = 539,
+    ["Height"] = 628,
 };
 
 local dummyv = nil;
@@ -26,11 +28,8 @@ Yatlas_DebugTiles = false;
 
 function Yatlas_ToggleTileDebug()
     Yatlas_DebugTiles = not Yatlas_DebugTiles;
-    for _, fname in ipairs({"YatlasFrame", "BigYatlasFrame"}) do
-        local f = _G[fname];
-        if(f and f.opt) then
-            f:SetLocation(f.opt.Location[1], f.opt.Location[2], true);
-        end
+    if(YatlasFrame.opt) then
+        YatlasFrame:SetLocation(YatlasFrame.opt.Location[1], YatlasFrame.opt.Location[2], true);
     end
     print(Yatlas_DebugTiles and YATLAS_DEBUG_TILES_ON or YATLAS_DEBUG_TILES_OFF);
 end
@@ -230,16 +229,75 @@ function YatlasFrame_OnLoadExtra()
 	category = MYADDONS_CATEGORY_MAP,
     };
     YatlasMAHelp = YATLAS_HELP_TEXT;
+
+    -- Modern tiled backdrop replacing the old fixed corner-art border, since
+    -- that art can't stretch -- needed for real (non-scaled) resizing.
+    YatlasFrame:SetBackdrop({
+        bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true, tileSize = 16, edgeSize = 16,
+        insets = {left = 4, right = 4, top = 4, bottom = 4},
+    });
+    YatlasFrame:SetBackdropColor(0, 0, 0, 1);
+
+    -- Set here (not XML) since a layer region can't forward-reference a
+    -- child Frame declared later in the same XML block.
+    YatlasFrameVersion:ClearAllPoints();
+    YatlasFrameVersion:SetPoint("RIGHT", YatlasFrameLockButton, "LEFT", -6, 0);
+
+    YatlasFrame:SetResizable(true);
+    -- Width floor keeps the continent/zone dropdowns and the "Goto Player"
+    -- button (58+176 from the left, 176 wide, 108+6 from the right -- see
+    -- YatlasFrame_LayoutHeader) from ever being squeezed into overlapping
+    -- each other.
+    YatlasFrame:SetResizeBounds(530, 300);
 end
 
-function BigYatlasFrame_OnLoadExtra()
-    UIPanelWindows["BigYatlasFrame"] = { area = "full",	pushable = 0,	whileDead = 1 };
+-- Hooked to OnSizeChanged (fires continuously while the resize grip is
+-- being dragged, not just on release) so the tile grid updates live along
+-- with the frame instead of only snapping into place on mouse-up. Persists
+-- the new size and recomputes the tile grid for it (SetZoom already reads
+-- the view frame's live pixel size, so this is all that's needed -- no
+-- separate "layout refresh" step required). Guarded against firing before
+-- VARIABLES_LOADED has set up self.opt, and against reentrancy: SetZoom's
+-- own GetWidth()/GetHeight() calls can force a pending layout to resolve
+-- and fire ANOTHER OnSizeChanged while this call is still on the stack,
+-- which without this guard recurses without end ("script ran too long").
+function YatlasFrame_OnResizeStop(self)
+    if(not self.opt or self.inResizeRefresh) then return; end
+    self.inResizeRefresh = true;
+    self.opt.Width, self.opt.Height = self:GetSize();
+    self:SetZoom(self.opt.Zoom, true);
+    YatlasFrame_LayoutHeader(self);
+    self.inResizeRefresh = false;
+end
 
-    SLASH_BIGYATLAS1 = "/bigyatlas";
-    SlashCmdList["BIGYATLAS"] = function() BigYatlasFrame:Toggle() end
+-- Keeps the continent dropdown, zone dropdown and "Goto Player" button
+-- together as one tightly-spaced group (fixed gaps between them, like the
+-- original fixed layout), and re-centers that whole group under the frame's
+-- current width as it's resized -- rather than spreading the three apart to
+-- the edges. XML anchors can't express "center this cluster within
+-- whatever the current width is" on their own, so this recomputes it in
+-- pixels each time.
+local YATLAS_HEADER_GAP = 8;
+function YatlasFrame_LayoutHeader(self)
+    local lm = self:GetName();
+    local dd1 = _G[lm.."DropDown"];
+    local dd2 = _G[lm.."DropDown2"];
+    local jump = _G[lm.."PlayerJumpButton"];
+    if(not (dd1 and dd2 and jump)) then return; end
 
+    local groupWidth = dd1:GetWidth() + YATLAS_HEADER_GAP + dd2:GetWidth() + YATLAS_HEADER_GAP + jump:GetWidth();
+    local leftMargin = (self:GetWidth() - groupWidth) / 2;
 
-    BigYatlasFrame.hoverTooltip = "BigYatlasTooltip";
+    dd1:ClearAllPoints();
+    dd1:SetPoint("TOPLEFT", self, "TOPLEFT", leftMargin, -40);
+
+    dd2:ClearAllPoints();
+    dd2:SetPoint("LEFT", dd1, "RIGHT", YATLAS_HEADER_GAP, 0);
+
+    jump:ClearAllPoints();
+    jump:SetPoint("LEFT", dd2, "RIGHT", YATLAS_HEADER_GAP, 0);
 end
 
 function YatlasFrameTemplate:OnEvent(event, ...)
@@ -262,11 +320,20 @@ function YatlasFrameTemplate:OnEvent(event, ...)
             YatlasOptions.ButtonLocation = 0;
         end
 
+        -- Stale saved data from before BigYatlasFrame was removed.
+        if(YatlasOptions.Frames) then
+            YatlasOptions.Frames["BigYatlasFrame"] = nil;
+        end
+
         self:EnsureExistingOptions();
 
         self.opt = YatlasOptions.Frames[framename];
+        if(self.opt.Width and self.opt.Height) then
+            self:SetSize(self.opt.Width, self.opt.Height);
+        end
         self:SetZoom(self.opt.Zoom);
         self:SetMap(self.opt.Map);
+        YatlasFrame_LayoutHeader(self);
 
         self:UpdateLock();
         self:SetAlpha(self.opt.Alpha);
@@ -585,14 +652,27 @@ function YatlasFrameTemplate:SetZoom(z, nocenter)
     local lm = self:GetName();
     local vf = _G[lm.."ViewFrame"];
 
-    self.wzoom = math.floor(vf:GetWidth()/z)+1;
-    self.hzoom = math.floor(vf:GetHeight()/z)+1;
-    self.wzoom_real = math.ceil(vf:GetWidth()/z)+1;
-    self.hzoom_real = math.ceil(vf:GetHeight()/z)+1;
+    -- ViewFrame briefly reports 0 (or reads back a stale/degenerate size)
+    -- while the frame's layout is still settling -- e.g. right after a
+    -- programmatic SetSize, or mid-way through a live resize drag. Bail out
+    -- rather than dividing by z below 32: without this floor, the z-4/z+4
+    -- recursion below can drive z to 0 (division by zero -> nan/inf) and
+    -- then oscillate between its two branches forever ("script ran too
+    -- long").
+    local vfw, vfh = vf:GetWidth(), vf:GetHeight();
+    if(vfw <= 0 or vfh <= 0) then
+        return;
+    end
+    z = math.max(z, 32);
+
+    self.wzoom = math.floor(vfw/z)+1;
+    self.hzoom = math.floor(vfh/z)+1;
+    self.wzoom_real = math.ceil(vfw/z)+1;
+    self.hzoom_real = math.ceil(vfh/z)+1;
 
     if(_G[lm.."MapTexture"..(self.wzoom_real*self.hzoom_real)] == nil) then
         return self:SetZoom(z+4);
-    elseif(z > vf:GetHeight() or z > vf:GetWidth()) then
+    elseif(z > 32 and (z > vfh or z > vfw)) then
         return self:SetZoom(z-4);
     end
     local lastzoom = self.opt.Zoom;
@@ -1139,35 +1219,9 @@ end
 
 -- YatlasOptionsFrame
 
-function YatlasOptionsFrameSelect_Initialize() 
-    local i = 1;
-    local info;
-    for h,v in pairs(YatlasOptions.Frames) do
-            info = {
-                    text = h;
-                    func = YatlasOptionsFrameSelect_OnClick;
-                    value = _G[h];
-            };
-            UIDropDownMenu_AddButton(info);
-            if(i == 1 and YatlasOptionsFrameSelect.currFrame == nil) then
-                YatlasOptionsFrameSelect.currFrame = _G[h];
-            end
-            i = i + 1;
-    end
-end
-
-function YatlasOptionsFrameSelect_OnClick(self) 
-    UIDropDownMenu_SetSelectedID(YatlasOptionsFrameSelect, self:GetID());
-    YatlasOptionsFrameSelect.currFrame = self.value;
-    YatlasOptionsFrame_Update();
-end
-
 function YatlasOptionsFrame_Update()
-    local frame = YatlasOptionsFrameSelect.currFrame;
-    if(frame) then
-        local lm = frame:GetName();
-        local opt = YatlasOptions.Frames[lm];
-
+    local opt = YatlasOptions.Frames["YatlasFrame"];
+    if(opt) then
         YatlasOptionsAlphaSlider:SetValue(opt.Alpha);
         YatlasOptionsIconSizeSlider:SetValue(opt.IconSize);
     end

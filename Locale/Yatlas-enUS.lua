@@ -59,6 +59,5 @@ YATLAS_ZOOMIN =     "+";
 YATLAS_ZOOMOUT =     "-";
 
 BINDING_NAME_YATLAS_TOGGLE = "Toggle Yatlas Frame";
-BINDING_NAME_YATLAS_BIG_TOGGLE = "Toggle Fullscreen Yatlas Frame";
 BINDING_HEADER_YATLAS = YATLAS_TITLE;
 
