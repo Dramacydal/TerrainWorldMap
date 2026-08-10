@@ -19,6 +19,9 @@ local YatlasLDB = LDB:NewDataObject("Yatlas", {
                 rootDescription:CreateCheckbox(YATLAS_MENU_WORLDVIEW_TILES,
                     Yatlas_IsWorldViewTilesEnabled,
                     function() Yatlas_SetWorldViewTiles(not Yatlas_IsWorldViewTilesEnabled()); end);
+                rootDescription:CreateCheckbox(YATLAS_MENU_CITYMAP_TILES,
+                    Yatlas_IsCityMapTilesEnabled,
+                    function() Yatlas_SetCityMapTiles(not Yatlas_IsCityMapTilesEnabled()); end);
             end);
         else
             YatlasFrame:Toggle();

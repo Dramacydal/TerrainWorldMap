@@ -19,6 +19,53 @@ YA_FRAME_OPTION_DEFAULTS = {
     ["Height"] = 628,
 };
 
+-- YatlasFrame's on-screen position when first created (Yatlas.xml); not part
+-- of YA_FRAME_OPTION_DEFAULTS since screen position isn't stored in
+-- YatlasOptions at all -- the client remembers it on its own via
+-- SetUserPlaced(), same as any other movable frame with a stable name.
+local YA_FRAME_DEFAULT_POINT = {"TOPLEFT", "UIParent", "TOPLEFT", 64, -64};
+
+-- SetZoom sizes/tiles the texture grid off ViewFrame's *current* anchor-
+-- derived width/height, which doesn't necessarily reflect a just-applied
+-- parent SetSize yet -- fine for a live resize-drag (each step is a small
+-- nudge off an already-settled size), but a big one-shot jump (like this
+-- reset) can catch it mid-resolve and undersize the grid, leaving gaps
+-- until some later resize forces a fresh recompute against the now-settled
+-- size. Deferring one frame with C_Timer.After(0, ...) lets layout settle
+-- first.
+local function RefreshZoomNextFrame(f)
+    C_Timer.After(0, function()
+        if(f.opt) then
+            f:SetZoom(f.opt.Zoom, true);
+        end
+    end);
+end
+
+function Yatlas_ResetFramePosition()
+    local f = YatlasFrame;
+
+    f:StopMovingOrSizing();
+    f:ClearAllPoints();
+    f:SetPoint(unpack(YA_FRAME_DEFAULT_POINT));
+    f:SetUserPlaced(false);
+
+    f.opt.Zoom = YA_FRAME_OPTION_DEFAULTS.Zoom;
+    f.opt.Width = YA_FRAME_OPTION_DEFAULTS.Width;
+    f.opt.Height = YA_FRAME_OPTION_DEFAULTS.Height;
+    f.opt.Location = {YA_FRAME_OPTION_DEFAULTS.Location[1], YA_FRAME_OPTION_DEFAULTS.Location[2]};
+
+    f:SetSize(f.opt.Width, f.opt.Height);
+
+    if(f:IsShown()) then
+        RefreshZoomNextFrame(f);
+    else
+        -- Hidden frames don't even resolve anchor-derived layout until
+        -- shown -- deferred further, to the OnShow hook in
+        -- YatlasFrame_OnLoadExtra instead.
+        f.needsZoomRefreshOnShow = true;
+    end
+end
+
 local dummyv = nil;
 local nilfunc = function() end
 
@@ -251,6 +298,16 @@ function YatlasFrame_OnLoadExtra()
     -- YatlasFrame_LayoutHeader) from ever being squeezed into overlapping
     -- each other.
     YatlasFrame:SetResizeBounds(530, 300);
+
+    -- See Yatlas_ResetFramePosition: a size change applied while the frame
+    -- is hidden doesn't actually reach the (anchor-derived) ViewFrame until
+    -- the frame is shown, so the deferred zoom/tile-grid refresh happens here.
+    YatlasFrame:HookScript("OnShow", function(self)
+        if(self.needsZoomRefreshOnShow) then
+            self.needsZoomRefreshOnShow = nil;
+            RefreshZoomNextFrame(self);
+        end
+    end);
 end
 
 -- Hooked to OnSizeChanged (fires continuously while the resize grip is
@@ -501,6 +558,27 @@ function YatlasFrameTemplate:SetMap(mapname)
     end
 
     self:AdjustLocation(0,0,true);
+
+    -- the previous view location likely doesn't correspond to anything on
+    -- the new continent; if so, jump to the first zone instead of leaving
+    -- the view (and zone dropdown) sitting on empty space.
+    if(self.zonepulldowns and self.zonepulldowns[1]) then
+        local vf = _G[lm.."ViewFrame"];
+        local zoom = self.opt.Zoom;
+        local zid = self:GetZoneIDs((vf:GetHeight()/zoom/2),(vf:GetWidth()/zoom/2));
+        local found = false;
+        for i,v in ipairs(self.zonepulldowns) do
+            if(v == zid) then
+                found = true;
+                break;
+            end
+        end
+
+        if(not found) then
+            self:CenterOnZone(self.zonepulldowns[1]);
+        end
+    end
+
     YAPoints_OnMapChange(self);
     self.lastmap = self.opt.Map;
 end
@@ -544,40 +622,46 @@ function YatlasFrameDropDown2_Initialize()
 
 end
 
+function YatlasFrameTemplate:CenterOnZone(z)
+    local map = self.opt.Map;
+    local zoom = self:GetZoom();
+
+    if(not z or not Yatlas_mapareas[map] or
+            type(Yatlas_mapareas[map][z]) ~= "table") then
+        return;
+    end
+
+    local x = (Yatlas_mapareas[map][z][1]+
+       Yatlas_mapareas[map][z][2])/2;
+    local y = (Yatlas_mapareas[map][z][3]+
+       Yatlas_mapareas[map][z][4])/2;
+
+    local mx, my = Yatlas_Big2Mini_Coord(x,y);
+
+    self:SetLocation(mx-(512/2)/zoom, my-(512/2)/zoom);
+end
+
 function YatlasFrameDropDownButton2_OnClick(self)
     local frame = self.value;
     local lm = frame:GetName();
     local z = frame.zonepulldowns[self:GetID()];
-    local map = frame.opt.Map;
-    local zoom = frame:GetZoom();
 
-    if(not z or not Yatlas_mapareas[map]) then return; end
-    
-    if(type(Yatlas_mapareas[map][z]) == "table") then
-        local x, y, mx, my;
+    if(not z) then return; end
 
-        x = (Yatlas_mapareas[map][z][1]+
-           Yatlas_mapareas[map][z][2])/2;
-        y = (Yatlas_mapareas[map][z][3]+
-           Yatlas_mapareas[map][z][4])/2;
+    frame:CenterOnZone(z);
 
-        mx, my = Yatlas_Big2Mini_Coord(x,y);
-
-        frame:SetLocation(mx-(512/2)/zoom, my-(512/2)/zoom);
-
-        -- SetLocation() re-derives a zone from the new view's center via
-        -- GetZoneIDs(), which picks whichever zone's (overlapping)
-        -- bounding box it happens to hit first -- that can silently
-        -- relabel the dropdown to a neighboring zone. We already know
-        -- exactly which zone was picked, so re-assert it here.
-        local dd2 = _G[lm.."DropDown2"];
-        if(dd2) then
-            for i,v in ipairs(frame.zonepulldowns) do
-                if(v == z) then
-                    UIDropDownMenu_SetSelectedID(dd2, i);
-                    UIDropDownMenu_SetText(dd2, Yatlas_areadb[z]);
-                    break;
-                end
+    -- SetLocation() re-derives a zone from the new view's center via
+    -- GetZoneIDs(), which picks whichever zone's (overlapping)
+    -- bounding box it happens to hit first -- that can silently
+    -- relabel the dropdown to a neighboring zone. We already know
+    -- exactly which zone was picked, so re-assert it here.
+    local dd2 = _G[lm.."DropDown2"];
+    if(dd2) then
+        for i,v in ipairs(frame.zonepulldowns) do
+            if(v == z) then
+                UIDropDownMenu_SetSelectedID(dd2, i);
+                UIDropDownMenu_SetText(dd2, Yatlas_areadb[z]);
+                break;
             end
         end
     end
@@ -593,13 +677,23 @@ function YatlasFrameTemplate:UpdateDropDown2()
     if(dd2 and self.zonepulldowns) then
         -- FIXME this isn't quite right somehow!! (besides height/width being flipped)
         local zid = self:GetZoneIDs((vf:GetHeight()/zoom/2),(vf:GetWidth()/zoom/2));
+        local found = false;
         for i,v in ipairs(self.zonepulldowns) do
 	--print(tostring(v).." "..tostring(vid))
             if(v == zid) then
                 UIDropDownMenu_SetSelectedID(dd2, i);
                 UIDropDownMenu_SetText(dd2,Yatlas_areadb[zid]);
+                found = true;
                 break;
             end
+        end
+
+        -- no zone under the current view center (e.g. panned past the map
+        -- edge) -- just leave the dropdown blank rather than snapping the
+        -- view somewhere else out from under the player's drag.
+        if(not found) then
+            UIDropDownMenu_SetSelectedID(dd2, 0);
+            UIDropDownMenu_SetText(dd2, "");
         end
     end
 end
@@ -756,8 +850,9 @@ function YatlasFrameTemplate:SetLocation(x,y,forceupdate)
     px = math.floor((x-zx)*zoom);
     py = math.floor((y-zy)*zoom);
 
-    if(zx ~= math.floor(self.opt.Location[1]) or forceupdate or
-        zy ~= math.floor(self.opt.Location[2]) or mymap ~= self.lastmap) then
+    local needsContentRefresh = (zx ~= math.floor(self.opt.Location[1]) or forceupdate or
+        zy ~= math.floor(self.opt.Location[2]) or mymap ~= self.lastmap);
+    if(needsContentRefresh) then
         local v = {};
         local jx, jy, nsv;
 
@@ -926,63 +1021,96 @@ function YatlasFrameTemplate:SetLocation(x,y,forceupdate)
             rightw = (old_rightw-zoom);
         end
 
-        if(needbottom_extra) then
-            bottomh = (old_bottomh-zoom);
+        -- This whole column loop is about row hzoom_real specifically being
+        -- a genuinely EXTRA row beyond the normal grid. When hzoom_real ==
+        -- hzoom, there's no such extra row -- row hzoom_real IS row hzoom,
+        -- already fully drawn by the corner/bottom-line code above, and
+        -- must not be touched (let alone hidden) here.
+        if(hzoom_real ~= hzoom) then
+            if(needbottom_extra) then
+                bottomh = (old_bottomh-zoom);
 
-            for h = 1,wzoom_real-1 do
-                texturelayout[h][hzoom_real]:SetHeight(bottomh);
-                if(h == 1) then
-                    texturelayout[h][hzoom_real]:SetTexCoord( (x-zx), 1, 0, bottomh/zoom);
-                    texturelayout[h][hzoom_real]:SetWidth(zoom-px);
-                    ya_raw_setoff(texturelayout[h][hzoom_real],vfname,0,py);
-                elseif(not needright_extra and h == wzoom_real-1) then
-                    texturelayout[h][hzoom_real]:SetWidth(rightw);
-                    texturelayout[h][hzoom_real]:SetTexCoord( 0, rightw/zoom, 0, bottomh/zoom);
-                    ya_raw_setoff(texturelayout[h][hzoom_real],vfname,px,py);                    
-                else
-                    texturelayout[h][hzoom_real]:SetWidth(zoom);
-                    texturelayout[h][hzoom_real]:SetTexCoord( 0, 1, 0, bottomh/zoom);
-                    ya_raw_setoff(texturelayout[h][hzoom_real],vfname,px,py);
+                -- The true last (bottom-clipped) column within this loop's range
+                -- (1..wzoom_real-1, the true rightmost column wzoom_real is
+                -- handled separately below): wzoom_real-1 only if that's a real
+                -- "extra" column this frame (needright_extra); otherwise it's
+                -- plain wzoom, which can be LESS than wzoom_real-1 when
+                -- wzoom_real was structurally allocated but isn't needed now.
+                local lastCol = needright_extra and (wzoom_real-1) or wzoom;
+
+                for h = 1,wzoom_real-1 do
+                    if(h > lastCol) then
+                        texturelayout[h][hzoom_real]:Hide();
+                    else
+                        texturelayout[h][hzoom_real]:SetHeight(bottomh);
+                        if(h == 1) then
+                            texturelayout[h][hzoom_real]:SetTexCoord( (x-zx), 1, 0, bottomh/zoom);
+                            texturelayout[h][hzoom_real]:SetWidth(zoom-px);
+                            ya_raw_setoff(texturelayout[h][hzoom_real],vfname,0,py);
+                        elseif(h == lastCol and not needright_extra) then
+                            -- lastCol is genuinely the right edge here (wzoom)
+                            -- only when there's no further column beyond it --
+                            -- rightw was already reassigned above to the OTHER
+                            -- column's (wzoom_real) leftover when needright_extra
+                            -- is true, so it must not be used for this column then.
+                            texturelayout[h][hzoom_real]:SetWidth(rightw);
+                            texturelayout[h][hzoom_real]:SetTexCoord( 0, rightw/zoom, 0, bottomh/zoom);
+                            ya_raw_setoff(texturelayout[h][hzoom_real],vfname,px,py);
+                        else
+                            texturelayout[h][hzoom_real]:SetWidth(zoom);
+                            texturelayout[h][hzoom_real]:SetTexCoord( 0, 1, 0, bottomh/zoom);
+                            ya_raw_setoff(texturelayout[h][hzoom_real],vfname,px,py);
+                        end
+                        texturelayout[h][hzoom_real]:Show();
+                    end
                 end
-                texturelayout[h][hzoom_real]:Show();
-            end
-            
-        else
-            for h = 1,wzoom_real-1 do
-                texturelayout[h][hzoom_real]:Hide();
+
+            else
+                for h = 1,wzoom_real-1 do
+                    texturelayout[h][hzoom_real]:Hide();
+                end
             end
         end
 
-        if(needright_extra) then
-            for h = 1,hzoom_real do
-                texturelayout[wzoom_real][h]:SetWidth(rightw);
-                texturelayout[wzoom_real][h]:Show();
-                if(h == 1) then
-                    texturelayout[wzoom_real][h]:SetTexCoord( 0, rightw/zoom, (y-zy), 1);
-                    texturelayout[wzoom_real][h]:SetHeight(zoom-py);
-                    ya_raw_setoff(texturelayout[wzoom_real][h],vfname,px,0);
-                elseif(not needbottom_extra and h == hzoom_real-1) then
-                    texturelayout[wzoom_real][h]:SetHeight(bottomh);
-                    texturelayout[wzoom_real][h]:SetTexCoord( 0, rightw/zoom, 0, bottomh/zoom);
-                    ya_raw_setoff(texturelayout[wzoom_real][h],vfname,px,py);    
-                elseif(h == hzoom_real) then
-                    if(needbottom_extra) then
-                        texturelayout[wzoom_real][h]:SetHeight(bottomh);
-                        texturelayout[wzoom_real][h]:SetTexCoord( 0, rightw/zoom, 0, bottomh/zoom);
-                        ya_raw_setoff(texturelayout[wzoom_real][h],vfname,px,py);
-                    else
+        -- Same guard, other axis: when wzoom_real == wzoom, column wzoom_real
+        -- IS column wzoom, already fully drawn by the corner/right-line code
+        -- above -- must not be touched here.
+        if(wzoom_real ~= wzoom) then
+            if(needright_extra) then
+                -- The true last (bottom-clipped) row is hzoom_real only if
+                -- genuinely needed this frame (needbottom_extra); otherwise
+                -- it's plain hzoom, which can be LESS than hzoom_real-1 when
+                -- hzoom_real was structurally allocated but isn't needed
+                -- now -- anything beyond it must be hidden instead of
+                -- wrongly treated as a full-height middle row.
+                local lastRow = needbottom_extra and hzoom_real or hzoom;
+
+                for h = 1,hzoom_real do
+                    if(h > lastRow) then
                         texturelayout[wzoom_real][h]:Hide();
+                    else
+                        texturelayout[wzoom_real][h]:SetWidth(rightw);
+                        texturelayout[wzoom_real][h]:Show();
+                        if(h == 1) then
+                            texturelayout[wzoom_real][h]:SetTexCoord( 0, rightw/zoom, (y-zy), 1);
+                            texturelayout[wzoom_real][h]:SetHeight(zoom-py);
+                            ya_raw_setoff(texturelayout[wzoom_real][h],vfname,px,0);
+                        elseif(h == lastRow) then
+                            texturelayout[wzoom_real][h]:SetHeight(bottomh);
+                            texturelayout[wzoom_real][h]:SetTexCoord( 0, rightw/zoom, 0, bottomh/zoom);
+                            ya_raw_setoff(texturelayout[wzoom_real][h],vfname,px,py);
+                        else
+                            texturelayout[wzoom_real][h]:SetHeight(zoom);
+                            texturelayout[wzoom_real][h]:SetTexCoord( 0, rightw/zoom, 0, 1);
+                            ya_raw_setoff(texturelayout[wzoom_real][h],vfname,px,py);
+                        end
                     end
-                else
-                    texturelayout[wzoom_real][h]:SetHeight(zoom);
-                    texturelayout[wzoom_real][h]:SetTexCoord( 0, rightw/zoom, 0, 1);
-                    ya_raw_setoff(texturelayout[wzoom_real][h],vfname,px,py);
+
                 end
-                
-            end
-        else
-            for h = 1,hzoom_real do
-                texturelayout[wzoom_real][h]:Hide();
+            else
+                for h = 1,hzoom_real do
+                    texturelayout[wzoom_real][h]:Hide();
+                end
             end
         end
 

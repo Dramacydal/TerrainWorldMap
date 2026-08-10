@@ -36,12 +36,15 @@ YATLAS_MENU_OPEN = "Open Yatlas";
 YATLAS_MENU_SETTINGS = "Settings";
 YATLAS_MENU_CHILDMAP_TILES = "Draw child-map tiles";
 YATLAS_MENU_WORLDVIEW_TILES = "Draw tiles on Azeroth (world) map";
+YATLAS_MENU_CITYMAP_TILES = "Draw tiles on city maps";
 YATLAS_WORLDMAP_OVERLAY_ON = "Yatlas: world map overlay ON";
 YATLAS_WORLDMAP_OVERLAY_OFF = "Yatlas: world map overlay OFF";
 YATLAS_DEBUG_TILES_ON = "Yatlas: tile debug labels ON";
 YATLAS_DEBUG_TILES_OFF = "Yatlas: tile debug labels OFF";
 
 YATLAS_OPTIONS_TITLE = "Yatlas Options";
+YATLAS_OPTIONS_TAB_WORLDMAP = "World Map";
+YATLAS_OPTIONS_TAB_BROWSER = "Browser";
 YATLAS_OPTIONS_BUTTONPOS = "Minimap Button Position";
 YATLAS_OPTIONS_BUTTONPOS_TIP = "%d degrees";
 YATLAS_OPTIONS_ENABLEBUTTON = "Enable Minimap Button";
@@ -49,6 +52,7 @@ YATLAS_OPTIONS_TRACKONSHOW = "Zoom to Player on Show";
 YATLAS_OPTIONS_ALPHA = "Transparency";
 YATLAS_OPTIONS_ICONSIZE = "Icon Size";
 YATLAS_OPTIONS_ENABLECOORD = "Enable Cursor Coordinates";
+YATLAS_OPTIONS_RESETPOSITION = "Reset Position";
 
 YATLAS_POINTS_SHOWPOINTS_TITLE = "Show Points";
 YATLAS_POINTS_LANDMARKS = "Landmarks";

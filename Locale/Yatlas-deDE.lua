@@ -36,17 +36,22 @@ YATLAS_MENU_OPEN = "Yatlas \195\182ffnen";
 YATLAS_MENU_SETTINGS = "Einstellungen";
 YATLAS_MENU_CHILDMAP_TILES = "Kindkarten-Kacheln zeichnen";
 YATLAS_MENU_WORLDVIEW_TILES = "Kacheln auf der Azeroth-Weltkarte zeichnen";
+YATLAS_MENU_CITYMAP_TILES = "Kacheln auf Stadtkarten zeichnen";
 YATLAS_WORLDMAP_OVERLAY_ON = "Yatlas: Weltkarten-Overlay AN";
 YATLAS_WORLDMAP_OVERLAY_OFF = "Yatlas: Weltkarten-Overlay AUS";
 YATLAS_DEBUG_TILES_ON = "Yatlas: Kachel-Debug-Beschriftungen AN";
 YATLAS_DEBUG_TILES_OFF = "Yatlas: Kachel-Debug-Beschriftungen AUS";
 
+YATLAS_OPTIONS_TITLE = "Yatlas-Optionen";
+YATLAS_OPTIONS_TAB_WORLDMAP = "Weltkarte";
+YATLAS_OPTIONS_TAB_BROWSER = "Browser";
 YATLAS_OPTIONS_BUTTONPOS = " Position des Minimap-Icons";
 YATLAS_OPTIONS_BUTTONPOS_TIP = "%d\�";
 YATLAS_OPTIONS_ENABLEBUTTON = "Aktiviere Minimap-Icon";
 YATLAS_OPTIONS_ALPHA = "Transparenz";
 YATLAS_OPTIONS_ICONSIZE = "Icon Gr\195\182\195\159e";
 YATLAS_OPTIONS_ENABLECOORD = "Aktiviere Cursor-Koordinaten";
+YATLAS_OPTIONS_RESETPOSITION = "Position zur\195\188cksetzen";
 
 YATLAS_POINTS_SHOWPOINTS_TITLE = "Zeige Punkte";
 -- Landmarks would tranlsate to "Landmarken", "wichtige Orte" would be translated to English: "important places"

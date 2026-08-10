@@ -1,6 +1,6 @@
 ## Interface: 20506
 ## Title: Yatlas
-## Version: 0.8.5
+## Version: 1.0.0
 ## Notes: Yet another atlas
 ## IconTexture: Interface\AddOns\Yatlas\images\Button
 ## DefaultState: Enabled

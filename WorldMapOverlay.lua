@@ -201,6 +201,16 @@ local function RefreshOverlay()
     -- cosmic map above that) -- those aren't themselves on any one
     -- continent's tile mosaic, so they're handled separately below.
     local continent, bx1, bx2, by1, by2 = GetViewBigBox(mapID);
+
+    -- Capital city maps (Stormwind, Orgrimmar, etc.) aren't covered by the
+    -- minimap tile mosaic at a useful scale/detail -- off by default,
+    -- opt-in only. Yatlas_CityMapIDs is a hand-collected list (see
+    -- mapdata_zones.lua) since Blizzard's map hierarchy gives no
+    -- type/parent-based way to tell a city map apart from a real zone.
+    if(continent and Yatlas_CityMapIDs[mapID] and not YatlasOptions.WorldMapOverlayCityMaps) then
+        continent = nil;
+    end
+
     local idx = 0;
 
     if(continent) then
@@ -347,6 +357,17 @@ function Yatlas_IsWorldViewTilesEnabled()
     return YatlasOptions.WorldMapOverlayWorldView;
 end
 
+-- Off by default: city maps aren't covered by the minimap tile mosaic at a
+-- useful scale/detail.
+function Yatlas_SetCityMapTiles(enabled)
+    YatlasOptions.WorldMapOverlayCityMaps = enabled;
+    RefreshOverlay();
+end
+
+function Yatlas_IsCityMapTilesEnabled()
+    return YatlasOptions.WorldMapOverlayCityMaps;
+end
+
 -- Icon on the stock WorldMapFrame (see WorldMapButton.xml): left-click
 -- toggles this overlay, right-click opens a context menu (open Yatlas /
 -- toggle child-map tiles), same as the minimap button (YatlasButton.lua).
@@ -386,6 +407,9 @@ function YatlasWorldMapButtonMixin:OnClick(button)
             rootDescription:CreateCheckbox(YATLAS_MENU_WORLDVIEW_TILES,
                 Yatlas_IsWorldViewTilesEnabled,
                 function() Yatlas_SetWorldViewTiles(not Yatlas_IsWorldViewTilesEnabled()); end);
+            rootDescription:CreateCheckbox(YATLAS_MENU_CITYMAP_TILES,
+                Yatlas_IsCityMapTilesEnabled,
+                function() Yatlas_SetCityMapTiles(not Yatlas_IsCityMapTilesEnabled()); end);
         end);
     else
         Yatlas_SetWorldMapOverlay(not Yatlas_IsWorldMapOverlayEnabled(), true);
@@ -410,6 +434,9 @@ initFrame:SetScript("OnEvent", function()
     end
     if(YatlasOptions.WorldMapOverlayWorldView == nil) then
         YatlasOptions.WorldMapOverlayWorldView = false;
+    end
+    if(YatlasOptions.WorldMapOverlayCityMaps == nil) then
+        YatlasOptions.WorldMapOverlayCityMaps = false;
     end
 
     GetOverlayFrame();
