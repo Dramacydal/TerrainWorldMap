@@ -2,8 +2,6 @@
 -- reported by this client (2.5.6 / TBC Anniversary) via
 -- C_Map.GetMapChildrenInfo(946, Enum.UIMapType.Continent, true).
 -- No Northrend entry: this client doesn't have a Northrend continent map.
--- Kept separate from Yatlas_WorldMapIds (below), which sets/mapnotes.lua
--- and sets/gatherer.lua still key their external data off of.
 Yatlas_ContinentMapID = {
     ["Kalimdor"] = 1414,
     ["Azeroth"] = 1415,      -- Eastern Kingdoms
@@ -20,15 +18,6 @@ YA_MAPS = {
     [C_Map.GetMapInfo(Yatlas_ContinentMapID["Expansion01"]).name] = {"Expansion01"},
 };
 
-Yatlas_WorldMapIds = {
-    ["Kalimdor"] = 1,
-    ["Azeroth"] = 2,
-    ["Expansion01"] = 3,
-    ["Northrend"] = 4,
-};
-
-
-Yatlas_PaperZoneNames = {};     -- we don't fill this in by hand
 Yatlas_Landmarks = {};          -- this is filled in automatically too
 
 -- Instances (entrances)
@@ -246,16 +235,4 @@ Yatlas_towns2 = {
     }
 
 }
-
--- XXX USEME
-Yatlas_Mobs = {
-    -- two original outdoor raid bosses
-    {"Lord Kazzak",         "Kalimdor", -2439, -12211},
-    {"Azuregos",            "Azeroth", -5884, 2764},
-    -- four dragons
-    {"Dragons of Nightmare", "Azeroth", -4081, 624},
-    {"Dragons of Nightmare", "Kalimdor", -3741, 3174},
-    {"Dragons of Nightmare", "Azeroth", -421, -10441},
-    {"Dragons of Nightmare", "Kalimdor", 1874, -2796},
-};
 
