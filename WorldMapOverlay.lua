@@ -11,7 +11,7 @@
 -- well below every POI/pin (MapCanvasPinFrameLevelsManagerMixin starts pins
 -- at frame level 2000), so it renders strictly between the two.
 --
--- Toggle with "/yatlas map on" / "/yatlas map off".
+-- Toggle with "/twm map on" / "/twm map off".
 
 local pre = "World\\Minimaps\\";
 

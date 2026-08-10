@@ -70,7 +70,7 @@ local dummyv = nil;
 local nilfunc = function() end
 
 -- Debug: overlay each map tile with its grid-cell coordinate and the live
--- zone reported there. Toggle with "/yatlas debug".
+-- zone reported there. Toggle with "/twm debug".
 Yatlas_DebugTiles = false;
 
 function Yatlas_ToggleTileDebug()
@@ -86,7 +86,7 @@ end
 -- world/maps/<continent>/<continent>.wdt's rootADT field, since a tile's
 -- minimap preview texture can exist even when no terrain does, e.g.
 -- leftover Cataclysm-only art with no TBC-era ADT behind it). Used both to
--- gate map-tile rendering and for the "/yatlas debug" tile overlay, which
+-- gate map-tile rendering and for the "/twm debug" tile overlay, which
 -- also reports the specific named zone (Yatlas_mapareas) when there is one.
 function Yatlas_GetLiveZoneNameForBigCoord(map, bigx, bigy, tilekey)
     local valid = tilekey and Yatlas_WDTValidTiles[map] and Yatlas_WDTValidTiles[map][tilekey];
@@ -222,7 +222,7 @@ function YatlasFrame_OnLoadExtra()
     YatlasFrame.YA_PD_allocText = "YA_PD_allocText";
     YatlasFrame.YA_PD_ResetList = "YA_PD_ResetList";
     
-    SLASH_YATLAS1 = "/yatlas";
+    SLASH_YATLAS1 = "/twm";
     SlashCmdList["YATLAS"] = function(msg)
         if(msg == "debug") then
             Yatlas_ToggleTileDebug();
@@ -361,11 +361,6 @@ function YatlasFrameTemplate:OnEvent(event, ...)
     local framename = self:GetName();
 
     if(event == "VARIABLES_LOADED") then
-        if(not Yatlas_LandmarksScraped) then
-            Yatlas_LandmarksScraped = true;
-            Yatlas_ScrapeLandmarks();
-        end
-
         if(YatlasOptions == nil) then
             YatlasOptions = {};
         end
@@ -385,6 +380,14 @@ function YatlasFrameTemplate:OnEvent(event, ...)
         self:EnsureExistingOptions();
 
         self.opt = YatlasOptions.Frames[framename];
+
+        -- Landmark scraping ends by forcing a points refresh (YAPoints_ForceUpdate),
+        -- which reads YatlasOptions.Frames[framename] -- must run after
+        -- EnsureExistingOptions has populated it (e.g. on a fresh SavedVariables file).
+        if(not Yatlas_LandmarksScraped) then
+            Yatlas_LandmarksScraped = true;
+            Yatlas_ScrapeLandmarks();
+        end
 
         -- Stale saved data from before IconSize became a 0.1-3.0 multiplier (was an absolute pixel size).
         if(self.opt.IconSize == nil or self.opt.IconSize > 3.5) then
@@ -414,7 +417,7 @@ end
 function YatlasFrame_OnEventExtra(self, event, addonName)
     local framename = self:GetName();
 
-    if(event == "ADDON_LOADED" and addonName == "Yatlas") then
+    if(event == "ADDON_LOADED" and addonName == "TerrainWorldMap") then
         if(myAddOnsFrame_Register) then
             myAddOnsFrame_Register(YatlasDetails, YatlasMAHelp);
         end
@@ -524,11 +527,11 @@ function YatlasFrameTemplate:UpdateLock()
 
     if(norm and push) then
         if(self.opt.Locked) then
-            norm:SetTexture("Interface\\AddOns\\Yatlas\\images\\LockButton-Locked-Up");
-            push:SetTexture("Interface\\AddOns\\Yatlas\\images\\LockButton-Locked-Down");
+            norm:SetTexture("Interface\\AddOns\\TerrainWorldMap\\images\\LockButton-Locked-Up");
+            push:SetTexture("Interface\\AddOns\\TerrainWorldMap\\images\\LockButton-Locked-Down");
         else
-            norm:SetTexture("Interface\\AddOns\\Yatlas\\images\\LockButton-Unlocked-Up");
-            push:SetTexture("Interface\\AddOns\\Yatlas\\images\\LockButton-Unlocked-Down");
+            norm:SetTexture("Interface\\AddOns\\TerrainWorldMap\\images\\LockButton-Unlocked-Up");
+            push:SetTexture("Interface\\AddOns\\TerrainWorldMap\\images\\LockButton-Unlocked-Down");
         end
     end
 end

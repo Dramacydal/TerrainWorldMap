@@ -3,7 +3,7 @@ local icon = LibStub("LibDBIcon-1.0");
 
 local YatlasLDB = LDB:NewDataObject("TerrainWorldMap", {
     type = "launcher",
-    icon = "Interface\\AddOns\\Yatlas\\images\\Button",
+    icon = "Interface\\AddOns\\TerrainWorldMap\\images\\Button",
     OnClick = function(self, button)
         if(button == "RightButton") then
             MenuUtil.CreateContextMenu(self, function(owner, rootDescription)

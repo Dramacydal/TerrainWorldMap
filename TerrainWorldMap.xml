@@ -16,7 +16,7 @@
 			are regions of this same frame ; same reason the map tiles moved
 			to ARTWORK too (see YatlasFrameTemplatePreBuilt in Templates.xml). -->
 			<Layer level="ARTWORK">
-				<Texture name="$parentPortrait" file="Interface\AddOns\Yatlas\images\Button">
+				<Texture name="$parentPortrait" file="Interface\AddOns\TerrainWorldMap\images\Button">
                     <Size>
                         <AbsDimension x="64" y="64"/>
                     </Size>
@@ -328,9 +328,9 @@
 				end
 			</OnClick>
 		</Scripts>
-		<NormalTexture file="Interface\AddOns\Yatlas\images\MagButton-Up"/>
-		<PushedTexture file="Interface\AddOns\Yatlas\images\MagButton-Down"/>
-		<DisabledTexture file="Interface\AddOns\Yatlas\images\MagButton-Disabled"/>
+		<NormalTexture file="Interface\AddOns\TerrainWorldMap\images\MagButton-Up"/>
+		<PushedTexture file="Interface\AddOns\TerrainWorldMap\images\MagButton-Down"/>
+		<DisabledTexture file="Interface\AddOns\TerrainWorldMap\images\MagButton-Disabled"/>
 		<HighlightTexture file="Interface\Buttons\UI-Common-MouseHilight" alphaMode="ADD"/>
 	</Button>
 

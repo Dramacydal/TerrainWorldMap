@@ -3,7 +3,7 @@
 ## Version: 1.0.0
 ## Author: Boo Diddly, Dramacydal
 ## Notes: Overlays real terrain tiles onto the World Map
-## IconTexture: Interface\AddOns\Yatlas\images\Button
+## IconTexture: Interface\AddOns\TerrainWorldMap\images\Button
 ## DefaultState: Enabled
 ## LoadOnDemand: 0
 ## SavedVariables: YatlasOptions

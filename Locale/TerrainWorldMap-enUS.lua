@@ -1,9 +1,9 @@
 ﻿local _;
 
 -- metadata magic
-YATLAS_TITLE = C_AddOns.GetAddOnMetadata("Yatlas", "Title") or "Y";
-YATLAS_VERSION = C_AddOns.GetAddOnMetadata("Yatlas","Version") or "???";
-_,_,YATLAS_RELEASE_DATE = string.find(C_AddOns.GetAddOnMetadata("Yatlas","X-LastChangedDate") or "", "[(](.+)[)]");
+YATLAS_TITLE = C_AddOns.GetAddOnMetadata("TerrainWorldMap", "Title") or "Y";
+YATLAS_VERSION = C_AddOns.GetAddOnMetadata("TerrainWorldMap","Version") or "???";
+_,_,YATLAS_RELEASE_DATE = string.find(C_AddOns.GetAddOnMetadata("TerrainWorldMap","X-LastChangedDate") or "", "[(](.+)[)]");
 
 YATLAS_WEBSITE = "https://github.com/Dramacydal/Yatlas"
 YATLAS_AUTHOR = "Boo Diddly, Dramacydal";

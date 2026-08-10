@@ -11,7 +11,7 @@ TerrainWorldMap ChangeLog
   "Browser" sub-categories.
 - Added: baked minimap tile overlay on the stock WorldMapFrame ("M" key), as
   an alternative to Blizzard's painted map art. Toggle from the minimap
-  button, the new WorldMapFrame button, or /yatlas map on|off. Separate
+  button, the new WorldMapFrame button, or /twm map on|off. Separate
   options control drawing tiles on child (zoomed-in) maps, on the combined
   Azeroth world view, and on capital city maps (off by default).
 - Added: right-click context menu on both the minimap button and the new

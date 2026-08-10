@@ -54,25 +54,25 @@ function set.setuppoint(point, env, dat)
         r = 0.2;
         g = 0.6;
         b = 1;
-        bgtextname = "Interface\\AddOns\\Yatlas\\images\\Icons\\Icon-Circle";
+        bgtextname = "Interface\\AddOns\\TerrainWorldMap\\images\\Icons\\Icon-Circle";
         if(kind == 5) then
-            bgtextname = "Interface\\AddOns\\Yatlas\\images\\Icons\\Icon-Star";
+            bgtextname = "Interface\\AddOns\\TerrainWorldMap\\images\\Icons\\Icon-Star";
             iconsize = iconsize+2;
         elseif(kind == -1) then
             r = 0.9;
             g = 0.1;
             b = 0.9;
-            bgtextname = "Interface\\AddOns\\Yatlas\\images\\Icons\\Icon-Cave";
+            bgtextname = "Interface\\AddOns\\TerrainWorldMap\\images\\Icons\\Icon-Cave";
         elseif(kind == -4) then
             r = 0.3;
             g = 0.8;
             b = 1;
-            bgtextname = "Interface\\AddOns\\Yatlas\\images\\Icons\\Icon-Exclaim";
+            bgtextname = "Interface\\AddOns\\TerrainWorldMap\\images\\Icons\\Icon-Exclaim";
         end
     else
         x1, x2, y1, y2 = 0, 1, 0, 1;
         r, g, b = 0.2, 0.6, 1;
-        bgtextname = "Interface\\AddOns\\Yatlas\\images\\Icons\\Icon-Circle";
+        bgtextname = "Interface\\AddOns\\TerrainWorldMap\\images\\Icons\\Icon-Circle";
     end
 
     point:Show();

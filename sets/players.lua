@@ -7,7 +7,7 @@ local addpoint = function(name, unit)
     YAPoints_AddMobilePoint(nil, name, unit, nil, nil);
 
     YAPoints_SetupMobilePointF(nil, name, unit, "Icon","SetTexture",
-            "Interface\\AddOns\\Yatlas\\images\\Icons\\Icon-PartyUnit");
+            "Interface\\AddOns\\TerrainWorldMap\\images\\Icons\\Icon-PartyUnit");
     if(string.find(unit,"party")) then
         YAPoints_SetupMobilePointF(nil, name, unit, "Icon","SetVertexColor",1,0.4,0.4,1);
     elseif(string.find(unit,"raid")) then

@@ -18,7 +18,7 @@
                 </Texture>
             </Layer>
             <Layer level="ARTWORK">
-                <Texture parentKey="Icon" file="Interface\AddOns\Yatlas\images\Button">
+                <Texture parentKey="Icon" file="Interface\AddOns\TerrainWorldMap\images\Button">
                     <Size x="20" y="20"/>
                     <Anchors>
                         <Anchor point="TOPLEFT" x="6" y="-6"/>
