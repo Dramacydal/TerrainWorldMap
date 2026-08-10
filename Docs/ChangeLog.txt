@@ -1,6 +1,62 @@
 
 Yatlas ChangeLog
 ================
+1.0.0 (August 10, 2026)
+----------------------------
+- Added: support for WoW Classic TBC Anniversary (client build 2.5.6.69110,
+  Interface 20506).
+- Added: native Blizzard AddOn settings panel (Esc > Options > AddOns),
+  replacing the old standalone Options window, split into "World Map" and
+  "Browser" sub-categories.
+- Added: baked minimap tile overlay on the stock WorldMapFrame ("M" key), as
+  an alternative to Blizzard's painted map art. Toggle from the minimap
+  button, the new WorldMapFrame button, or /yatlas map on|off. Separate
+  options control drawing tiles on child (zoomed-in) maps, on the combined
+  Azeroth world view, and on capital city maps (off by default).
+- Added: right-click context menu on both the minimap button and the new
+  WorldMapFrame button (Open Yatlas, Settings, tile toggles).
+- Added: YatlasFrame is now truly resizable (not just scalable) and movable
+  by default; a "Reset Position" button in Settings restores its default
+  size, position, and zoom.
+- Added: Icon Size option is now a 0.5x-3.0x multiplier applied to each
+  icon's own default size, instead of one absolute pixel size for
+  everything.
+- Added: ruRU localization.
+- Added: scripts/gen_mapareas.js and scripts/parse_wdt.js, developer tools
+  (not loaded by the addon) that regenerate the zone-box and tile-validity
+  data straight from this client's own Map/UiMap/UiMapAssignment DBC data
+  and .wdt terrain files, instead of by hand.
+- Changed: zone bounding boxes (mapdata_continents.lua) regenerated from
+  real DBC data -- more accurate than the original ~2011 hand-collected
+  coordinates, which had measurably drifted for Eastern Kingdoms/Kalimdor
+  zones since Cataclysm's Shattering (Outland, untouched by Cataclysm,
+  matched exactly).
+- Changed: tile validity (Yatlas_WDTValidTiles) is now read directly from
+  this client's own .wdt terrain files instead of an indirect proxy,
+  fixing false positives/negatives near zone edges, coastlines, and
+  continent corners.
+- Removed: dungeon, battleground, and Northrend map data -- Yatlas now only
+  covers the 3 open-world continents (Kalimdor, Eastern Kingdoms, Outland).
+- Removed: graveyard display feature.
+- Removed: BigYatlasFrame and the /bigyatlas command, superseded by the
+  now-resizable YatlasFrame.
+- Removed: dead/unused locale strings across all localizations.
+- Fixed: "Goto Player" and the zone dropdown for zones that Blizzard's own
+  data files place under a different continent than the world-map
+  navigation UI shows (Azuremyst/Bloodmyst Isle, Eversong Woods,
+  Ghostlands, Isle of Quel'Danas, Silvermoon City).
+- Fixed: several tile-rendering gaps that could appear when the window's
+  width/height isn't an exact multiple of the current zoom level.
+- Fixed: zone dropdown now defaults to the first zone instead of showing
+  nothing after a continent switch.
+- Fixed: a long-standing deDE localization bug (wrong constant names meant
+  points-related strings never localized).
+- Fixed: player/party/raid position markers would visually drift away from
+  their true location as the Icon Size option changed, since the icon
+  itself wasn't resized to match.
+- Fixed: filled in missing translations (deDE "Zoom to Player on Show",
+  zhCN help text) and mentioned Outland support in the help text.
+
 0.8.5 (August 15, 2011)
 ----------------------------
 - Tag for official release
@@ -147,3 +203,5 @@ Yatlas ChangeLog
 - Add a pulldown for zones to replace the zone text field.
 - Update textures translation table for WoW 1.8 content patch.
 - Other minor bug fixes.
+
+Maintained by Dramacydal (PulLumBerMal@gmail.com) - https://github.com/Dramacydal/Yatlas

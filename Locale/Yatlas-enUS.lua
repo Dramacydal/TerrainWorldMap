@@ -5,9 +5,9 @@ YATLAS_TITLE = C_AddOns.GetAddOnMetadata("Yatlas", "Title") or "Y";
 YATLAS_VERSION = C_AddOns.GetAddOnMetadata("Yatlas","Version") or "???";
 _,_,YATLAS_RELEASE_DATE = string.find(C_AddOns.GetAddOnMetadata("Yatlas","X-LastChangedDate") or "", "[(](.+)[)]");
 
-YATLAS_WEBSITE = ""
-YATLAS_AUTHOR = "Boo Diddly";
-YATLAS_AUTHOR_EMAIL = "";
+YATLAS_WEBSITE = "https://github.com/Dramacydal/Yatlas"
+YATLAS_AUTHOR = "Boo Diddly, Dramacydal";
+YATLAS_AUTHOR_EMAIL = "PulLumBerMal@gmail.com";
 
 -- localize from this point on as needed
 YATLAS_HELP_TEXT = {
