@@ -82,21 +82,21 @@ function Yatlas_ToggleTileDebug()
 end
 
 -- Whether a map tile has real terrain, per this client's own WDT data
--- (Yatlas_WDTValidTiles, mapdata_tiles.lua -- ground truth extracted from
+-- (Twm_WDTValidTiles, mapdata_tiles.lua -- ground truth extracted from
 -- world/maps/<continent>/<continent>.wdt's rootADT field, since a tile's
 -- minimap preview texture can exist even when no terrain does, e.g.
 -- leftover Cataclysm-only art with no TBC-era ADT behind it). Used both to
 -- gate map-tile rendering and for the "/twm debug" tile overlay, which
--- also reports the specific named zone (Yatlas_mapareas) when there is one.
+-- also reports the specific named zone (Twm_mapareas) when there is one.
 function Yatlas_GetLiveZoneNameForBigCoord(map, bigx, bigy, tilekey)
-    local valid = tilekey and Yatlas_WDTValidTiles[map] and Yatlas_WDTValidTiles[map][tilekey];
+    local valid = tilekey and Twm_WDTValidTiles[map] and Twm_WDTValidTiles[map][tilekey];
     if(not valid) then return nil; end
 
-    local areas = Yatlas_mapareas[map];
+    local areas = Twm_mapareas[map];
     if(areas) then
         for id, box in pairs(areas) do
             if(id ~= 0 and bigx < box[1] and bigx > box[2] and bigy < box[3] and bigy > box[4]) then
-                return Yatlas_areadb[id];
+                return Twm_areadb[id];
             end
         end
     end
@@ -104,10 +104,10 @@ function Yatlas_GetLiveZoneNameForBigCoord(map, bigx, bigy, tilekey)
     return "|cff8080ff(terrain)|r";
 end
 
--- Yatlas_ContinentMapID is defined in mapdata_poi.lua (loads before this file).
+-- Twm_ContinentMapID is defined in mapdata_poi.lua (loads before this file).
 
 local Yatlas_ContinentByMapID = {};
-for h,v in pairs(Yatlas_ContinentMapID) do
+for h,v in pairs(Twm_ContinentMapID) do
     Yatlas_ContinentByMapID[v] = h;
 end
 
@@ -130,14 +130,14 @@ end
 -- Replaces the old GetPlayerMapPosition(u); returns nil if the unit isn't on
 -- one of Yatlas' 3 known continents (no WorldMapFrame navigation needed).
 -- Returns (continent, x, y) where x/y are normalized [0,1] *within that
--- continent's own Yatlas_mapareas[continent][0] box* -- callers (Yatlas.lua's
+-- continent's own Twm_mapareas[continent][0] box* -- callers (Yatlas.lua's
 -- "Goto Player", sets/players.lua) both convert via that box directly.
 --
 -- A few zones (Draenei/Blood Elf starting isles) are filed under a
 -- *different* continent's DBC MapID than where C_Map's own uiMap hierarchy
 -- nominally parents them for world-map navigation -- e.g. Azuremyst Isle is
 -- a "child" of Kalimdor in C_Map's tree, but its real UiMapAssignment row
--- (Yatlas_UiMapID2Zone, ground truth) -- and its real WDT terrain -- is
+-- (Twm_UiMapID2Zone, ground truth) -- and its real WDT terrain -- is
 -- filed under Expansion01/Outland. Querying GetPlayerMapPosition against
 -- the hierarchy-hinted continent for these returns Blizzard's compressed
 -- inset-icon position instead of a real location, which Yatlas' own terrain
@@ -150,16 +150,16 @@ function Yatlas_GetUnitContinentPosition(u)
 
     local continent, zoneBox, queryMapID;
 
-    local known = Yatlas_UiMapID2Zone[mapID];
+    local known = Twm_UiMapID2Zone[mapID];
     if(known) then
         continent = known[1];
-        zoneBox = Yatlas_mapareas[continent][known[2]];
+        zoneBox = Twm_mapareas[continent][known[2]];
         queryMapID = mapID;
     else
         continent = Yatlas_GetContinentForMapID(mapID);
         if(not continent) then return nil; end
-        zoneBox = Yatlas_mapareas[continent][0];
-        queryMapID = Yatlas_ContinentMapID[continent];
+        zoneBox = Twm_mapareas[continent][0];
+        queryMapID = Twm_ContinentMapID[continent];
     end
     if(not zoneBox) then return nil; end
 
@@ -171,7 +171,7 @@ function Yatlas_GetUnitContinentPosition(u)
     local bigx = -nx*(zx1-zx2) + zx1;
     local bigy = -ny*(zy1-zy2) + zy1;
 
-    local cbox = Yatlas_mapareas[continent][0];
+    local cbox = Twm_mapareas[continent][0];
     local cx1,cx2,cy1,cy2 = cbox[1],cbox[2],cbox[3],cbox[4];
     return continent, (cx1-bigx)/(cx1-cx2), (cy1-bigy)/(cy1-cy2);
 end
@@ -488,7 +488,7 @@ end
 function YatlasFrameDropDown_Initialize()
     local i = 1;
     local info;
-    for h,v in pairs(YA_MAPS) do
+    for h,v in pairs(TWM_MAPS) do
             info = {
                     text = h;
                     func = YatlasFrameDropDownButton_OnClick;
@@ -502,7 +502,7 @@ end
 function YatlasFrameDropDownButton_OnClick(self)
         local d = 1;
 	i = self:GetID();
-        for h,v in pairs(YA_MAPS) do
+        for h,v in pairs(TWM_MAPS) do
             if(d == i) then
                 --print(tostring(self.value).." "..tostring(v[1]))
                 return _G["YatlasFrame"]:SetMap(v[1]);
@@ -544,7 +544,7 @@ function YatlasFrameTemplate:SetMap(mapname)
     local mapdropdown = _G[lm.."DropDown"];
     if(mapdropdown) then
         local i = 1;
-        for h,v in pairs(YA_MAPS) do
+        for h,v in pairs(TWM_MAPS) do
             if(v[1] == mapname) then
                 UIDropDownMenu_SetSelectedID(mapdropdown, i);
                 UIDropDownMenu_SetText(mapdropdown,h);
@@ -604,19 +604,19 @@ function YatlasFrameDropDown2_Initialize()
     frame.zonepulldowns = {};
     local info;
 
-    if(Yatlas_mapareas[frame.opt.Map] ~= nil) then
-        for h,v in pairs(Yatlas_mapareas[frame.opt.Map]) do
-            if(Yatlas_areadb[h]) then
+    if(Twm_mapareas[frame.opt.Map] ~= nil) then
+        for h,v in pairs(Twm_mapareas[frame.opt.Map]) do
+            if(Twm_areadb[h]) then
                 tinsert(frame.zonepulldowns, h);
             end
         end
     end
 
     table.sort(frame.zonepulldowns,
-        function (a,b) return Yatlas_areadb[a] < Yatlas_areadb[b]; end);
+        function (a,b) return Twm_areadb[a] < Twm_areadb[b]; end);
     for j,v in ipairs(frame.zonepulldowns) do
         info = {
-            text = Yatlas_areadb[v];
+            text = Twm_areadb[v];
             value = frame;
             func = YatlasFrameDropDownButton2_OnClick;
         };
@@ -629,15 +629,15 @@ function YatlasFrameTemplate:CenterOnZone(z)
     local map = self.opt.Map;
     local zoom = self:GetZoom();
 
-    if(not z or not Yatlas_mapareas[map] or
-            type(Yatlas_mapareas[map][z]) ~= "table") then
+    if(not z or not Twm_mapareas[map] or
+            type(Twm_mapareas[map][z]) ~= "table") then
         return;
     end
 
-    local x = (Yatlas_mapareas[map][z][1]+
-       Yatlas_mapareas[map][z][2])/2;
-    local y = (Yatlas_mapareas[map][z][3]+
-       Yatlas_mapareas[map][z][4])/2;
+    local x = (Twm_mapareas[map][z][1]+
+       Twm_mapareas[map][z][2])/2;
+    local y = (Twm_mapareas[map][z][3]+
+       Twm_mapareas[map][z][4])/2;
 
     local mx, my = Yatlas_Big2Mini_Coord(x,y);
 
@@ -663,7 +663,7 @@ function YatlasFrameDropDownButton2_OnClick(self)
         for i,v in ipairs(frame.zonepulldowns) do
             if(v == z) then
                 UIDropDownMenu_SetSelectedID(dd2, i);
-                UIDropDownMenu_SetText(dd2, Yatlas_areadb[z]);
+                UIDropDownMenu_SetText(dd2, Twm_areadb[z]);
                 break;
             end
         end
@@ -685,7 +685,7 @@ function YatlasFrameTemplate:UpdateDropDown2()
 	--print(tostring(v).." "..tostring(vid))
             if(v == zid) then
                 UIDropDownMenu_SetSelectedID(dd2, i);
-                UIDropDownMenu_SetText(dd2,Yatlas_areadb[zid]);
+                UIDropDownMenu_SetText(dd2,Twm_areadb[zid]);
                 found = true;
                 break;
             end
@@ -1161,7 +1161,7 @@ function YatlasFrameTemplate:GetZoneText(offx, offy)
 
     local r = {};
     for h,v in pairs(f) do
-        r[h] = Yatlas_areadb[v];
+        r[h] = Twm_areadb[v];
     end
 
     return unpack(r);
@@ -1179,7 +1179,7 @@ function YatlasFrameTemplate:GetZoneIDs(offx, offy)
     local cbx, cby = Yatlas_Mini2Big_Coord(cx, cy)
 
     -- TODO: this isn't very accurate
-    local maparea = Yatlas_mapareas[self.opt.Map];
+    local maparea = Twm_mapareas[self.opt.Map];
     for h,k in pairs(maparea) do
         if(h ~= 0 and cbx < k[1] and cbx > k[2] and cby < k[3] and cby > k[4])then
             return h
@@ -1198,23 +1198,23 @@ end
 -- API, which only reported landmarks for whatever page WorldMapFrame had
 -- open at the time).
 function Yatlas_ScrapeLandmarks()
-    for mapname, uiMapID in pairs(Yatlas_ContinentMapID) do
-        if(Yatlas_Landmarks[mapname] == nil and Yatlas_mapareas[mapname]) then
+    for mapname, uiMapID in pairs(Twm_ContinentMapID) do
+        if(Twm_Landmarks[mapname] == nil and Twm_mapareas[mapname]) then
             local x1,x2,y1,y2;
-            if(Yatlas_mapareas[mapname][0] ~= nil) then
-                x1 = Yatlas_mapareas[mapname][0][1];
-                x2 = Yatlas_mapareas[mapname][0][2];
-                y1 = Yatlas_mapareas[mapname][0][3];
-                y2 = Yatlas_mapareas[mapname][0][4];
+            if(Twm_mapareas[mapname][0] ~= nil) then
+                x1 = Twm_mapareas[mapname][0][1];
+                x2 = Twm_mapareas[mapname][0][2];
+                y1 = Twm_mapareas[mapname][0][3];
+                y2 = Twm_mapareas[mapname][0][4];
             else
-                local _,va = next(Yatlas_mapareas[mapname]);
+                local _,va = next(Twm_mapareas[mapname]);
                 x1 = va[1];
                 x2 = va[2];
                 y1 = va[3];
                 y2 = va[4];
             end
 
-            Yatlas_Landmarks[mapname] = {};
+            Twm_Landmarks[mapname] = {};
 
             local pois = C_AreaPoiInfo.GetAreaPOIForMap(uiMapID);
             if(pois) then
@@ -1224,7 +1224,7 @@ function Yatlas_ScrapeLandmarks()
                         local px, py = info.position:GetXY();
                         local x = (-px*(x1-x2) + x1);
                         local y = (-py*(y1-y2) + y1);
-                        tinsert(Yatlas_Landmarks[mapname],
+                        tinsert(Twm_Landmarks[mapname],
                                 {x, y, info.name, info.description, info.atlasName});
                     end
                 end
@@ -1241,18 +1241,18 @@ function YatlasFrameTemplate:OnWorldMapUpdateU(u)
     local viewframe = _G[lm.."ViewFrame"];
     local zoom = self.opt.Zoom
 
-    if(map == nil or Yatlas_mapareas[map] == nil) then
+    if(map == nil or Twm_mapareas[map] == nil) then
         return;
     end
 
     local x1,x2,y1,y2;
-    if(Yatlas_mapareas[map][0] ~= nil) then
-        x1 = Yatlas_mapareas[map][0][1];
-        x2 = Yatlas_mapareas[map][0][2];
-        y1 = Yatlas_mapareas[map][0][3];
-        y2 = Yatlas_mapareas[map][0][4];
+    if(Twm_mapareas[map][0] ~= nil) then
+        x1 = Twm_mapareas[map][0][1];
+        x2 = Twm_mapareas[map][0][2];
+        y1 = Twm_mapareas[map][0][3];
+        y2 = Twm_mapareas[map][0][4];
     else
-        local _,va = next(Yatlas_mapareas[map]);  
+        local _,va = next(Twm_mapareas[map]);  
         x1 = va[1];
         x2 = va[2];
         y1 = va[3];

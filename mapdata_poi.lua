@@ -2,7 +2,7 @@
 -- reported by this client (2.5.6 / TBC Anniversary) via
 -- C_Map.GetMapChildrenInfo(946, Enum.UIMapType.Continent, true).
 -- No Northrend entry: this client doesn't have a Northrend continent map.
-Yatlas_ContinentMapID = {
+Twm_ContinentMapID = {
     ["Kalimdor"] = 1414,
     ["Azeroth"] = 1415,      -- Eastern Kingdoms
     ["Expansion01"] = 1945,  -- Outland
@@ -12,16 +12,16 @@ Yatlas_ContinentMapID = {
 -- Display_Name - Actual Map Folder Name
 -- Display name is resolved live via C_Map.GetMapInfo so it always matches
 -- this client's own locale/era instead of a stale scraped translation.
-YA_MAPS = {
-    [C_Map.GetMapInfo(Yatlas_ContinentMapID["Azeroth"]).name] = {"Azeroth"},
-    [C_Map.GetMapInfo(Yatlas_ContinentMapID["Kalimdor"]).name] = {"Kalimdor"},
-    [C_Map.GetMapInfo(Yatlas_ContinentMapID["Expansion01"]).name] = {"Expansion01"},
+TWM_MAPS = {
+    [C_Map.GetMapInfo(Twm_ContinentMapID["Azeroth"]).name] = {"Azeroth"},
+    [C_Map.GetMapInfo(Twm_ContinentMapID["Kalimdor"]).name] = {"Kalimdor"},
+    [C_Map.GetMapInfo(Twm_ContinentMapID["Expansion01"]).name] = {"Expansion01"},
 };
 
-Yatlas_Landmarks = {};          -- this is filled in automatically too
+Twm_Landmarks = {};          -- this is filled in automatically too
 
 -- Instances (entrances)
-Yatlas_instances = {
+Twm_instances = {
     ["Kalimdor"] = {
         {"Ahn'Qiraj",           1526, -8132},
         {"Blackfathom Deeps",   888, 4138},
@@ -52,7 +52,7 @@ Yatlas_instances = {
     }
 };
 
-Yatlas_towns2 = {
+Twm_towns2 = {
     ["Kalimdor"] = {
         -- Ashenvale --
         {"Maestra's Post",          154, 3240},

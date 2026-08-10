@@ -5,9 +5,9 @@
 -- truth: a tile is only ever real if the client actually ships terrain
 -- for it, regardless of what the (possibly orphaned) minimap preview
 -- texture or C_Map zone data might otherwise suggest.
-Yatlas_WDTValidTiles = {}
+Twm_WDTValidTiles = {}
 
-Yatlas_WDTValidTiles["Azeroth"] = {
+Twm_WDTValidTiles["Azeroth"] = {
     ["35x20"] = true,
     ["36x20"] = true,
     ["37x20"] = true,
@@ -697,7 +697,7 @@ Yatlas_WDTValidTiles["Azeroth"] = {
     ["34x61"] = true,
 }
 
-Yatlas_WDTValidTiles["Kalimdor"] = {
+Twm_WDTValidTiles["Kalimdor"] = {
     ["25x09"] = true,
     ["26x09"] = true,
     ["27x09"] = true,
@@ -1679,7 +1679,7 @@ Yatlas_WDTValidTiles["Kalimdor"] = {
     ["42x55"] = true,
 }
 
-Yatlas_WDTValidTiles["Expansion01"] = {
+Twm_WDTValidTiles["Expansion01"] = {
     ["42x06"] = true,
     ["43x06"] = true,
     ["44x06"] = true,

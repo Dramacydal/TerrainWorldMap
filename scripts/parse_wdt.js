@@ -1,5 +1,5 @@
 // Standalone port of wow.export's WDTLoader.js MAIN/MAID parsing.
-// Regenerates mapdata_tiles.lua (Yatlas_WDTValidTiles) -- a complete, ready-to-use
+// Regenerates mapdata_tiles.lua (Twm_WDTValidTiles) -- a complete, ready-to-use
 // replacement, covering as many continents as you pass in in one go.
 //
 // Usage:
@@ -12,9 +12,9 @@
 // MAIN/MAID chunks.
 //
 // Axis mapping (derived from wow.export's MapViewerScreen.js world<->tile
-// formulas + Yatlas's own Yatlas_Mini2Big_Coord): Yatlas's tile "col" is
-// the WDT's tile Y index, Yatlas's tile "row" is the WDT's tile X index.
-// i.e. Yatlas key "COLxROW" <-> WDT tile (x=ROW, y=COL).
+// formulas + TerrainWorldMap's own Yatlas_Mini2Big_Coord): TerrainWorldMap's tile "col" is
+// the WDT's tile Y index, TerrainWorldMap's tile "row" is the WDT's tile X index.
+// i.e. TerrainWorldMap key "COLxROW" <-> WDT tile (x=ROW, y=COL).
 // This was empirically verified (not just theorized) by matching a real
 // bug screenshot pixel-for-pixel against this script's output -- see
 // README.md's "Axis mapping" section for the full story. If you ever
@@ -105,7 +105,7 @@ function getValidTiles(filePath) {
 			}
 
 			if (exists) {
-				// Yatlas col = WDT y, Yatlas row = WDT x (see header comment).
+				// TerrainWorldMap col = WDT y, TerrainWorldMap row = WDT x (see header comment).
 				const key = String(y).padStart(2, '0') + 'x' + String(x).padStart(2, '0');
 				validTiles.push(key);
 			}
@@ -137,13 +137,13 @@ function main() {
 	let lua = "-- GENERATED FILE -- do not hand-edit, regenerate with scripts/parse_wdt.js\n"
 		+ "-- and replace this file wholesale. See scripts/README.md for details.\n"
 		+ "--\n"
-		+ "-- Which map tiles (Yatlas grid-cell coords) have real terrain, extracted\n"
+		+ "-- Which map tiles (TerrainWorldMap grid-cell coords) have real terrain, extracted\n"
 		+ "-- from this client's own world/maps/<continent>/<continent>.wdt files\n"
 		+ "-- (MAIN/MAID chunks, rootADT field). This is ground truth: a tile is only\n"
 		+ "-- ever real if the client actually ships terrain for it, regardless of\n"
 		+ "-- what the (possibly orphaned) minimap preview texture or C_Map zone data\n"
 		+ "-- might otherwise suggest.\n"
-		+ "Yatlas_WDTValidTiles = {}\n";
+		+ "Twm_WDTValidTiles = {}\n";
 
 	for (let i = 0; i < pairs.length; i += 2) {
 		const filePath = pairs[i];
@@ -152,7 +152,7 @@ function main() {
 		console.error(`${contName}:`);
 		const validTiles = getValidTiles(filePath);
 
-		lua += `\nYatlas_WDTValidTiles["${contName}"] = {\n`;
+		lua += `\nTwm_WDTValidTiles["${contName}"] = {\n`;
 		for (const key of validTiles)
 			lua += `    ["${key}"] = true,\n`;
 		lua += '}\n';

@@ -3,7 +3,7 @@
 Node.js scripts (run outside the game, `node <script>.js ...`) used to (re)generate
 TerrainWorldMap's map data from real client data instead of hand-collecting/guessing it.
 Not loaded by the addon itself — `.js` files are ignored by the WoW addon loader
-(only files listed in `Yatlas.toc` get loaded), so this folder is safe to keep
+(only files listed in `TerrainWorldMap.toc` get loaded), so this folder is safe to keep
 in the addon directory or delete entirely once you're done with it.
 
 Both scripts print progress/warnings to stderr and write a **complete,
@@ -19,22 +19,22 @@ some zone.
 ## gen_mapareas.js — zone bounding boxes (`mapdata_continents.lua`)
 
 Rebuilds `mapdata_continents.lua` — the Azeroth/Kalimdor/Expansion01
-`Yatlas_mapareas[...]` assignments (per-zone bounding boxes used for the
+`Twm_mapareas[...]` assignments (per-zone bounding boxes used for the
 zone dropdown, click-to-center, and zone-name lookups) — straight from
 Blizzard's own `Map`/`UiMap`/`UiMapAssignment` DBC tables, instead of the
 addon's original ~2011 hand-collected coordinates (which, it turns out, are
 measurably stale — see "why regenerate" below).
 
-`mapdata_continents.lua` loads right after `mapdata_zones.lua` in `Yatlas.toc`.
-`mapdata_zones.lua` just declares an empty `Yatlas_mapareas = {}` table —
+`mapdata_continents.lua` loads right after `mapdata_zones.lua` in `TerrainWorldMap.toc`.
+`mapdata_zones.lua` just declares an empty `Twm_mapareas = {}` table —
 `mapdata_continents.lua` adds the three continent keys to it, so it's safe
 to overwrite on its own without touching `mapdata_zones.lua`. TerrainWorldMap only
 ever renders these 3 continents, so no other keys (battlegrounds, dungeons,
 raids, Northrend) belong in this table.
 
-The same file also emits `Yatlas_UiMapID2Zone[uiMapID] = {continent, areaID}`,
+The same file also emits `Twm_UiMapID2Zone[uiMapID] = {continent, areaID}`,
 a straight index from a WorldMapFrame-style uiMapID to its
-`Yatlas_mapareas[continent][areaID]` box. `WorldMapOverlay.lua` uses it as
+`Twm_mapareas[continent][areaID]` box. `WorldMapOverlay.lua` uses it as
 ground truth ahead of any C_Map-hierarchy guess, because a few zones (the
 Draenei and Blood Elf starting isles) are filed under a *different*
 continent's DBC `MapID` than where C_Map's own uiMap tree nominally parents
@@ -96,10 +96,10 @@ pick out the `[0]` whole-continent box), get the current values in-game with:
 /run for _,v in ipairs(C_Map.GetMapChildrenInfo(946, Enum.UIMapType.Continent, true)) do print(v.mapID, v.name) end
 ```
 
-## parse_wdt.js — real terrain existence (`Yatlas_WDTValidTiles`, `mapdata_tiles.lua`)
+## parse_wdt.js — real terrain existence (`Twm_WDTValidTiles`, `mapdata_tiles.lua`)
 
 Determines which map tiles have **real terrain** in this specific client
-build, and generates the `Yatlas_WDTValidTiles` table (`mapdata_tiles.lua`) that
+build, and generates the `Twm_WDTValidTiles` table (`mapdata_tiles.lua`) that
 TerrainWorldMap actually gates its tile rendering on.
 
 **Why this exists:** a map tile's *minimap preview texture*
@@ -109,7 +109,7 @@ its *real terrain* are two independent pieces of data in Blizzard's own
 *later* expansion (e.g. Cataclysm's Twilight Highlands/Vashj'ir) while
 having **zero real terrain** in a TBC-era client. Every other approach we
 tried (`C_Map.GetMapInfoAtPosition`, `C_Map.GetMapPosFromWorldPos`, a pure
-`Yatlas_mapareas` bounding-box check) was an *indirect* proxy for "is there
+`Twm_mapareas` bounding-box check) was an *indirect* proxy for "is there
 real terrain here" and each had false positives or false negatives near
 zone edges/coastlines/continent corners. Reading the `.wdt` file directly
 gives the actual ground truth Blizzard's own tools use (confirmed by
@@ -129,12 +129,12 @@ Point `<out-file.lua>` straight at `../mapdata_tiles.lua` to overwrite it in pla
 
 Writes one complete file containing all the continents you passed:
 ```lua
-Yatlas_WDTValidTiles = {}
-Yatlas_WDTValidTiles["Azeroth"] = {
+Twm_WDTValidTiles = {}
+Twm_WDTValidTiles["Azeroth"] = {
     ["35x24"] = true,
     ...
 }
-Yatlas_WDTValidTiles["Kalimdor"] = { ... }
+Twm_WDTValidTiles["Kalimdor"] = { ... }
 ```
 
 Also runs a few built-in sanity checks (tiles we've already manually

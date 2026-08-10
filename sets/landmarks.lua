@@ -6,17 +6,17 @@ local set = {name="landmarks"};
 
 function set.getpoints(name, map) 
     -- we got these from map api.  don't use if we see Megellan
-    if(type(Yatlas_Landmarks[map]) == "table" and Magellan_Init == nil) then
-        for h,v in ipairs(Yatlas_Landmarks[map]) do
+    if(type(Twm_Landmarks[map]) == "table" and Magellan_Init == nil) then
+        for h,v in ipairs(Twm_Landmarks[map]) do
             local x,y = Yatlas_Big2Mini_Coord(v[1],v[2]);
 
-            YAPoints_AddPoint(nil, "landmarks", v[3], x, y, nil, Yatlas_Landmarks[map][h]);
+            YAPoints_AddPoint(nil, "landmarks", v[3], x, y, nil, Twm_Landmarks[map][h]);
         end
     end
 
     -- we got these...from OURSELVES!
-    if(type(Yatlas_instances[map]) == "table") then
-        for h,v in ipairs(Yatlas_instances[map]) do
+    if(type(Twm_instances[map]) == "table") then
+        for h,v in ipairs(Twm_instances[map]) do
             local x,y = Yatlas_Big2Mini_Coord(v[2],v[3]);
 
             YAPoints_AddPoint(nil, "landmarks", v[1], x, y, nil, landmarkaltinstance);
@@ -24,8 +24,8 @@ function set.getpoints(name, map)
     end
 
      -- 'other towns' ...we got these...from OURSELVES!
-    if(type(Yatlas_towns2[map]) == "table") then
-        for h,v in ipairs(Yatlas_towns2[map]) do
+    if(type(Twm_towns2[map]) == "table") then
+        for h,v in ipairs(Twm_towns2[map]) do
             local x,y = Yatlas_Big2Mini_Coord(v[2],v[3]);
 
             YAPoints_AddPoint(nil, "landmarks", v[1], x, y, nil, landmarkalttown);

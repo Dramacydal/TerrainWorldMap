@@ -1,5 +1,5 @@
 // Regenerates mapdata_continents.lua (the Azeroth/Kalimdor/Expansion01
-// blocks of Yatlas_mapareas) from official DBC CSV exports. The output file
+// blocks of Twm_mapareas) from official DBC CSV exports. The output file
 // is a complete, ready-to-use replacement -- just overwrite
 // mapdata_continents.lua with it, no manual merging needed.
 // Usage:
@@ -12,18 +12,18 @@
 // (exact filenames are auto-detected by prefix match, see findCsv() below --
 // export these via wow.export's DBC tab, or any other WDBX/DBD-based tool).
 //
-// Coordinate transform: Yatlas's "Big" (world-yard) coordinate box format is
+// Coordinate transform: TerrainWorldMap's "Big" (world-yard) coordinate box format is
 // {x1, x2, y1, y2} = {maxX, minX, maxY, minY}. UiMapAssignment's Region_0..5
 // fields are a raw world-space AABB (Region_0/1/2 = min X/Y/Z, Region_3/4/5
 // = max X/Y/Z). Cross-calibrated against Outland (never touched by
-// Cataclysm, so old hand-collected Yatlas data and fresh DBC data should
+// Cataclysm, so old hand-collected data and fresh DBC data should
 // match exactly if the transform is right) -- confirmed exact match with:
-//   Yatlas{x1,x2,y1,y2} = {Region_4, Region_1, Region_3, Region_0}
-// i.e. Yatlas-X = world Y, Yatlas-Y = world X, no offset/scale needed.
+//   TerrainWorldMap{x1,x2,y1,y2} = {Region_4, Region_1, Region_3, Region_0}
+// i.e. TerrainWorldMap-X = world Y, TerrainWorldMap-Y = world X, no offset/scale needed.
 //
 // Why regenerate at all instead of trusting old hand-collected data: even
 // "untouched" Eastern Kingdoms/Kalimdor zones (e.g. Dun Morogh) differ from
-// the ~2011 Yatlas data by up to a few hundred yards using this exact same
+// the ~2011 data by up to a few hundred yards using this exact same
 // transform -- Cataclysm's Shattering subtly recalibrated Azeroth/Kalimdor
 // terrain even where no content revamp happened. Outland is the only
 // continent guaranteed unchanged, which is why it was used as the control.
@@ -102,7 +102,7 @@ function main() {
 	const ourUiMapID = { 'Azeroth': '1415', 'Kalimdor': '1414', 'Expansion01': '1945' };
 
 	// uiMapID -> {continent, areaID}, so callers with a WorldMapFrame-style
-	// uiMapID (not an AreaID) can look up its Yatlas_mapareas box directly --
+	// uiMapID (not an AreaID) can look up its Twm_mapareas box directly --
 	// needed because a handful of zones (Draenei/Blood Elf starting isles)
 	// are filed under a *different* continent's MapID here than where
 	// C_Map's own uiMap hierarchy nominally parents them (e.g. Eversong
@@ -116,7 +116,7 @@ function main() {
 		+ "--\n"
 		+ "-- Zone bounding boxes for the 3 open-world continents, extracted straight\n"
 		+ "-- from this client's own Map/UiMap/UiMapAssignment DBC data (rather than\n"
-		+ "-- hand-collected). Loads after mapdata_zones.lua, which declares Yatlas_mapareas.\n\n";
+		+ "-- hand-collected). Loads after mapdata_zones.lua, which declares Twm_mapareas.\n\n";
 
 	for (const [contName, mapID] of Object.entries(continents)) {
 		if (!mapID) {
@@ -153,7 +153,7 @@ function main() {
 
 		console.error(`${contName} (MapID=${mapID}): ${out.length} zones`);
 
-		let lua = `Yatlas_mapareas["${contName}"] = {\n` + rootStr;
+		let lua = `Twm_mapareas["${contName}"] = {\n` + rootStr;
 		for (const e of out)
 			lua += `\t[${e.areaID}] = {${e.x1}, ${e.x2}, ${e.y1}, ${e.y2}},    --${e.name.replace(/[^A-Za-z0-9']/g, '')}\n`;
 		lua += `}\n`;
@@ -161,7 +161,7 @@ function main() {
 		fullOutput += lua;
 	}
 
-	fullOutput += '\nYatlas_UiMapID2Zone = {\n';
+	fullOutput += '\nTwm_UiMapID2Zone = {\n';
 	for (const uiMapID of Object.keys(uiMapIDIndex).sort((a, b) => parseInt(a, 10) - parseInt(b, 10))) {
 		const e = uiMapIDIndex[uiMapID];
 		fullOutput += `\t[${uiMapID}] = {"${e.continent}", ${e.areaID}},\n`;

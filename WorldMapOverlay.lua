@@ -1,5 +1,5 @@
 -- Overlays Yatlas's own baked minimap tile mosaic (World\Minimaps\<continent>\
--- mapXX_YY.blp, gated by Yatlas_WDTValidTiles ground truth) onto the stock
+-- mapXX_YY.blp, gated by Twm_WDTValidTiles ground truth) onto the stock
 -- WorldMapFrame (opened with "M"), as an alternative to Blizzard's "painted"
 -- continent/zone art -- for continents Yatlas knows about (Azeroth/Kalimdor/
 -- Expansion01), at whatever zoom level (continent or zone) is shown.
@@ -67,7 +67,7 @@ end
 -- continent's tile mosaic it should be drawn from. Three sources, in
 -- priority order:
 --
--- 1. Yatlas_UiMapID2Zone (mapdata_continents.lua, generated from the same
+-- 1. Twm_UiMapID2Zone (mapdata_continents.lua, generated from the same
 --    UiMapAssignment DBC rows as the zone boxes) -- ground truth. Needed
 --    because a handful of zones (Draenei/Blood Elf starting isles) are
 --    filed under a *different* continent's DBC MapID than where C_Map's
@@ -83,15 +83,15 @@ end
 --    Not reliable for zones covered by case 1 (see above), which is why
 --    that lookup takes priority over this one.
 local function GetViewBigBox(mapID)
-    local known = Yatlas_UiMapID2Zone[mapID];
+    local known = Twm_UiMapID2Zone[mapID];
     if(known) then
-        local box = Yatlas_mapareas[known[1]][known[2]];
+        local box = Twm_mapareas[known[1]][known[2]];
         if(box) then return known[1], box[1], box[2], box[3], box[4]; end
     end
 
-    for continent, continentMapID in pairs(Yatlas_ContinentMapID) do
+    for continent, continentMapID in pairs(Twm_ContinentMapID) do
         if(mapID == continentMapID) then
-            local box = Yatlas_mapareas[continent][0];
+            local box = Twm_mapareas[continent][0];
             return continent, box[1], box[2], box[3], box[4];
         end
     end
@@ -99,18 +99,18 @@ local function GetViewBigBox(mapID)
     local hint = Yatlas_GetContinentForMapID(mapID);
     local tryOrder = {};
     if(hint) then table.insert(tryOrder, hint); end
-    for continent in pairs(Yatlas_ContinentMapID) do
+    for continent in pairs(Twm_ContinentMapID) do
         if(continent ~= hint) then table.insert(tryOrder, continent); end
     end
 
     for _, continent in ipairs(tryOrder) do
-        local left, right, top, bottom = C_Map.GetMapRectOnMap(mapID, Yatlas_ContinentMapID[continent]);
+        local left, right, top, bottom = C_Map.GetMapRectOnMap(mapID, Twm_ContinentMapID[continent]);
         -- GetMapRectOnMap can return a degenerate {0,0,0,0} (not nil) for a
         -- map that isn't really geometrically related to this continent --
         -- e.g. the "both continents"/cosmic zoom-out views -- and 0 is
         -- truthy in Lua, so require an actual positive-area rect.
         if(left and right > left and bottom > top) then
-            local cbox = Yatlas_mapareas[continent][0];
+            local cbox = Twm_mapareas[continent][0];
             local cx1,cx2,cy1,cy2 = cbox[1],cbox[2],cbox[3],cbox[4];
             local bx1, by1 = (-left*(cx1-cx2) + cx1), (-top*(cy1-cy2) + cy1);
             local bx2, by2 = (-right*(cx1-cx2) + cx1), (-bottom*(cy1-cy2) + cy1);
@@ -131,7 +131,7 @@ end
 -- higher draws on top -- since insets must render over the main continent
 -- tiles wherever they happen to overlap.
 local function DrawTiles(continent, bx1, bx2, by1, by2, targetX1, targetY1, targetX2, targetY2, startIdx, sublevel)
-    if(not Yatlas_WDTValidTiles[continent]) then return startIdx; end
+    if(not Twm_WDTValidTiles[continent]) then return startIdx; end
 
     local mnx1, mny1 = Yatlas_Big2Mini_Coord(bx1, by1);
     local mnx2, mny2 = Yatlas_Big2Mini_Coord(bx2, by2);
@@ -149,7 +149,7 @@ local function DrawTiles(continent, bx1, bx2, by1, by2, targetX1, targetY1, targ
     for col = colMin, colMax - 1 do
         for row = rowMin, rowMax - 1 do
             local tilekey = format("%.2dx%.2d", col, row);
-            if(Yatlas_WDTValidTiles[continent][tilekey]) then
+            if(Twm_WDTValidTiles[continent][tilekey]) then
                 local px1, py1 = BigToTargetPixel(Yatlas_Mini2Big_Coord(col, row));
                 local px2, py2 = BigToTargetPixel(Yatlas_Mini2Big_Coord(col+1, row+1));
 
@@ -195,7 +195,7 @@ local function RefreshOverlay()
     end
 
     -- Big-coord box of the current view: bx1/by1 = max X/Y, bx2/by2 = min
-    -- X/Y, matching Yatlas_mapareas' own {x1,x2,y1,y2} convention. Also nil
+    -- X/Y, matching Twm_mapareas' own {x1,x2,y1,y2} convention. Also nil
     -- on "world" maps that group whole continents together (the "Azeroth"
     -- map showing Kalimdor + Eastern Kingdoms side by side, or the true
     -- cosmic map above that) -- those aren't themselves on any one
@@ -204,10 +204,10 @@ local function RefreshOverlay()
 
     -- Capital city maps (Stormwind, Orgrimmar, etc.) aren't covered by the
     -- minimap tile mosaic at a useful scale/detail -- off by default,
-    -- opt-in only. Yatlas_CityMapIDs is a hand-collected list (see
+    -- opt-in only. Twm_CityMapIDs is a hand-collected list (see
     -- mapdata_zones.lua) since Blizzard's map hierarchy gives no
     -- type/parent-based way to tell a city map apart from a real zone.
-    if(continent and Yatlas_CityMapIDs[mapID] and not YatlasOptions.WorldMapOverlayCityMaps) then
+    if(continent and Twm_CityMapIDs[mapID] and not YatlasOptions.WorldMapOverlayCityMaps) then
         continent = nil;
     end
 
@@ -230,7 +230,7 @@ local function RefreshOverlay()
 
         -- Continent-level view: also draw any "orphan" zones that C_Map's
         -- own hierarchy nominally parents here, but whose real terrain (per
-        -- Yatlas_UiMapID2Zone) lives on a *different* continent -- e.g.
+        -- Twm_UiMapID2Zone) lives on a *different* continent -- e.g.
         -- Eversong Woods/Ghostlands/Isle of Quel'Danas under Eastern
         -- Kingdoms, Azuremyst/Bloodmyst Isle under Kalimdor.
         --
@@ -241,13 +241,13 @@ local function RefreshOverlay()
         -- fitting them independently would drift neighbouring zones (e.g.
         -- Eversong Woods and Isle of Quel'Danas) apart even though their
         -- real coordinates are adjacent.
-        if(YatlasOptions.WorldMapOverlayChildMaps and mapID == Yatlas_ContinentMapID[continent]) then
+        if(YatlasOptions.WorldMapOverlayChildMaps and mapID == Twm_ContinentMapID[continent]) then
             local groups = {};
             for _, childInfo in ipairs(C_Map.GetMapChildrenInfo(mapID) or {}) do
-                local known = Yatlas_UiMapID2Zone[childInfo.mapID];
+                local known = Twm_UiMapID2Zone[childInfo.mapID];
                 if(known and known[1] ~= continent) then
                     local left, right, top, bottom = C_Map.GetMapRectOnMap(childInfo.mapID, mapID);
-                    local box = left and Yatlas_mapareas[known[1]][known[2]];
+                    local box = left and Twm_mapareas[known[1]][known[2]];
                     if(box) then
                         local g = groups[known[1]];
                         if(not g) then
@@ -284,11 +284,11 @@ local function RefreshOverlay()
         local mapInfo = C_Map.GetMapInfo(mapID);
         if(YatlasOptions.WorldMapOverlayWorldView and mapInfo and mapInfo.mapType == Enum.UIMapType.World) then
             for _, childInfo in ipairs(C_Map.GetMapChildrenInfo(mapID) or {}) do
-                for childContinent, childContinentMapID in pairs(Yatlas_ContinentMapID) do
+                for childContinent, childContinentMapID in pairs(Twm_ContinentMapID) do
                     if(childInfo.mapID == childContinentMapID) then
                         local left, right, top, bottom = C_Map.GetMapRectOnMap(childContinentMapID, mapID);
                         if(left and right > left and bottom > top) then
-                            local box = Yatlas_mapareas[childContinent][0];
+                            local box = Twm_mapareas[childContinent][0];
                             idx = DrawTiles(childContinent, box[1], box[2], box[3], box[4],
                                 left*frameW, top*frameH, right*frameW, bottom*frameH, idx, 0);
                         end

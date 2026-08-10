@@ -3,9 +3,9 @@
 --
 -- Zone bounding boxes for the 3 open-world continents, extracted straight
 -- from this client's own Map/UiMap/UiMapAssignment DBC data (rather than
--- hand-collected). Loads after mapdata_zones.lua, which declares Yatlas_mapareas.
+-- hand-collected). Loads after mapdata_zones.lua, which declares Twm_mapareas.
 
-Yatlas_mapareas["Azeroth"] = {
+Twm_mapareas["Azeroth"] = {
 	[0] = {18171.970703125, -22569.2109375, 11176.34375, -15973.34375},    --Azeroth
 	[1] = {1802.0832519531, -3122.9165039062, -3877.0832519531, -7160.4165039062},    --DunMorogh
 	[3] = {-2079.1665039062, -4566.6665039062, -5889.5830078125, -7547.9165039062},    --Badlands
@@ -33,7 +33,7 @@ Yatlas_mapareas["Azeroth"] = {
 	[1519] = {1380.9714355469, 36.70063018799, -8278.8505859375, -9175.205078125},    --StormwindCity
 	[1537] = {-713.59136962891, -1504.2164306641, -4569.2412109375, -5096.845703125},    --Ironforge
 }
-Yatlas_mapareas["Kalimdor"] = {
+Twm_mapareas["Kalimdor"] = {
 	[0] = {17066.599609375, -19733.2109375, 12799.900390625, -11733.299804688},    --Kalimdor
 	[14] = {-1962.4998779297, -7249.9995117188, 1808.3332519531, -1716.6666259766},    --Durotar
 	[15] = {-974.99993896484, -6225, -2033.3332519531, -5533.3330078125},    --DustwallowMarsh
@@ -57,7 +57,7 @@ Yatlas_mapareas["Kalimdor"] = {
 	[1638] = {516.66662597656, -527.08331298828, -849.99993896484, -1545.8332519531},    --ThunderBluff
 	[1657] = {2938.3627929688, 1880.0295410156, 10238.31640625, 9532.5869140625},    --Darnassus
 }
-Yatlas_mapareas["Expansion01"] = {
+Twm_mapareas["Expansion01"] = {
 	[0] = {12996.0390625, -4468.0390625, 5821.359375, -5821.359375},    --Expansion01
 	[3430] = {-4487.5, -9412.5, 11041.666015625, 7758.3330078125},    --EversongWoods
 	[3433] = {-5283.3330078125, -8583.3330078125, 8266.666015625, 6066.6665039062},    --Ghostlands
@@ -76,7 +76,7 @@ Yatlas_mapareas["Expansion01"] = {
 	[4080] = {-5302.0830078125, -8629.166015625, 13568.749023438, 11350},    --IsleofQuel'Danas
 }
 
-Yatlas_UiMapID2Zone = {
+Twm_UiMapID2Zone = {
 	[1411] = {"Kalimdor", 14},
 	[1412] = {"Kalimdor", 215},
 	[1413] = {"Kalimdor", 17},

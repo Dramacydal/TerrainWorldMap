@@ -72,18 +72,18 @@ function set.internal.OnWorldMapUpdateUnit(u)
         return;
     end
 
-    if(Yatlas_mapareas[map] == nil) then
+    if(Twm_mapareas[map] == nil) then
         return;
     end
 
     local x1,x2,y1,y2;
-    if(Yatlas_mapareas[map][0] ~= nil) then
-        x1 = Yatlas_mapareas[map][0][1];
-        x2 = Yatlas_mapareas[map][0][2];
-        y1 = Yatlas_mapareas[map][0][3];
-        y2 = Yatlas_mapareas[map][0][4];
+    if(Twm_mapareas[map][0] ~= nil) then
+        x1 = Twm_mapareas[map][0][1];
+        x2 = Twm_mapareas[map][0][2];
+        y1 = Twm_mapareas[map][0][3];
+        y2 = Twm_mapareas[map][0][4];
     else
-        local _,va = next(Yatlas_mapareas[map]);  
+        local _,va = next(Twm_mapareas[map]);  
         x1 = va[1];
         x2 = va[2];
         y1 = va[3];
