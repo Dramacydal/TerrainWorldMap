@@ -1,4 +1,4 @@
-Yatlas provides a minimap-based map of the world (reasonably high detail).
+TerrainWorldMap provides a minimap-based map of the world (reasonably high detail).
 
 There are two different modes:
 

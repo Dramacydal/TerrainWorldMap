@@ -1,8 +1,8 @@
 ## Interface: 20506
-## Title: Yatlas
+## Title: TerrainWorldMap
 ## Version: 1.0.0
 ## Author: Boo Diddly, Dramacydal
-## Notes: Yet another atlas
+## Notes: Overlays real terrain tiles onto the World Map
 ## IconTexture: Interface\AddOns\Yatlas\images\Button
 ## DefaultState: Enabled
 ## LoadOnDemand: 0
@@ -16,11 +16,11 @@ mapdata_continents.lua
 mapdata_poi.lua
 mapdata_tiles.lua
 Points.lua
-Yatlas.lua
+TerrainWorldMap.lua
 WorldMapOverlay.lua
 WorldMapButton.xml
 Templates.xml
-Yatlas.xml
+TerrainWorldMap.xml
 Settings.lua
-YatlasButton.lua
+TerrainWorldMapButton.lua
 sets\index.xml

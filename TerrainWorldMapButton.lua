@@ -1,7 +1,7 @@
 local LDB = LibStub("LibDataBroker-1.1");
 local icon = LibStub("LibDBIcon-1.0");
 
-local YatlasLDB = LDB:NewDataObject("Yatlas", {
+local YatlasLDB = LDB:NewDataObject("TerrainWorldMap", {
     type = "launcher",
     icon = "Interface\\AddOns\\Yatlas\\images\\Button",
     OnClick = function(self, button)
@@ -36,9 +36,9 @@ local YatlasLDB = LDB:NewDataObject("Yatlas", {
 
 function YatlasButton_Update()
     if(YatlasOptions.ShowButton) then
-        icon:Show("Yatlas");
+        icon:Show("TerrainWorldMap");
     else
-        icon:Hide("Yatlas");
+        icon:Hide("TerrainWorldMap");
     end
 end
 
@@ -49,6 +49,6 @@ buttonframe:SetScript("OnEvent", function(self, event, ...)
         YatlasOptions.MinimapButton = {};
     end
 
-    icon:Register("Yatlas", YatlasLDB, YatlasOptions.MinimapButton);
+    icon:Register("TerrainWorldMap", YatlasLDB, YatlasOptions.MinimapButton);
     YatlasButton_Update();
 end);

@@ -1,8 +1,9 @@
 
-Yatlas ChangeLog
+TerrainWorldMap ChangeLog
 ================
 1.0.0 (August 10, 2026)
 ----------------------------
+- Renamed: the addon is now TerrainWorldMap (formerly Yatlas).
 - Added: support for WoW Classic TBC Anniversary (client build 2.5.6.69110,
   Interface 20506).
 - Added: native Blizzard AddOn settings panel (Esc > Options > AddOns),
@@ -14,7 +15,7 @@ Yatlas ChangeLog
   options control drawing tiles on child (zoomed-in) maps, on the combined
   Azeroth world view, and on capital city maps (off by default).
 - Added: right-click context menu on both the minimap button and the new
-  WorldMapFrame button (Open Yatlas, Settings, tile toggles).
+  WorldMapFrame button (Open TerrainWorldMap, Settings, tile toggles).
 - Added: YatlasFrame is now truly resizable (not just scalable) and movable
   by default; a "Reset Position" button in Settings restores its default
   size, position, and zoom.
@@ -35,7 +36,7 @@ Yatlas ChangeLog
   this client's own .wdt terrain files instead of an indirect proxy,
   fixing false positives/negatives near zone edges, coastlines, and
   continent corners.
-- Removed: dungeon, battleground, and Northrend map data -- Yatlas now only
+- Removed: dungeon, battleground, and Northrend map data -- TerrainWorldMap now only
   covers the 3 open-world continents (Kalimdor, Eastern Kingdoms, Outland).
 - Removed: graveyard display feature.
 - Removed: BigYatlasFrame and the /bigyatlas command, superseded by the

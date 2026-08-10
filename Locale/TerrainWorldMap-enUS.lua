@@ -11,7 +11,7 @@ YATLAS_AUTHOR_EMAIL = "PulLumBerMal@gmail.com";
 
 -- localize from this point on as needed
 YATLAS_HELP_TEXT = {
-    "Yatlas provides a minimap-based map of the world (reasonably high "..
+    "TerrainWorldMap provides a minimap-based map of the world (reasonably high "..
         "detail).\n\n"..
     "To move your view around click and drag on the map itself. You can "..
         "choose which map (currently Kalimdor, the Eastern Kingdoms, and "..
@@ -20,26 +20,26 @@ YATLAS_HELP_TEXT = {
     "Mousing over a point of interest will bring up a tooltip.\n"
     };
 
-YATLAS_BUTTON_TOOLTIP1 = "Yatlas";
+YATLAS_BUTTON_TOOLTIP1 = "TerrainWorldMap";
 YATLAS_PLAYERJUMP = "Goto Player";
 YATLAS_OPTIONSBUTTON = "Options";
 
 -- Minimap/world-map button tooltips and right-click context menu
-YATLAS_TOOLTIP_LEFTCLICK_OPEN = "|cff40ff40Left-click|r: open Yatlas";
+YATLAS_TOOLTIP_LEFTCLICK_OPEN = "|cff40ff40Left-click|r: open TerrainWorldMap";
 YATLAS_TOOLTIP_LEFTCLICK_OVERLAY_ON = "|cff40ff40Left-click|r: enable baked map overlay";
 YATLAS_TOOLTIP_LEFTCLICK_OVERLAY_OFF = "|cff40ff40Left-click|r: disable baked map overlay";
 YATLAS_TOOLTIP_RIGHTCLICK_MENU = "|cff40ff40Right-click|r: menu";
-YATLAS_MENU_OPEN = "Open Yatlas";
+YATLAS_MENU_OPEN = "Open TerrainWorldMap";
 YATLAS_MENU_SETTINGS = "Settings";
 YATLAS_MENU_CHILDMAP_TILES = "Draw child-map tiles";
 YATLAS_MENU_WORLDVIEW_TILES = "Draw tiles on Azeroth (world) map";
 YATLAS_MENU_CITYMAP_TILES = "Draw tiles on city maps";
-YATLAS_WORLDMAP_OVERLAY_ON = "Yatlas: world map overlay ON";
-YATLAS_WORLDMAP_OVERLAY_OFF = "Yatlas: world map overlay OFF";
-YATLAS_DEBUG_TILES_ON = "Yatlas: tile debug labels ON";
-YATLAS_DEBUG_TILES_OFF = "Yatlas: tile debug labels OFF";
+YATLAS_WORLDMAP_OVERLAY_ON = "TerrainWorldMap: world map overlay ON";
+YATLAS_WORLDMAP_OVERLAY_OFF = "TerrainWorldMap: world map overlay OFF";
+YATLAS_DEBUG_TILES_ON = "TerrainWorldMap: tile debug labels ON";
+YATLAS_DEBUG_TILES_OFF = "TerrainWorldMap: tile debug labels OFF";
 
-YATLAS_OPTIONS_TITLE = "Yatlas Options";
+YATLAS_OPTIONS_TITLE = "TerrainWorldMap Options";
 YATLAS_OPTIONS_TAB_WORLDMAP = "World Map";
 YATLAS_OPTIONS_TAB_BROWSER = "Browser";
 YATLAS_OPTIONS_ENABLEBUTTON = "Enable Minimap Button";
@@ -56,6 +56,6 @@ YATLAS_UNKNOWN_ZONE = "Unknown";
 YATLAS_ZOOMIN =     "+";
 YATLAS_ZOOMOUT =     "-";
 
-BINDING_NAME_YATLAS_TOGGLE = "Toggle Yatlas Frame";
+BINDING_NAME_YATLAS_TOGGLE = "Toggle TerrainWorldMap Frame";
 BINDING_HEADER_YATLAS = YATLAS_TITLE;
 

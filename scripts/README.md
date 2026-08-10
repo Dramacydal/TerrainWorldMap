@@ -1,7 +1,7 @@
-# Yatlas map-data generation scripts
+# TerrainWorldMap map-data generation scripts
 
 Node.js scripts (run outside the game, `node <script>.js ...`) used to (re)generate
-Yatlas's map data from real client data instead of hand-collecting/guessing it.
+TerrainWorldMap's map data from real client data instead of hand-collecting/guessing it.
 Not loaded by the addon itself — `.js` files are ignored by the WoW addon loader
 (only files listed in `Yatlas.toc` get loaded), so this folder is safe to keep
 in the addon directory or delete entirely once you're done with it.
@@ -28,7 +28,7 @@ measurably stale — see "why regenerate" below).
 `mapdata_continents.lua` loads right after `mapdata_zones.lua` in `Yatlas.toc`.
 `mapdata_zones.lua` just declares an empty `Yatlas_mapareas = {}` table —
 `mapdata_continents.lua` adds the three continent keys to it, so it's safe
-to overwrite on its own without touching `mapdata_zones.lua`. Yatlas only
+to overwrite on its own without touching `mapdata_zones.lua`. TerrainWorldMap only
 ever renders these 3 continents, so no other keys (battlegrounds, dungeons,
 raids, Northrend) belong in this table.
 
@@ -42,7 +42,7 @@ them for world-map navigation -- e.g. Eversong Woods is a "child" of Eastern
 Kingdoms in C_Map's hierarchy (Blizzard draws a compressed inset icon for it
 near Tirisfal), but its real `UiMapAssignment` row -- and its real WDT
 terrain -- is filed under Expansion01/Outland, same as the original
-hand-collected Yatlas data already had it.
+hand-collected TerrainWorldMap data already had it.
 
 **Usage:**
 ```
@@ -61,14 +61,14 @@ client's build via wow.export's DBC export tab (or any other WDBX/DBD-based
 DBC-to-CSV tool) and put them in one folder.
 
 **Coordinate transform** (documented in full in the script's header comment):
-Yatlas's box format is `{x1,x2,y1,y2} = {maxX, minX, maxY, minY}` in its own
+TerrainWorldMap's box format is `{x1,x2,y1,y2} = {maxX, minX, maxY, minY}` in its own
 "Big" (world-yard) coordinate space. `UiMapAssignment`'s `Region_0..5` fields
 are a raw world-space AABB (`Region_0/1/2` = min X/Y/Z, `Region_3/4/5` = max
-X/Y/Z). The transform that matches Yatlas's convention is:
+X/Y/Z). The transform that matches TerrainWorldMap's convention is:
 ```
-Yatlas{x1,x2,y1,y2} = {Region_4, Region_1, Region_3, Region_0}
+TerrainWorldMap{x1,x2,y1,y2} = {Region_4, Region_1, Region_3, Region_0}
 ```
-i.e. Yatlas-X = world Y, Yatlas-Y = world X, with **no additional offset or
+i.e. TerrainWorldMap-X = world Y, TerrainWorldMap-Y = world X, with **no additional offset or
 scale** — verified as an *exact* match against the old hand-collected data
 for multiple Outland zones (Hellfire Peninsula, Nagrand).
 
@@ -76,7 +76,7 @@ for multiple Outland zones (Hellfire Peninsula, Nagrand).
 old hand-collected data and freshly-generated CSV data should agree exactly
 if the transform above is right — confirmed. But applying the *same*
 transform to Eastern Kingdoms/Kalimdor zones (e.g. Dun Morogh) produces
-values that differ from the ~2011 Yatlas data by up to a few hundred yards,
+values that differ from the ~2011 TerrainWorldMap data by up to a few hundred yards,
 even for zones nobody would call "revamped." Conclusion: Cataclysm's
 Shattering event subtly recalibrated Azeroth/Kalimdor's terrain coordinates
 world-wide, not just in the zones it visibly reshaped — so regenerating from
@@ -100,10 +100,10 @@ pick out the `[0]` whole-continent box), get the current values in-game with:
 
 Determines which map tiles have **real terrain** in this specific client
 build, and generates the `Yatlas_WDTValidTiles` table (`mapdata_tiles.lua`) that
-Yatlas actually gates its tile rendering on.
+TerrainWorldMap actually gates its tile rendering on.
 
 **Why this exists:** a map tile's *minimap preview texture*
-(`World\Minimaps\<continent>\mapXX_YY.blp`, what Yatlas actually draws) and
+(`World\Minimaps\<continent>\mapXX_YY.blp`, what TerrainWorldMap actually draws) and
 its *real terrain* are two independent pieces of data in Blizzard's own
 `.wdt` files — a tile can have a valid preview texture left over from a
 *later* expansion (e.g. Cataclysm's Twilight Highlands/Vashj'ir) while
@@ -160,9 +160,9 @@ same way as `Region_0..5` in `gen_mapareas.js` above. Empirically verified
 output — ocean tiles and Wetlands tiles present, the ghost Twilight
 Highlands tiles absent, on the exact same grid coordinates) that:
 ```
-Yatlas tile key "COLxROW"  <->  WDT tile (x = ROW, y = COL)
+TerrainWorldMap tile key "COLxROW"  <->  WDT tile (x = ROW, y = COL)
 ```
-i.e. Yatlas's tile-key "column" is the WDT's tile **Y** index, and Yatlas's
+i.e. TerrainWorldMap's tile-key "column" is the WDT's tile **Y** index, and TerrainWorldMap's
 tile-key "row" is the WDT's tile **X** index. This is baked into the script
 as `yatlasCol = y; yatlasRow = x`. If tiles look systematically
 transposed/mirrored after a re-run, this is the first place to check.
