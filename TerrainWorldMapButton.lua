@@ -1,30 +1,30 @@
 local LDB = LibStub("LibDataBroker-1.1");
 local icon = LibStub("LibDBIcon-1.0");
 
-local YatlasLDB = LDB:NewDataObject("TerrainWorldMap", {
+local TWMLDB = LDB:NewDataObject("TerrainWorldMap", {
     type = "launcher",
     icon = "Interface\\AddOns\\TerrainWorldMap\\images\\Button",
     OnClick = function(self, button)
         if(button == "RightButton") then
             MenuUtil.CreateContextMenu(self, function(owner, rootDescription)
                 rootDescription:CreateButton(TWM_MENU_OPEN, function()
-                    YatlasFrame:Toggle();
+                    TWMFrame:Toggle();
                 end);
                 rootDescription:CreateButton(TWM_MENU_SETTINGS, function()
-                    YatlasOptions_Toggle();
+                    TWMOption_Toggle();
                 end);
                 rootDescription:CreateCheckbox(TWM_MENU_CHILDMAP_TILES,
-                    Yatlas_IsChildMapTilesEnabled,
-                    function() Yatlas_SetChildMapTiles(not Yatlas_IsChildMapTilesEnabled()); end);
+                    TWM_IsChildMapTilesEnabled,
+                    function() TWM_SetChildMapTiles(not TWM_IsChildMapTilesEnabled()); end);
                 rootDescription:CreateCheckbox(TWM_MENU_WORLDVIEW_TILES,
-                    Yatlas_IsWorldViewTilesEnabled,
-                    function() Yatlas_SetWorldViewTiles(not Yatlas_IsWorldViewTilesEnabled()); end);
+                    TWM_IsWorldViewTilesEnabled,
+                    function() TWM_SetWorldViewTiles(not TWM_IsWorldViewTilesEnabled()); end);
                 rootDescription:CreateCheckbox(TWM_MENU_CITYMAP_TILES,
-                    Yatlas_IsCityMapTilesEnabled,
-                    function() Yatlas_SetCityMapTiles(not Yatlas_IsCityMapTilesEnabled()); end);
+                    TWM_IsCityMapTilesEnabled,
+                    function() TWM_SetCityMapTiles(not TWM_IsCityMapTilesEnabled()); end);
             end);
         else
-            YatlasFrame:Toggle();
+            TWMFrame:Toggle();
         end
     end,
     OnTooltipShow = function(tooltip)
@@ -34,8 +34,8 @@ local YatlasLDB = LDB:NewDataObject("TerrainWorldMap", {
     end,
 });
 
-function YatlasButton_Update()
-    if(YatlasOptions.ShowButton) then
+function TWMButton_Update()
+    if(TWMOption.ShowButton) then
         icon:Show("TerrainWorldMap");
     else
         icon:Hide("TerrainWorldMap");
@@ -45,10 +45,10 @@ end
 local buttonframe = CreateFrame("Frame");
 buttonframe:RegisterEvent("VARIABLES_LOADED");
 buttonframe:SetScript("OnEvent", function(self, event, ...)
-    if(YatlasOptions.MinimapButton == nil) then
-        YatlasOptions.MinimapButton = {};
+    if(TWMOption.MinimapButton == nil) then
+        TWMOption.MinimapButton = {};
     end
 
-    icon:Register("TerrainWorldMap", YatlasLDB, YatlasOptions.MinimapButton);
-    YatlasButton_Update();
+    icon:Register("TerrainWorldMap", TWMLDB, TWMOption.MinimapButton);
+    TWMButton_Update();
 end);

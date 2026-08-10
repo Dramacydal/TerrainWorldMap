@@ -11,31 +11,31 @@ local nilfunc = function () end
 local emptylist = {};
 
 -- default on-map icon size in pixels at the IconSize option's neutral value (1.0)
-local YA_ICON_BASE_SIZE = 14;
+local TWM_ICON_BASE_SIZE = 14;
 
-function Yatlas_GetIconSize(lm)
-    return YA_ICON_BASE_SIZE * (YatlasOptions.Frames[lm].IconSize or 1);
+function TWM_GetIconSize(lm)
+    return TWM_ICON_BASE_SIZE * (TWMOption.Frames[lm].IconSize or 1);
 end
 
-function YAPoints_RegisterSet(set)
+function TWMPoints_RegisterSet(set)
     sets[set.name] = set;
 end
 
-function YAPoints_RegisterFrame(a)
+function TWMPoints_RegisterFrame(a)
     frames[a] = 0;
 end
 
-function YAPoints_ForceUpdate(frame)
+function TWMPoints_ForceUpdate(frame)
     if( not frame) then
         for h,v in pairs(frames) do
-            YAPoints_OnMapChange(_G[h]);
+            TWMPoints_OnMapChange(_G[h]);
         end
     else
-        YAPoints_OnMapChange(frame);
+        TWMPoints_OnMapChange(frame);
     end
 end
 
-function YAPoints_OnMapChange(frame)
+function TWMPoints_OnMapChange(frame)
     local lm = frame:GetName();
 
     -- clear all points
@@ -50,7 +50,7 @@ function YAPoints_OnMapChange(frame)
         end
     end
 
-    local pd_resetlist = _G[frame.YA_PD_ResetList];
+    local pd_resetlist = _G[frame.TWM_PD_ResetList];
     if(pd_resetlist) then pd_resetlist(); end
 
     -- store all points for this map
@@ -58,7 +58,7 @@ function YAPoints_OnMapChange(frame)
     current_frame = frame;
     for h,v in pairs(sets) do
         if(v.getpoints) then
-            v.getpoints(h, YatlasOptions.Frames[lm].Map);
+            v.getpoints(h, TWMOption.Frames[lm].Map);
         end
     end
 
@@ -82,15 +82,15 @@ function YAPoints_OnMapChange(frame)
 
     -- force update
     frame.yap_lastx = nil;
-    YAPoints_OnMove(frame, unpack(YatlasOptions.Frames[lm].Location));
+    TWMPoints_OnMove(frame, unpack(TWMOption.Frames[lm].Location));
 end
 
-function YAPoints_OnMove(frame, x, y)
+function TWMPoints_OnMove(frame, x, y)
     local lm = frame:GetName();
     
     if(frames[lm] == 0) then
         frames[lm] = 1;
-        return YAPoints_OnMapChange(frame);
+        return TWMPoints_OnMapChange(frame);
     end
 
     -- if we have run at this x, y coord recently, don't do it again
@@ -100,8 +100,8 @@ function YAPoints_OnMove(frame, x, y)
     end
 
     -- update normal points and unit points
-    YAPoints_Update(frame, x, y);
---    YAPoints_UpdateP(frame);
+    TWMPoints_Update(frame, x, y);
+--    TWMPoints_UpdateP(frame);
 
     -- hide/update mobile points as needed
     for id,mp in pairs(frame.mobilepoints) do
@@ -114,7 +114,7 @@ function YAPoints_OnMove(frame, x, y)
     frame.yap_lastx = x;
 end
 
-function YAPoints_OnUpdate(frame, ela) 
+function TWMPoints_OnUpdate(frame, ela) 
     local lm = frame:GetName();
 
     for h,v in pairs(sets) do
@@ -124,7 +124,7 @@ function YAPoints_OnUpdate(frame, ela)
     end
 end
 
-function YAPoints_Update(frame, x, y)
+function TWMPoints_Update(frame, x, y)
     local lm = frame:GetName();
     local flr,cei=math.floor,math.ceil;
     local z = frame:GetZoom();
@@ -132,8 +132,8 @@ function YAPoints_Update(frame, x, y)
     local legend = {};
     
     if(x == nil) then
-        x = YatlasOptions.Frames[lm].Location[1];
-        y = YatlasOptions.Frames[lm].Location[2];
+        x = TWMOption.Frames[lm].Location[1];
+        y = TWMOption.Frames[lm].Location[2];
     end
     current_locx_xact = x;
     current_locy_xact = y;
@@ -143,7 +143,7 @@ function YAPoints_Update(frame, x, y)
 
     -- ensure that we have loaded the points already
     if(frame.points == nil) then
-        return YAPoints_OnMapChange(frame);
+        return TWMPoints_OnMapChange(frame);
     end
 
     -- clear all points
@@ -180,7 +180,7 @@ function YAPoints_Update(frame, x, y)
         current_lm = lm,
         current_frame = current_frame,
         zoom = z,
-        iconsize = Yatlas_GetIconSize(lm)
+        iconsize = TWM_GetIconSize(lm)
     };
 
     -- draw visible points
@@ -192,9 +192,9 @@ function YAPoints_Update(frame, x, y)
         local legendfunc = sets[hset].setuplegend;
 
         for hval,val in pairs(set) do
-            local point = YAPoints_GetPoint(frame, hpoint);
+            local point = TWMPoints_GetPoint(frame, hpoint);
             local showmemaybe = 
-                (not showornotfunc and not YatlasOptions.Frames[lm].PointCfg[val.setsubname]) or
+                (not showornotfunc and not TWMOption.Frames[lm].PointCfg[val.setsubname]) or
                 (showornotfunc and showornotfunc(val, lm) );
             
 
@@ -209,7 +209,7 @@ function YAPoints_Update(frame, x, y)
                 point:Show();
 
                 -- this gets changed around a lot
-                env.iconsize = Yatlas_GetIconSize(lm);
+                env.iconsize = TWM_GetIconSize(lm);
 
                 -- call functions
                 point.dat = val;
@@ -225,7 +225,7 @@ function YAPoints_Update(frame, x, y)
     end
 end
 
-function YAPoints_GetPoint(frame, id)
+function TWMPoints_GetPoint(frame, id)
     -- does point exist??
     if(frame.pointframes[id]) then
         return frame.pointframes[id];
@@ -264,7 +264,7 @@ function YAPoints_GetPoint(frame, id)
     return f;
 end
 
-function YAPoints_AllocMobilePoint(frame, id)
+function TWMPoints_AllocMobilePoint(frame, id)
     -- does point exist??
     if(frame.mobilepointframes[id]) then
         return frame.mobilepointframes[id];
@@ -304,7 +304,7 @@ function YAPoints_AllocMobilePoint(frame, id)
     return f;
 end
 
-function YAPoints_UpdateTooltip(frame, tooltip, point, op) 
+function TWMPoints_UpdateTooltip(frame, tooltip, point, op) 
     local dat = point.dat;
     local lm = frame:GetName();
 
@@ -356,7 +356,7 @@ function YAPoints_UpdateTooltip(frame, tooltip, point, op)
     end
 end
 
-function YAPoints_showmeornot(frame, val)
+function TWMPoints_showmeornot(frame, val)
     local showornotfunc = sets[val.setname].showme;
 
     if(type(frame) ~= "string") then
@@ -364,7 +364,7 @@ function YAPoints_showmeornot(frame, val)
     end
 
     return
-        (not showornotfunc and not YatlasOptions.Frames[frame].PointCfg[val.setsubname]) or
+        (not showornotfunc and not TWMOption.Frames[frame].PointCfg[val.setsubname]) or
          (showornotfunc and showornotfunc(val, frame) );
 end
 
@@ -384,7 +384,7 @@ end
 function YP_SetOffset(point, x, y) 
     local z = current_frame:GetZoom();
     local lm = current_frame:GetName();
-    local iconsz = Yatlas_GetIconSize(lm);
+    local iconsz = TWM_GetIconSize(lm);
 
     point:ClearAllPoints();
     point:SetPoint("TOPLEFT", current_viewframe, "TOPLEFT", 
@@ -405,26 +405,26 @@ function YP_OnEnter(self)
 end
 
 
-function YatlasFrameViewFrame_UpdatePointTooltip(self) 
+function TWMFrameViewFrame_UpdatePointTooltip(self) 
     local f = self:GetParent();
     local tp = _G[f.hoverTooltip];
 
     for h,v in pairs(f.pointframes) do
         if(v.intooltip and not MouseIsOver(v)) then
-            YAPoints_UpdateTooltip(f, tp, v, "remove");
+            TWMPoints_UpdateTooltip(f, tp, v, "remove");
             tp.knownshownlines = tp.knownshownlines - 1;
         elseif(not v.intooltip and MouseIsOver(v)) then
-            YAPoints_UpdateTooltip(f, tp, v, "add");
+            TWMPoints_UpdateTooltip(f, tp, v, "add");
             tp.knownshownlines = tp.knownshownlines + 1;
         end
     end
 
     for h,v in pairs(f.mobilepointframes) do
         if(v.intooltip and not MouseIsOver(v)) then
-            YAPoints_UpdateTooltip(f, tp, v, "remove");
+            TWMPoints_UpdateTooltip(f, tp, v, "remove");
             tp.knownshownlines = tp.knownshownlines - 1;
         elseif(not v.intooltip and MouseIsOver(v) and v:IsShown()) then
-            YAPoints_UpdateTooltip(f, tp, v, "add");
+            TWMPoints_UpdateTooltip(f, tp, v, "add");
             tp.knownshownlines = tp.knownshownlines + 1;
         end
     end
@@ -438,7 +438,7 @@ end
 ---
 ---
 
-function YAPoints_AddPoint(frame, setname, name, x, y, options, userdat)
+function TWMPoints_AddPoint(frame, setname, name, x, y, options, userdat)
     local tab = {
         setname = setname,
         name = name,
@@ -470,7 +470,7 @@ function YAPoints_AddPoint(frame, setname, name, x, y, options, userdat)
     tinsert(frame.points[fx][fy], tab);
 end
 
-function YAPoints_AddMobilePoint(frame, setname, name, opt, userdat) 
+function TWMPoints_AddMobilePoint(frame, setname, name, opt, userdat) 
     local tab = {
         setname = setname,
         name = name,
@@ -492,7 +492,7 @@ function YAPoints_AddMobilePoint(frame, setname, name, opt, userdat)
         frame = current_frame;
     end
 
-    point = YAPoints_AllocMobilePoint(frame, frame.nextmobilepoint);
+    point = TWMPoints_AllocMobilePoint(frame, frame.nextmobilepoint);
     point.dat = tab; 
     frame.nextmobilepoint = frame.nextmobilepoint + 1;
 
@@ -500,7 +500,7 @@ function YAPoints_AddMobilePoint(frame, setname, name, opt, userdat)
     return #frame.mobilepoints;
 end
 
-function YAPoints_Mobile_SetLocation(setname, name, map, x, y) 
+function TWMPoints_Mobile_SetLocation(setname, name, map, x, y) 
     for framename,v in pairs(frames) do
         local frame = _G[framename];
         if(frame:IsVisible()) then
@@ -513,7 +513,7 @@ function YAPoints_Mobile_SetLocation(setname, name, map, x, y)
     end
 end
 
-function YAPoints_SetupMobilePoint(setname, name, itahm, prop, ...)
+function TWMPoints_SetupMobilePoint(setname, name, itahm, prop, ...)
     local whut;
     
     for framename,v in pairs(frames) do
@@ -523,7 +523,7 @@ function YAPoints_SetupMobilePoint(setname, name, itahm, prop, ...)
     end
 end
 
-function YAPoints_SetupMobilePointF(frame, setname, name, itahm, prop, ...)
+function TWMPoints_SetupMobilePointF(frame, setname, name, itahm, prop, ...)
     local whut;
 
     if(type(frame) ~= "table") then
@@ -534,7 +534,7 @@ function YAPoints_SetupMobilePointF(frame, setname, name, itahm, prop, ...)
     whut[prop](whut, ...);
 end
 
-function YAPoints_HideMobile(setname, name) 
+function TWMPoints_HideMobile(setname, name) 
     for framename,v in pairs(frames) do
         local frame = _G[framename];
         if(frame:IsVisible()) then
@@ -555,7 +555,7 @@ function YMP_Update(point, frame)
     if(map == point.locmap and
             point.locx > minx and point.locx < maxx and
             point.locy > miny and point.locy < maxy) then
-        local iconsz = Yatlas_GetIconSize(frame:GetName());
+        local iconsz = TWM_GetIconSize(frame:GetName());
         point.Icon:SetWidth(iconsz);
         point.Icon:SetHeight(iconsz);
         point:SetOffset(point.locx, point.locy);
@@ -599,7 +599,7 @@ function YFOODropDown_Initialize()
         UIDropDownMenu_AddButton(info);
     end
 
-    if(YatlasOptions.Frames and YatlasOptions.Frames[lm]) then
+    if(TWMOption.Frames and TWMOption.Frames[lm]) then
         for h,v in pairs(sets) do
             func = v.configmenu;
             if(func) then
@@ -620,8 +620,8 @@ end
 
 function YFOODropDown_do_toggle_normal(self)
     -- PointCfg[name] means "hidden"; the checkbox means "shown", so invert.
-    YatlasOptions.Frames[current_frame:GetName()].PointCfg[self.value] = not UIDropDownMenuButton_GetChecked(self)
-    YAPoints_ForceUpdate(current_frame)
+    TWMOption.Frames[current_frame:GetName()].PointCfg[self.value] = not UIDropDownMenuButton_GetChecked(self)
+    TWMPoints_ForceUpdate(current_frame)
 end
 
 ---

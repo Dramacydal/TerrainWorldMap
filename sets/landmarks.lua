@@ -8,27 +8,27 @@ function set.getpoints(name, map)
     -- we got these from map api.  don't use if we see Megellan
     if(type(Twm_Landmarks[map]) == "table" and Magellan_Init == nil) then
         for h,v in ipairs(Twm_Landmarks[map]) do
-            local x,y = Yatlas_Big2Mini_Coord(v[1],v[2]);
+            local x,y = TWM_Big2Mini_Coord(v[1],v[2]);
 
-            YAPoints_AddPoint(nil, "landmarks", v[3], x, y, nil, Twm_Landmarks[map][h]);
+            TWMPoints_AddPoint(nil, "landmarks", v[3], x, y, nil, Twm_Landmarks[map][h]);
         end
     end
 
     -- we got these...from OURSELVES!
     if(type(Twm_instances[map]) == "table") then
         for h,v in ipairs(Twm_instances[map]) do
-            local x,y = Yatlas_Big2Mini_Coord(v[2],v[3]);
+            local x,y = TWM_Big2Mini_Coord(v[2],v[3]);
 
-            YAPoints_AddPoint(nil, "landmarks", v[1], x, y, nil, landmarkaltinstance);
+            TWMPoints_AddPoint(nil, "landmarks", v[1], x, y, nil, landmarkaltinstance);
         end
     end
 
      -- 'other towns' ...we got these...from OURSELVES!
     if(type(Twm_towns2[map]) == "table") then
         for h,v in ipairs(Twm_towns2[map]) do
-            local x,y = Yatlas_Big2Mini_Coord(v[2],v[3]);
+            local x,y = TWM_Big2Mini_Coord(v[2],v[3]);
 
-            YAPoints_AddPoint(nil, "landmarks", v[1], x, y, nil, landmarkalttown);
+            TWMPoints_AddPoint(nil, "landmarks", v[1], x, y, nil, landmarkalttown);
         end
     end
 end
@@ -104,12 +104,12 @@ function set.configmenu(name, lm)
         local info = {};
         info.text = TWM_POINTS_LANDMARKS;
         info.func = YFOODropDown_do_toggle_normal;
-        info.checked = YatlasOptions.Frames[lm].PointCfg and not YatlasOptions.Frames[lm].PointCfg[name];
+        info.checked = TWMOption.Frames[lm].PointCfg and not TWMOption.Frames[lm].PointCfg[name];
         info.value = name;
         info.keepShownOnClick = 1;
         UIDropDownMenu_AddButton(info);
     end
 end
 
-YAPoints_RegisterSet(set);
+TWMPoints_RegisterSet(set);
 

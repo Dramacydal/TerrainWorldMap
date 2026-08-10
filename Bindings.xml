@@ -1,5 +1,5 @@
 <Bindings>
 	<Binding name="TWM_TOGGLE" header="TWM">
-		YatlasFrame:Toggle();
+		TWMFrame:Toggle();
 	</Binding>
 </Bindings>

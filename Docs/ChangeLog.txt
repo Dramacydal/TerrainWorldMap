@@ -16,7 +16,7 @@ TerrainWorldMap ChangeLog
   Azeroth world view, and on capital city maps (off by default).
 - Added: right-click context menu on both the minimap button and the new
   WorldMapFrame button (Open TerrainWorldMap, Settings, tile toggles).
-- Added: YatlasFrame is now truly resizable (not just scalable) and movable
+- Added: TWMFrame is now truly resizable (not just scalable) and movable
   by default; a "Reset Position" button in Settings restores its default
   size, position, and zoom.
 - Added: Icon Size option is now a 0.5x-3.0x multiplier applied to each
@@ -32,15 +32,15 @@ TerrainWorldMap ChangeLog
   coordinates, which had measurably drifted for Eastern Kingdoms/Kalimdor
   zones since Cataclysm's Shattering (Outland, untouched by Cataclysm,
   matched exactly).
-- Changed: tile validity (Yatlas_WDTValidTiles) is now read directly from
+- Changed: tile validity (TWM_WDTValidTiles) is now read directly from
   this client's own .wdt terrain files instead of an indirect proxy,
   fixing false positives/negatives near zone edges, coastlines, and
   continent corners.
 - Removed: dungeon, battleground, and Northrend map data -- TerrainWorldMap now only
   covers the 3 open-world continents (Kalimdor, Eastern Kingdoms, Outland).
 - Removed: graveyard display feature.
-- Removed: BigYatlasFrame and the /bigyatlas command, superseded by the
-  now-resizable YatlasFrame.
+- Removed: BigTWMFrame and the /bigyatlas command, superseded by the
+  now-resizable TWMFrame.
 - Removed: dead/unused locale strings across all localizations.
 - Fixed: "Goto Player" and the zone dropdown for zones that Blizzard's own
   data files place under a different continent than the world-map
@@ -130,7 +130,7 @@ TerrainWorldMap ChangeLog
 - Add some raid boss data in backend (not yet used!)
 - Button+pulldown for zooming without a mouse scrollwheel
 - New tooltip that shows icons in addition to names.
-- The main YatlasFrame's popout has been removed in favor of a seperate
+- The main TWMFrame's popout has been removed in favor of a seperate
   options window, and mouseover point tooltips.
 - Runtime generation of point frames instead of preallocating.
 - Goto button will now continuously track if shift clicked.
@@ -168,11 +168,11 @@ TerrainWorldMap ChangeLog
 - Add myAddons support
 - Modularize the way "overlays" work
 - Make icons resizable
-- In the normal YatlasFrame, clicking on points on the lengend causes them
+- In the normal TWMFrame, clicking on points on the lengend causes them
   to blink on the map.
 - Switch from using POI data to getting landmarks data during runtime.  Add
   extra points by hand.
-- Add a option to display cursor coordinates in the YatlasFrame
+- Add a option to display cursor coordinates in the TWMFrame
 - Fix a bug for when the map would be dragged, closed, then reopened, the
   map would continue being "stuck" to the cursor
 - Add zooming using the mouse scroll button
@@ -205,4 +205,4 @@ TerrainWorldMap ChangeLog
 - Update textures translation table for WoW 1.8 content patch.
 - Other minor bug fixes.
 
-Maintained by Dramacydal (PulLumBerMal@gmail.com) - https://github.com/Dramacydal/Yatlas
+Maintained by Dramacydal (PulLumBerMal@gmail.com) - https://github.com/Dramacydal/TerrainWorldMap

@@ -2,7 +2,7 @@
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="http://www.blizzard.com/wow/ui/
 ..\..\FrameXML\UI.xsd">
-	<Texture name="YatlasMapTextureTemplate" virtual="true">
+	<Texture name="TWMMapTextureTemplate" virtual="true">
 		<Size>
 			<AbsDimension x="64" y="64"/>
 		</Size>
@@ -15,23 +15,23 @@
 		</Anchors>
 	</Texture>
 
-	<Frame name="YatlasFrameTemplate" virtual="true">
+	<Frame name="TWMFrameTemplate" virtual="true">
 		<Scripts>
 			<OnLoad>
-			    YatlasFrame_Bootstrap(self);
+			    TWMFrame_Bootstrap(self);
 			</OnLoad>
 			<OnShow>
-				if(YatlasOptions and YatlasOptions.Frames) then
-					local o = YatlasOptions.Frames[self:GetName()];
+				if(TWMOption and TWMOption.Frames) then
+					local o = TWMOption.Frames[self:GetName()];
 					if(o.track) then
-						YatlasFramePlayerJumpButton_Seek(self, o.track);
+						TWMFramePlayerJumpButton_Seek(self, o.track);
 					elseif(o.trackonshow) then
-						 YatlasFramePlayerJumpButton_Seek(self, o.trackonshow);
+						 TWMFramePlayerJumpButton_Seek(self, o.trackonshow);
 					end
 				end
 			</OnShow>
 			<OnDragStart>
-				if(YatlasOptions.Frames and not YatlasOptions.Frames[self:GetName()].Locked) then
+				if(TWMOption.Frames and not TWMOption.Frames[self:GetName()].Locked) then
 					self:StartMoving();
 					self.isMoving = true;
 				end
@@ -53,7 +53,7 @@
 		</Scripts>
 	</Frame>
 
-	<Frame name="YatlasFrameViewTemplate" virtual="true">
+	<Frame name="TWMFrameViewTemplate" virtual="true">
 		<Scripts>
 			<OnLoad>
 				self.lastoux = 0;
@@ -67,9 +67,9 @@
 			</OnLeave>
 			<OnDragStart>
 				self.dragme = true;
-				ya_lastdragx = nil;
-				ya_lastdragy = nil;
-				YA_elapsed = 0;
+				twm_lastdragx = nil;
+				twm_lastdragy = nil;
+				TWM_elapsed = 0;
 			</OnDragStart>
 			<OnDragStop>
 				self.dragme = false;
@@ -80,13 +80,13 @@
 			</OnHide>
 			<OnUpdate>
 				if(self.dragme) then
-					YatlasFrameViewFrame_OnDrag(self);
+					TWMFrameViewFrame_OnDrag(self);
 				end
-				if(self.inme and self:GetParent() == YatlasFrame and YatlasOptions.ShowCursorCoords) then
-					YatlasFrameViewFrame_UpdateCursorCoord(self);
+				if(self.inme and self:GetParent() == TWMFrame and TWMOption.ShowCursorCoords) then
+					TWMFrameViewFrame_UpdateCursorCoord(self);
 				end
 				if(self.inpoint) then
-					YatlasFrameViewFrame_UpdatePointTooltip(self);
+					TWMFrameViewFrame_UpdatePointTooltip(self);
 				end
 			</OnUpdate>
 			<OnMouseWheel>
@@ -95,268 +95,268 @@
 		</Scripts>
 	</Frame>
 
-	<Frame name="YatlasFrameTemplatePreBuilt" virtual="true" inherits="YatlasFrameTemplate" enableMouse="true">
+	<Frame name="TWMFrameTemplatePreBuilt" virtual="true" inherits="TWMFrameTemplate" enableMouse="true">
 		<Layers>
-			<!-- ARTWORK, not BACKGROUND: on YatlasFrame these tiles need to sit
+			<!-- ARTWORK, not BACKGROUND: on TWMFrame these tiles need to sit
 			above the native backdrop's own BACKGROUND-layer fill (see
-			YatlasFrame_OnLoadExtra), since both are regions of this same frame. -->
+			TWMFrame_OnLoadExtra), since both are regions of this same frame. -->
 			<Layer level="ARTWORK">
-				<Texture name="$parentMapTexture1" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture2" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture3" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture4" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture5" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture6" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture7" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture8" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture9" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture10" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture11" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture12" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture13" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture14" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture15" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture16" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture17" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture18" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture19" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture20" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture21" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture22" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture23" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture24" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture25" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture26" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture27" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture28" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture29" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture30" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture31" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture32" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture33" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture34" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture35" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture36" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture37" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture38" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture39" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture40" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture41" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture42" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture43" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture44" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture45" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture46" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture47" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture48" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture49" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture50" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture51" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture52" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture53" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture54" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture55" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture56" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture57" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture58" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture59" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture60" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture61" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture62" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture63" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture64" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture65" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture66" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture67" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture68" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture69" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture70" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture71" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture72" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture73" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture74" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture75" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture76" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture77" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture78" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture79" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture80" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture81" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture82" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture83" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture84" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture85" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture86" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture87" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture88" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture89" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture90" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture91" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture92" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture93" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture94" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture95" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture96" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture97" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture98" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture99" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture100" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture101" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture102" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture103" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture104" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture105" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture106" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture107" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture108" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture109" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture110" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture111" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture112" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture113" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture114" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture115" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture116" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture117" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture118" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture119" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture120" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture121" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture122" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture123" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture124" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture125" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture126" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture127" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture128" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture129" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture130" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture131" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture132" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture133" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture134" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture135" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture136" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture137" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture138" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture139" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture140" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture141" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture142" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture143" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture144" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture145" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture146" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture147" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture148" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture149" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture150" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture151" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture152" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture153" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture154" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture155" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture156" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture157" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture158" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture159" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture160" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture161" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture162" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture163" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture164" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture165" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture166" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture167" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture168" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture169" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture170" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture171" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture172" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture173" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture174" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture175" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture176" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture177" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture178" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture179" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture180" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture181" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture182" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture183" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture184" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture185" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture186" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture187" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture188" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture189" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture190" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture191" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture192" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture193" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture194" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture195" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture196" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture197" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture198" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture199" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture200" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture201" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture202" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture203" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture204" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture205" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture206" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture207" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture208" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture209" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture210" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture211" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture212" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture213" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture214" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture215" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture216" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture217" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture218" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture219" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture220" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture221" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture222" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture223" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture224" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture225" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture226" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture227" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture228" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture229" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture230" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture231" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture232" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture233" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture234" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture235" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture236" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture237" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture238" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture239" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture240" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture241" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture242" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture243" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture244" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture245" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture246" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture247" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture248" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture249" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture250" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture251" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture252" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture253" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture254" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture255" inherits="YatlasMapTextureTemplate" />
-				<Texture name="$parentMapTexture256" inherits="YatlasMapTextureTemplate" />
+				<Texture name="$parentMapTexture1" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture2" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture3" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture4" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture5" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture6" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture7" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture8" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture9" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture10" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture11" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture12" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture13" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture14" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture15" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture16" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture17" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture18" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture19" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture20" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture21" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture22" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture23" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture24" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture25" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture26" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture27" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture28" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture29" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture30" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture31" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture32" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture33" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture34" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture35" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture36" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture37" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture38" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture39" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture40" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture41" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture42" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture43" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture44" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture45" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture46" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture47" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture48" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture49" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture50" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture51" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture52" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture53" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture54" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture55" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture56" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture57" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture58" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture59" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture60" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture61" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture62" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture63" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture64" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture65" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture66" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture67" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture68" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture69" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture70" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture71" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture72" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture73" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture74" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture75" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture76" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture77" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture78" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture79" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture80" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture81" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture82" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture83" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture84" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture85" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture86" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture87" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture88" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture89" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture90" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture91" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture92" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture93" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture94" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture95" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture96" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture97" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture98" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture99" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture100" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture101" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture102" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture103" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture104" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture105" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture106" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture107" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture108" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture109" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture110" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture111" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture112" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture113" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture114" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture115" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture116" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture117" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture118" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture119" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture120" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture121" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture122" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture123" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture124" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture125" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture126" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture127" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture128" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture129" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture130" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture131" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture132" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture133" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture134" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture135" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture136" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture137" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture138" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture139" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture140" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture141" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture142" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture143" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture144" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture145" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture146" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture147" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture148" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture149" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture150" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture151" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture152" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture153" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture154" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture155" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture156" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture157" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture158" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture159" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture160" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture161" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture162" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture163" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture164" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture165" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture166" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture167" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture168" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture169" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture170" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture171" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture172" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture173" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture174" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture175" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture176" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture177" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture178" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture179" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture180" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture181" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture182" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture183" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture184" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture185" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture186" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture187" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture188" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture189" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture190" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture191" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture192" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture193" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture194" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture195" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture196" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture197" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture198" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture199" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture200" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture201" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture202" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture203" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture204" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture205" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture206" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture207" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture208" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture209" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture210" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture211" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture212" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture213" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture214" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture215" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture216" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture217" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture218" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture219" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture220" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture221" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture222" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture223" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture224" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture225" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture226" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture227" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture228" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture229" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture230" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture231" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture232" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture233" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture234" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture235" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture236" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture237" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture238" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture239" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture240" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture241" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture242" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture243" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture244" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture245" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture246" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture247" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture248" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture249" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture250" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture251" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture252" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture253" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture254" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture255" inherits="TWMMapTextureTemplate" />
+				<Texture name="$parentMapTexture256" inherits="TWMMapTextureTemplate" />
 			</Layer>
 			<Layer level="OVERLAY">
 				<!-- -->
@@ -846,7 +846,7 @@
 		<!-- Point Buttons are filled in here -->
 	</Frame>
 
-	<Frame name="YatlasZoomTemplate" virtual="true" inherits="BackdropTemplate">
+	<Frame name="TWMZoomTemplate" virtual="true" inherits="BackdropTemplate">
 		<Size>
 			<AbsDimension x="48" y="72" />
 		</Size>
@@ -904,7 +904,7 @@
 		</Scripts>
 	</Frame>
 
-	<Slider name="YatlasOptionsSliderTemplate" orientation="VERTICAL" virtual="true" enableMouse="true" inherits="BackdropTemplate">
+	<Slider name="TWMOptionSliderTemplate" orientation="VERTICAL" virtual="true" enableMouse="true" inherits="BackdropTemplate">
 		<Size>
 			<AbsDimension x="10" y="120"/>
 		</Size>
@@ -961,13 +961,13 @@
 		</Scripts>
 	</Slider>
 
-	<Frame name="YatlasTooltipTemplate" virtual="true" inherits="BackdropTemplate">
+	<Frame name="TWMTooltipTemplate" virtual="true" inherits="BackdropTemplate">
 
 		<!-- FontStrings are automatically filled into Layers here as needed -->
 		
 		<Scripts>
 			<OnLoad>
-				for h,v in pairs(YatlasTooltipTemplate) do
+				for h,v in pairs(TWMTooltipTemplate) do
 					self[h] = v;
 				end
 				self:OnLoad();

@@ -12,7 +12,7 @@
 // MAIN/MAID chunks.
 //
 // Axis mapping (derived from wow.export's MapViewerScreen.js world<->tile
-// formulas + TerrainWorldMap's own Yatlas_Mini2Big_Coord): TerrainWorldMap's tile "col" is
+// formulas + TerrainWorldMap's own TWM_Mini2Big_Coord): TerrainWorldMap's tile "col" is
 // the WDT's tile Y index, TerrainWorldMap's tile "row" is the WDT's tile X index.
 // i.e. TerrainWorldMap key "COLxROW" <-> WDT tile (x=ROW, y=COL).
 // This was empirically verified (not just theorized) by matching a real

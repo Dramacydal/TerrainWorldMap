@@ -1,7 +1,7 @@
--- Overlays Yatlas's own baked minimap tile mosaic (World\Minimaps\<continent>\
+-- Overlays TerrainWorldMap's own baked minimap tile mosaic (World\Minimaps\<continent>\
 -- mapXX_YY.blp, gated by Twm_WDTValidTiles ground truth) onto the stock
 -- WorldMapFrame (opened with "M"), as an alternative to Blizzard's "painted"
--- continent/zone art -- for continents Yatlas knows about (Azeroth/Kalimdor/
+-- continent/zone art -- for continents TerrainWorldMap knows about (Azeroth/Kalimdor/
 -- Expansion01), at whatever zoom level (continent or zone) is shown.
 --
 -- Sits on its own frame parented to WorldMapFrame's canvas (WorldMapFrame:
@@ -23,7 +23,7 @@ local worldMapButton;
 local function GetOverlayFrame()
     if(overlay) then return overlay; end
 
-    overlay = CreateFrame("Frame", "YatlasWorldMapOverlay", WorldMapFrame:GetCanvas());
+    overlay = CreateFrame("Frame", "TWMWorldMapOverlay", WorldMapFrame:GetCanvas());
     overlay:SetAllPoints(WorldMapFrame:GetCanvas());
     overlay:SetFrameLevel(500);
     overlay:Hide();
@@ -96,7 +96,7 @@ local function GetViewBigBox(mapID)
         end
     end
 
-    local hint = Yatlas_GetContinentForMapID(mapID);
+    local hint = TWM_GetContinentForMapID(mapID);
     local tryOrder = {};
     if(hint) then table.insert(tryOrder, hint); end
     for continent in pairs(Twm_ContinentMapID) do
@@ -133,8 +133,8 @@ end
 local function DrawTiles(continent, bx1, bx2, by1, by2, targetX1, targetY1, targetX2, targetY2, startIdx, sublevel)
     if(not Twm_WDTValidTiles[continent]) then return startIdx; end
 
-    local mnx1, mny1 = Yatlas_Big2Mini_Coord(bx1, by1);
-    local mnx2, mny2 = Yatlas_Big2Mini_Coord(bx2, by2);
+    local mnx1, mny1 = TWM_Big2Mini_Coord(bx1, by1);
+    local mnx2, mny2 = TWM_Big2Mini_Coord(bx2, by2);
     local colMin = math.floor(math.min(mnx1, mnx2));
     local colMax = math.ceil(math.max(mnx1, mnx2));
     local rowMin = math.floor(math.min(mny1, mny2));
@@ -150,8 +150,8 @@ local function DrawTiles(continent, bx1, bx2, by1, by2, targetX1, targetY1, targ
         for row = rowMin, rowMax - 1 do
             local tilekey = format("%.2dx%.2d", col, row);
             if(Twm_WDTValidTiles[continent][tilekey]) then
-                local px1, py1 = BigToTargetPixel(Yatlas_Mini2Big_Coord(col, row));
-                local px2, py2 = BigToTargetPixel(Yatlas_Mini2Big_Coord(col+1, row+1));
+                local px1, py1 = BigToTargetPixel(TWM_Mini2Big_Coord(col, row));
+                local px2, py2 = BigToTargetPixel(TWM_Mini2Big_Coord(col+1, row+1));
 
                 local tx1, tx2 = math.min(px1,px2), math.max(px1,px2);
                 local ty1, ty2 = math.min(py1,py2), math.max(py1,py2);
@@ -207,7 +207,7 @@ local function RefreshOverlay()
     -- opt-in only. Twm_CityMapIDs is a hand-collected list (see
     -- mapdata_zones.lua) since Blizzard's map hierarchy gives no
     -- type/parent-based way to tell a city map apart from a real zone.
-    if(continent and Twm_CityMapIDs[mapID] and not YatlasOptions.WorldMapOverlayCityMaps) then
+    if(continent and Twm_CityMapIDs[mapID] and not TWMOption.WorldMapOverlayCityMaps) then
         continent = nil;
     end
 
@@ -241,7 +241,7 @@ local function RefreshOverlay()
         -- fitting them independently would drift neighbouring zones (e.g.
         -- Eversong Woods and Isle of Quel'Danas) apart even though their
         -- real coordinates are adjacent.
-        if(YatlasOptions.WorldMapOverlayChildMaps and mapID == Twm_ContinentMapID[continent]) then
+        if(TWMOption.WorldMapOverlayChildMaps and mapID == Twm_ContinentMapID[continent]) then
             local groups = {};
             for _, childInfo in ipairs(C_Map.GetMapChildrenInfo(mapID) or {}) do
                 local known = Twm_UiMapID2Zone[childInfo.mapID];
@@ -282,7 +282,7 @@ local function RefreshOverlay()
         -- show up as a direct child there too, which would draw Outland
         -- floating in space with no matching "whole world" layout for it.
         local mapInfo = C_Map.GetMapInfo(mapID);
-        if(YatlasOptions.WorldMapOverlayWorldView and mapInfo and mapInfo.mapType == Enum.UIMapType.World) then
+        if(TWMOption.WorldMapOverlayWorldView and mapInfo and mapInfo.mapType == Enum.UIMapType.World) then
             for _, childInfo in ipairs(C_Map.GetMapChildrenInfo(mapID) or {}) do
                 for childContinent, childContinentMapID in pairs(Twm_ContinentMapID) do
                     if(childInfo.mapID == childContinentMapID) then
@@ -311,8 +311,8 @@ local function RefreshOverlay()
     ReleaseTexturesFrom(idx+1);
 end
 
-function Yatlas_SetWorldMapOverlay(enabled, silent)
-    YatlasOptions.WorldMapOverlay = enabled;
+function TWM_SetWorldMapOverlay(enabled, silent)
+    TWMOption.WorldMapOverlay = enabled;
 
     local f = GetOverlayFrame();
     if(enabled) then
@@ -332,93 +332,93 @@ function Yatlas_SetWorldMapOverlay(enabled, silent)
     end
 end
 
-function Yatlas_IsWorldMapOverlayEnabled()
-    return YatlasOptions.WorldMapOverlay;
+function TWM_IsWorldMapOverlayEnabled()
+    return TWMOption.WorldMapOverlay;
 end
 
-function Yatlas_SetChildMapTiles(enabled)
-    YatlasOptions.WorldMapOverlayChildMaps = enabled;
+function TWM_SetChildMapTiles(enabled)
+    TWMOption.WorldMapOverlayChildMaps = enabled;
     RefreshOverlay();
 end
 
-function Yatlas_IsChildMapTilesEnabled()
-    return YatlasOptions.WorldMapOverlayChildMaps;
+function TWM_IsChildMapTilesEnabled()
+    return TWMOption.WorldMapOverlayChildMaps;
 end
 
 -- Off by default: drawing every visible tile of both continents at once
 -- (the "Azeroth" world view) is noticeably heavier than a single
 -- continent/zone view.
-function Yatlas_SetWorldViewTiles(enabled)
-    YatlasOptions.WorldMapOverlayWorldView = enabled;
+function TWM_SetWorldViewTiles(enabled)
+    TWMOption.WorldMapOverlayWorldView = enabled;
     RefreshOverlay();
 end
 
-function Yatlas_IsWorldViewTilesEnabled()
-    return YatlasOptions.WorldMapOverlayWorldView;
+function TWM_IsWorldViewTilesEnabled()
+    return TWMOption.WorldMapOverlayWorldView;
 end
 
 -- Off by default: city maps aren't covered by the minimap tile mosaic at a
 -- useful scale/detail.
-function Yatlas_SetCityMapTiles(enabled)
-    YatlasOptions.WorldMapOverlayCityMaps = enabled;
+function TWM_SetCityMapTiles(enabled)
+    TWMOption.WorldMapOverlayCityMaps = enabled;
     RefreshOverlay();
 end
 
-function Yatlas_IsCityMapTilesEnabled()
-    return YatlasOptions.WorldMapOverlayCityMaps;
+function TWM_IsCityMapTilesEnabled()
+    return TWMOption.WorldMapOverlayCityMaps;
 end
 
 -- Icon on the stock WorldMapFrame (see WorldMapButton.xml): left-click
--- toggles this overlay, right-click opens a context menu (open Yatlas /
--- toggle child-map tiles), same as the minimap button (YatlasButton.lua).
-YatlasWorldMapButtonMixin = {};
+-- toggles this overlay, right-click opens a context menu (open TerrainWorldMap /
+-- toggle child-map tiles), same as the minimap button (TWMButton.lua).
+TWMWorldMapButtonMixin = {};
 
-function YatlasWorldMapButtonMixin:OnLoad()
+function TWMWorldMapButtonMixin:OnLoad()
     self:RegisterForClicks("LeftButtonUp", "RightButtonUp");
     self:Refresh();
 end
 
-function YatlasWorldMapButtonMixin:OnEnter()
+function TWMWorldMapButtonMixin:OnEnter()
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
     GameTooltip:SetText(TWM_BUTTON_TOOLTIP1, 1, 1, 1);
-    GameTooltip:AddLine(Yatlas_IsWorldMapOverlayEnabled()
+    GameTooltip:AddLine(TWM_IsWorldMapOverlayEnabled()
         and TWM_TOOLTIP_LEFTCLICK_OVERLAY_OFF
         or  TWM_TOOLTIP_LEFTCLICK_OVERLAY_ON);
     GameTooltip:AddLine(TWM_TOOLTIP_RIGHTCLICK_MENU);
     GameTooltip:Show();
 end
 
-function YatlasWorldMapButtonMixin:OnLeave()
+function TWMWorldMapButtonMixin:OnLeave()
     GameTooltip:Hide();
 end
 
-function YatlasWorldMapButtonMixin:OnClick(button)
+function TWMWorldMapButtonMixin:OnClick(button)
     if(button == "RightButton") then
         MenuUtil.CreateContextMenu(self, function(owner, rootDescription)
             rootDescription:CreateButton(TWM_MENU_OPEN, function()
-                YatlasFrame:Toggle();
+                TWMFrame:Toggle();
             end);
             rootDescription:CreateButton(TWM_MENU_SETTINGS, function()
-                YatlasOptions_Toggle();
+                TWMOption_Toggle();
             end);
             rootDescription:CreateCheckbox(TWM_MENU_CHILDMAP_TILES,
-                Yatlas_IsChildMapTilesEnabled,
-                function() Yatlas_SetChildMapTiles(not Yatlas_IsChildMapTilesEnabled()); end);
+                TWM_IsChildMapTilesEnabled,
+                function() TWM_SetChildMapTiles(not TWM_IsChildMapTilesEnabled()); end);
             rootDescription:CreateCheckbox(TWM_MENU_WORLDVIEW_TILES,
-                Yatlas_IsWorldViewTilesEnabled,
-                function() Yatlas_SetWorldViewTiles(not Yatlas_IsWorldViewTilesEnabled()); end);
+                TWM_IsWorldViewTilesEnabled,
+                function() TWM_SetWorldViewTiles(not TWM_IsWorldViewTilesEnabled()); end);
             rootDescription:CreateCheckbox(TWM_MENU_CITYMAP_TILES,
-                Yatlas_IsCityMapTilesEnabled,
-                function() Yatlas_SetCityMapTiles(not Yatlas_IsCityMapTilesEnabled()); end);
+                TWM_IsCityMapTilesEnabled,
+                function() TWM_SetCityMapTiles(not TWM_IsCityMapTilesEnabled()); end);
         end);
     else
-        Yatlas_SetWorldMapOverlay(not Yatlas_IsWorldMapOverlayEnabled(), true);
+        TWM_SetWorldMapOverlay(not TWM_IsWorldMapOverlayEnabled(), true);
     end
     self:Refresh();
 end
 
-function YatlasWorldMapButtonMixin:Refresh()
-    local enabled = Yatlas_IsWorldMapOverlayEnabled();
+function TWMWorldMapButtonMixin:Refresh()
+    local enabled = TWM_IsWorldMapOverlayEnabled();
     self.Icon:SetDesaturated(not enabled);
     self.Icon:SetAlpha(enabled and 1 or 0.5);
 end
@@ -426,17 +426,17 @@ end
 local initFrame = CreateFrame("Frame");
 initFrame:RegisterEvent("PLAYER_LOGIN");
 initFrame:SetScript("OnEvent", function()
-    if(YatlasOptions.WorldMapOverlay == nil) then
-        YatlasOptions.WorldMapOverlay = true;
+    if(TWMOption.WorldMapOverlay == nil) then
+        TWMOption.WorldMapOverlay = true;
     end
-    if(YatlasOptions.WorldMapOverlayChildMaps == nil) then
-        YatlasOptions.WorldMapOverlayChildMaps = true;
+    if(TWMOption.WorldMapOverlayChildMaps == nil) then
+        TWMOption.WorldMapOverlayChildMaps = true;
     end
-    if(YatlasOptions.WorldMapOverlayWorldView == nil) then
-        YatlasOptions.WorldMapOverlayWorldView = false;
+    if(TWMOption.WorldMapOverlayWorldView == nil) then
+        TWMOption.WorldMapOverlayWorldView = false;
     end
-    if(YatlasOptions.WorldMapOverlayCityMaps == nil) then
-        YatlasOptions.WorldMapOverlayCityMaps = false;
+    if(TWMOption.WorldMapOverlayCityMaps == nil) then
+        TWMOption.WorldMapOverlayCityMaps = false;
     end
 
     GetOverlayFrame();
@@ -444,11 +444,11 @@ initFrame:SetScript("OnEvent", function()
     hooksecurefunc(WorldMapFrame, "OnMapChanged", RefreshOverlay);
     WorldMapFrame:HookScript("OnShow", RefreshOverlay);
 
-    if(YatlasOptions.WorldMapOverlay) then
+    if(TWMOption.WorldMapOverlay) then
         overlay:Show();
         RefreshOverlay();
     end
 
-    worldMapButton = LibStub("Krowi_WorldMapButtons-1.4"):Add("YatlasWorldMapButtonTemplate", "BUTTON");
+    worldMapButton = LibStub("Krowi_WorldMapButtons-1.4"):Add("TWMWorldMapButtonTemplate", "BUTTON");
     worldMapButton:Show();
 end);

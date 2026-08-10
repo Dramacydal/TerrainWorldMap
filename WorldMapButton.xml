@@ -5,8 +5,8 @@
     <!-- Icon added to the stock WorldMapFrame via the shared Krowi_WorldMapButtons
     library (same one Atlas uses), so it auto-stacks alongside other addons'
     map buttons instead of overlapping them. Left-click toggles the baked
-    tile overlay (WorldMapOverlay.lua); right-click opens Yatlas' own window. -->
-    <Button name="YatlasWorldMapButtonTemplate" frameStrata="HIGH" mixin="YatlasWorldMapButtonMixin" hidden="true" virtual="true" toplevel="true">
+    tile overlay (WorldMapOverlay.lua); right-click opens TerrainWorldMap's own window. -->
+    <Button name="TWMWorldMapButtonTemplate" frameStrata="HIGH" mixin="TWMWorldMapButtonMixin" hidden="true" virtual="true" toplevel="true">
         <Size x="32" y="32"/>
         <Layers>
             <Layer level="BACKGROUND">

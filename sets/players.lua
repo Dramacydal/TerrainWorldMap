@@ -4,19 +4,19 @@ local eventframe;
 local unitlocations = {};
 
 local addpoint = function(name, unit)
-    YAPoints_AddMobilePoint(nil, name, unit, nil, nil);
+    TWMPoints_AddMobilePoint(nil, name, unit, nil, nil);
 
-    YAPoints_SetupMobilePointF(nil, name, unit, "Icon","SetTexture",
+    TWMPoints_SetupMobilePointF(nil, name, unit, "Icon","SetTexture",
             "Interface\\AddOns\\TerrainWorldMap\\images\\Icons\\Icon-PartyUnit");
     if(string.find(unit,"party")) then
-        YAPoints_SetupMobilePointF(nil, name, unit, "Icon","SetVertexColor",1,0.4,0.4,1);
+        TWMPoints_SetupMobilePointF(nil, name, unit, "Icon","SetVertexColor",1,0.4,0.4,1);
     elseif(string.find(unit,"raid")) then
-        YAPoints_SetupMobilePointF(nil, name, unit, "Icon","SetVertexColor",1,1,0.3,1);
+        TWMPoints_SetupMobilePointF(nil, name, unit, "Icon","SetVertexColor",1,1,0.3,1);
     else
-        YAPoints_SetupMobilePointF(nil, name, unit, "Icon","SetVertexColor",0.4,0.6,1,1);
+        TWMPoints_SetupMobilePointF(nil, name, unit, "Icon","SetVertexColor",0.4,0.6,1,1);
     end
-    YAPoints_SetupMobilePointF(nil, name, unit, "Icon","SetTexCoord",0,1,0,1);
-    YAPoints_SetupMobilePointF(nil, name, unit, "Icon","Show");
+    TWMPoints_SetupMobilePointF(nil, name, unit, "Icon","SetTexCoord",0,1,0,1);
+    TWMPoints_SetupMobilePointF(nil, name, unit, "Icon","Show");
 end
 
 function set.getmobilepoints(name)
@@ -51,13 +51,13 @@ function set.internal.OnWorldMapUpdate()
 end
 
 function set.internal.OnWorldMapUpdateUnit(u)
-    local map, x, y = Yatlas_GetUnitContinentPosition(u);
+    local map, x, y = TWM_GetUnitContinentPosition(u);
     local ux, uy;
 
     if(map == nil) then
         if(unitlocations[u]) then
             unitlocations[u] = nil;
-            YAPoints_HideMobile("players", u);
+            TWMPoints_HideMobile("players", u);
         end
         return;
     end
@@ -67,7 +67,7 @@ function set.internal.OnWorldMapUpdateUnit(u)
         -- hide other representations of units
         if(unitlocations[u]) then
             unitlocations[u] = nil;
-            YAPoints_HideMobile("players", u);
+            TWMPoints_HideMobile("players", u);
         end
         return;
     end
@@ -90,9 +90,9 @@ function set.internal.OnWorldMapUpdateUnit(u)
         y2 = va[4];
     end
     
-    ux, uy = Yatlas_Big2Mini_Coord((-x*(x1-x2) + x1), (-y*(y1-y2) + y1))
+    ux, uy = TWM_Big2Mini_Coord((-x*(x1-x2) + x1), (-y*(y1-y2) + y1))
     unitlocations[u] = { map, ux, uy};
-    YAPoints_Mobile_SetLocation("players", u, map, ux, uy);
+    TWMPoints_Mobile_SetLocation("players", u, map, ux, uy);
 end
 
 function set.internal.CreateEventFrame()
@@ -113,7 +113,7 @@ function set.internal.CreateEventFrame()
 
             for h,v in ipairs(q) do
                 unitlocations[v] = nil;
-                YAPoints_HideMobile("players", v);
+                TWMPoints_HideMobile("players", v);
             end
         end
     end)
@@ -130,4 +130,4 @@ function set.setuplegend(point, env, dat)
     point.Icon:SetWidth(env.iconsize);
 end
 
-YAPoints_RegisterSet(set);
+TWMPoints_RegisterSet(set);

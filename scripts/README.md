@@ -164,7 +164,7 @@ TerrainWorldMap tile key "COLxROW"  <->  WDT tile (x = ROW, y = COL)
 ```
 i.e. TerrainWorldMap's tile-key "column" is the WDT's tile **Y** index, and TerrainWorldMap's
 tile-key "row" is the WDT's tile **X** index. This is baked into the script
-as `yatlasCol = y; yatlasRow = x`. If tiles look systematically
+as `twmCol = y; twmRow = x`. If tiles look systematically
 transposed/mirrored after a re-run, this is the first place to check.
 
 **Validity rule:** for FileDataID-based WDTs (`MAID` chunk present, true for

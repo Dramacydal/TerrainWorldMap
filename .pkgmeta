@@ -1,4 +1,4 @@
-package-as: Yatlas
+package-as: TerrainWorldMap
 
 manual-changelog:
     filename: Docs/ChangeLog.txt

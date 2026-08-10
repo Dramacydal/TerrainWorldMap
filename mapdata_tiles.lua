@@ -1,4 +1,4 @@
--- Which map tiles (Yatlas grid-cell coords) have real terrain, extracted
+-- Which map tiles (TerrainWorldMap grid-cell coords) have real terrain, extracted
 -- from this client's own world/maps/<continent>/<continent>.wdt files
 -- (MAIN/MAID chunks, rootADT field) via wow.export + a small parser
 -- script -- see SESSION.md for how this was generated. This is ground

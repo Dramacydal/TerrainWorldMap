@@ -1,4 +1,4 @@
--- Native Blizzard AddOn settings panel (Interface Options), replaces the old standalone YatlasOptionsFrame.
+-- Native Blizzard AddOn settings panel (Interface Options), replaces the old standalone TWMOptionFrame.
 
 local function CreateCheckbox(parent, globalName, labelText)
     local button = CreateFrame("CheckButton", globalName, parent, "UICheckButtonTemplate");
@@ -32,15 +32,15 @@ local title = MainPanel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge");
 title:SetPoint("TOPLEFT", 16, -16);
 title:SetText(TWM_OPTIONS_TITLE);
 
-local enableButton = CreateCheckbox(MainPanel, "YatlasOptionsButtonEnable", TWM_OPTIONS_ENABLEBUTTON);
+local enableButton = CreateCheckbox(MainPanel, "TWMOptionButtonEnable", TWM_OPTIONS_ENABLEBUTTON);
 enableButton:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -24);
 enableButton:SetScript("OnClick", function(self)
-    YatlasOptions.ShowButton = self:GetChecked() and true or false;
-    YatlasButton_Update();
+    TWMOption.ShowButton = self:GetChecked() and true or false;
+    TWMButton_Update();
 end);
 
 function MainPanel.OnRefresh()
-    enableButton:SetChecked(YatlasOptions.ShowButton);
+    enableButton:SetChecked(TWMOption.ShowButton);
 end
 
 --
@@ -50,41 +50,41 @@ end
 local WorldMapPanel = CreateFrame("Frame");
 WorldMapPanel.name = TWM_OPTIONS_TAB_WORLDMAP;
 
-local childMapTilesButton = CreateCheckbox(WorldMapPanel, "YatlasOptionsChildMapTiles", TWM_MENU_CHILDMAP_TILES);
+local childMapTilesButton = CreateCheckbox(WorldMapPanel, "TWMOptionChildMapTiles", TWM_MENU_CHILDMAP_TILES);
 childMapTilesButton:SetPoint("TOPLEFT", 16, -16);
 childMapTilesButton:SetScript("OnClick", function(self)
-    Yatlas_SetChildMapTiles(self:GetChecked() and true or false);
+    TWM_SetChildMapTiles(self:GetChecked() and true or false);
 end);
 
-local worldViewTilesButton = CreateCheckbox(WorldMapPanel, "YatlasOptionsWorldViewTiles", TWM_MENU_WORLDVIEW_TILES);
+local worldViewTilesButton = CreateCheckbox(WorldMapPanel, "TWMOptionWorldViewTiles", TWM_MENU_WORLDVIEW_TILES);
 worldViewTilesButton:SetPoint("TOPLEFT", childMapTilesButton, "BOTTOMLEFT", 0, -12);
 worldViewTilesButton:SetScript("OnClick", function(self)
-    Yatlas_SetWorldViewTiles(self:GetChecked() and true or false);
+    TWM_SetWorldViewTiles(self:GetChecked() and true or false);
 end);
 
-local cityMapTilesButton = CreateCheckbox(WorldMapPanel, "YatlasOptionsCityMapTiles", TWM_MENU_CITYMAP_TILES);
+local cityMapTilesButton = CreateCheckbox(WorldMapPanel, "TWMOptionCityMapTiles", TWM_MENU_CITYMAP_TILES);
 cityMapTilesButton:SetPoint("TOPLEFT", worldViewTilesButton, "BOTTOMLEFT", 0, -12);
 cityMapTilesButton:SetScript("OnClick", function(self)
-    Yatlas_SetCityMapTiles(self:GetChecked() and true or false);
+    TWM_SetCityMapTiles(self:GetChecked() and true or false);
 end);
 
 function WorldMapPanel.OnRefresh()
-    childMapTilesButton:SetChecked(Yatlas_IsChildMapTilesEnabled());
-    worldViewTilesButton:SetChecked(Yatlas_IsWorldViewTilesEnabled());
-    cityMapTilesButton:SetChecked(Yatlas_IsCityMapTilesEnabled());
+    childMapTilesButton:SetChecked(TWM_IsChildMapTilesEnabled());
+    worldViewTilesButton:SetChecked(TWM_IsWorldViewTilesEnabled());
+    cityMapTilesButton:SetChecked(TWM_IsCityMapTilesEnabled());
 end
 
 --
--- "Browser" subcategory: the Yatlas window itself (tracking + appearance).
+-- "Browser" subcategory: the TerrainWorldMap window itself (tracking + appearance).
 --
 
 local BrowserPanel = CreateFrame("Frame");
 BrowserPanel.name = TWM_OPTIONS_TAB_BROWSER;
 
-local trackOnShowButton = CreateCheckbox(BrowserPanel, "YatlasOptionsTrackOnShow", TWM_OPTIONS_TRACKONSHOW);
+local trackOnShowButton = CreateCheckbox(BrowserPanel, "TWMOptionTrackOnShow", TWM_OPTIONS_TRACKONSHOW);
 trackOnShowButton:SetPoint("TOPLEFT", 16, -16);
 trackOnShowButton:SetScript("OnClick", function(self)
-    for h,v in pairs(YatlasOptions.Frames) do
+    for h,v in pairs(TWMOption.Frames) do
         if(self:GetChecked()) then
             v.trackonshow = "player";
         else
@@ -93,36 +93,36 @@ trackOnShowButton:SetScript("OnClick", function(self)
     end
 end);
 
-local alphaSlider = CreateSlider(BrowserPanel, "YatlasOptionsAlphaSlider", TWM_OPTIONS_ALPHA, .1, 1, .05);
+local alphaSlider = CreateSlider(BrowserPanel, "TWMOptionAlphaSlider", TWM_OPTIONS_ALPHA, .1, 1, .05);
 alphaSlider:SetPoint("TOPLEFT", trackOnShowButton, "BOTTOMLEFT", 4, -32);
 alphaSlider:SetScript("OnValueChanged", function(self)
-    YatlasFrame:SetAlpha(self:GetValue());
-    YatlasOptions.Frames["YatlasFrame"].Alpha = self:GetValue();
+    TWMFrame:SetAlpha(self:GetValue());
+    TWMOption.Frames["TWMFrame"].Alpha = self:GetValue();
 end);
 
-local iconSizeSlider = CreateSlider(BrowserPanel, "YatlasOptionsIconSizeSlider", TWM_OPTIONS_ICONSIZE, 0.5, 3.0, 0.1);
+local iconSizeSlider = CreateSlider(BrowserPanel, "TWMOptionIconSizeSlider", TWM_OPTIONS_ICONSIZE, 0.5, 3.0, 0.1);
 iconSizeSlider:SetPoint("TOPLEFT", alphaSlider, "BOTTOMLEFT", 0, -32);
 iconSizeSlider:SetScript("OnValueChanged", function(self)
     local v = self:GetValue();
-    if(YatlasOptions.Frames["YatlasFrame"].IconSize ~= v) then
-        YatlasOptions.Frames["YatlasFrame"].IconSize = v;
-        YAPoints_Update(YatlasFrame);
+    if(TWMOption.Frames["TWMFrame"].IconSize ~= v) then
+        TWMOption.Frames["TWMFrame"].IconSize = v;
+        TWMPoints_Update(TWMFrame);
     end
 end);
 
-local resetPositionButton = CreateFrame("Button", "YatlasOptionsResetPosition", BrowserPanel, "UIPanelButtonTemplate");
+local resetPositionButton = CreateFrame("Button", "TWMOptionResetPosition", BrowserPanel, "UIPanelButtonTemplate");
 resetPositionButton:SetSize(160, 22);
 resetPositionButton:SetPoint("TOPLEFT", iconSizeSlider, "BOTTOMLEFT", -4, -32);
 resetPositionButton:SetText(TWM_OPTIONS_RESETPOSITION);
 resetPositionButton:SetScript("OnClick", function()
-    Yatlas_ResetFramePosition();
+    TWM_ResetFramePosition();
 end);
 
 function BrowserPanel.OnRefresh()
-    local aframe = next(YatlasOptions.Frames);
-    trackOnShowButton:SetChecked(aframe and YatlasOptions.Frames[aframe].trackonshow ~= nil);
+    local aframe = next(TWMOption.Frames);
+    trackOnShowButton:SetChecked(aframe and TWMOption.Frames[aframe].trackonshow ~= nil);
 
-    local opt = YatlasOptions.Frames["YatlasFrame"];
+    local opt = TWMOption.Frames["TWMFrame"];
     if(opt) then
         alphaSlider:SetValue(opt.Alpha);
         iconSizeSlider:SetValue(opt.IconSize);
@@ -136,7 +136,7 @@ end
 local category = Settings.RegisterCanvasLayoutCategory(MainPanel, MainPanel.name);
 category.ID = category.ID or MainPanel.name;
 Settings.RegisterAddOnCategory(category);
-YatlasSettingsCategory = category;
+TWMSettingsCategory = category;
 
 local worldMapSubcategory = Settings.RegisterCanvasLayoutSubcategory(category, WorldMapPanel, WorldMapPanel.name);
 worldMapSubcategory.ID = worldMapSubcategory.ID or WorldMapPanel.name;
@@ -144,6 +144,6 @@ worldMapSubcategory.ID = worldMapSubcategory.ID or WorldMapPanel.name;
 local browserSubcategory = Settings.RegisterCanvasLayoutSubcategory(category, BrowserPanel, BrowserPanel.name);
 browserSubcategory.ID = browserSubcategory.ID or BrowserPanel.name;
 
-function YatlasOptions_Toggle()
-    Settings.OpenToCategory(YatlasSettingsCategory.ID);
+function TWMOption_Toggle()
+    Settings.OpenToCategory(TWMSettingsCategory.ID);
 end

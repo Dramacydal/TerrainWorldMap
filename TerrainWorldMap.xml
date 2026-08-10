@@ -1,5 +1,5 @@
 <Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/..\..\FrameXML\UI.xsd">
-	<Frame name="YatlasFrame" frameStrata="HIGH" toplevel="true" movable="true" resizable="true" parent="UIParent" inherits="YatlasFrameTemplatePreBuilt, BackdropTemplate" hidden="true">
+	<Frame name="TWMFrame" frameStrata="HIGH" toplevel="true" movable="true" resizable="true" parent="UIParent" inherits="TWMFrameTemplatePreBuilt, BackdropTemplate" hidden="true">
 		<Size>
 			<AbsDimension x="539" y="628"/>
 		</Size>
@@ -12,9 +12,9 @@
 		</Anchors>
 		<Layers>
 			<!-- ARTWORK, not BACKGROUND: needs to sit above the native backdrop's
-			own BACKGROUND-layer fill (see YatlasFrame_OnLoadExtra), since both
+			own BACKGROUND-layer fill (see TWMFrame_OnLoadExtra), since both
 			are regions of this same frame ; same reason the map tiles moved
-			to ARTWORK too (see YatlasFrameTemplatePreBuilt in Templates.xml). -->
+			to ARTWORK too (see TWMFrameTemplatePreBuilt in Templates.xml). -->
 			<Layer level="ARTWORK">
 				<Texture name="$parentPortrait" file="Interface\AddOns\TerrainWorldMap\images\Button">
                     <Size>
@@ -29,7 +29,7 @@
                     </Anchors>
                 </Texture>
 			</Layer>
-			<!-- Border is now a tiled BackdropTemplate (set in YatlasFrame_OnLoadExtra)
+			<!-- Border is now a tiled BackdropTemplate (set in TWMFrame_OnLoadExtra)
 			instead of these fixed-size corner images, since fixed art can't stretch
 			and this frame is now resizable. -->
 			<Layer level="BORDER">
@@ -47,7 +47,7 @@
 						</Anchor>
 					</Anchors>
 				</FontString>
-				<!-- Anchor set in Lua (YatlasFrame_OnLoadExtra), relative to the
+				<!-- Anchor set in Lua (TWMFrame_OnLoadExtra), relative to the
 				lock button itself, so it can never end up underneath it;
 				a layer region here can't forward-reference a child Frame
 				that's declared later in this same XML block. -->
@@ -60,9 +60,9 @@
 			</Layer>
 		</Layers>
 		<Frames>
-			<Button name="YatlasFrameCloseButton" inherits="UIPanelCloseButton">
+			<Button name="TWMFrameCloseButton" inherits="UIPanelCloseButton">
 				<Anchors>
-					<Anchor point="CENTER" relativeTo="YatlasFrame" relativePoint="TOPRIGHT">
+					<Anchor point="CENTER" relativeTo="TWMFrame" relativePoint="TOPRIGHT">
 						<Offset>
 							<AbsDimension x="-20" y="-25"/>
 						</Offset>
@@ -74,12 +74,12 @@
 					</OnLoad>
 				</Scripts>
 			</Button>
-			<Button name="YatlasFrameLockButton">
+			<Button name="TWMFrameLockButton">
 				<Size>
 					<AbsDimension x="32" y="32"/>
 				</Size>
 				<Anchors>
-					<Anchor point="RIGHT" relativeTo="YatlasFrameCloseButton" relativePoint="LEFT">
+					<Anchor point="RIGHT" relativeTo="TWMFrameCloseButton" relativePoint="LEFT">
 						<Offset>
 							<AbsDimension x="11" y="0"/>
 						</Offset>
@@ -90,14 +90,14 @@
 						self:SetFrameLevel(self:GetFrameLevel() + 4);
 					</OnLoad>
 					<OnClick>
-						YatlasFrame:ToggleLock();
+						TWMFrame:ToggleLock();
 					</OnClick>
 				</Scripts>
 				<NormalTexture name="$parentNorm"/>
 				<PushedTexture name="$parentPush"/>
 				<HighlightTexture file="Interface\Buttons\UI-Panel-MinimizeButton-Highlight" alphaMode="ADD"/>
 			</Button>
-			<Frame name="$parentViewFrame" enableMouse="true" inherits="YatlasFrameViewTemplate">
+			<Frame name="$parentViewFrame" enableMouse="true" inherits="TWMFrameViewTemplate">
 				<Anchors>
 				    <Anchor point="TOPLEFT">
 						<Offset>
@@ -111,7 +111,7 @@
 					</Anchor>
 				</Anchors>
 			</Frame>
-			<Button name="YatlasFrameResizeButton" parent="YatlasFrame">
+			<Button name="TWMFrameResizeButton" parent="TWMFrame">
 				<Size>
 					<AbsDimension x="16" y="16"/>
 				</Size>
@@ -127,18 +127,18 @@
 						self:SetFrameLevel(self:GetParent():GetFrameLevel() + 10);
 					</OnLoad>
 					<OnMouseDown>
-						YatlasFrame:StartSizing("BOTTOMRIGHT");
+						TWMFrame:StartSizing("BOTTOMRIGHT");
 					</OnMouseDown>
 					<OnMouseUp>
-						YatlasFrame:StopMovingOrSizing();
-						YatlasFrame_OnResizeStop(YatlasFrame);
+						TWMFrame:StopMovingOrSizing();
+						TWMFrame_OnResizeStop(TWMFrame);
 					</OnMouseUp>
 				</Scripts>
 				<NormalTexture file="Interface\ChatFrame\UI-ChatIM-SizeGrabber-Up"/>
 				<PushedTexture file="Interface\ChatFrame\UI-ChatIM-SizeGrabber-Down"/>
 				<HighlightTexture file="Interface\ChatFrame\UI-ChatIM-SizeGrabber-Highlight"/>
 			</Button>
-			<Button name="YatlasFrameDropDown" inherits="UIDropDownMenuTemplate">
+			<Button name="TWMFrameDropDown" inherits="UIDropDownMenuTemplate">
 				<Anchors>
 					<Anchor point="TOPLEFT">
 						<Offset>
@@ -148,16 +148,16 @@
 				</Anchors>
 				<Scripts>
 					<OnLoad>
-						YatlasFrameDropDown_OnLoad(self);
+						TWMFrameDropDown_OnLoad(self);
 					</OnLoad>
 					<OnEvent>
-						YatlasFrameDropDown_OnEvent(self, event);
+						TWMFrameDropDown_OnEvent(self, event);
 					</OnEvent>
 				</Scripts>
 			</Button>
-			<Button name="YatlasFrameDropDown2" inherits="UIDropDownMenuTemplate">
-				<!-- Repositioned live by YatlasFrame_LayoutHeader (centered in the
-				gap between YatlasFrameDropDown and YatlasFramePlayerJumpButton);
+			<Button name="TWMFrameDropDown2" inherits="UIDropDownMenuTemplate">
+				<!-- Repositioned live by TWMFrame_LayoutHeader (centered in the
+				gap between TWMFrameDropDown and TWMFramePlayerJumpButton);
 				this anchor is only the pre-layout fallback position. -->
 				<Anchors>
 					<Anchor point="TOPLEFT">
@@ -168,23 +168,23 @@
 				</Anchors>
 				<Scripts>
 					<OnLoad>
-						YatlasFrameDropDown2_OnLoad(self);
+						TWMFrameDropDown2_OnLoad(self);
 					</OnLoad>
 					<OnEvent>
-						YatlasFrameDropDown2_OnEvent(self, event);
+						TWMFrameDropDown2_OnEvent(self, event);
 					</OnEvent>
 				</Scripts>
 			</Button>
-			<!-- Position overridden by YatlasFrame_LayoutHeader, which keeps this
+			<!-- Position overridden by TWMFrame_LayoutHeader, which keeps this
 			grouped with the two dropdowns and centers the whole cluster under
 			the frame's current width; this anchor is only the pre-layout
 			fallback. -->
-			<Button name="YatlasFramePlayerJumpButton" text="TWM_PLAYERJUMP" inherits="UIPanelButtonTemplate">
+			<Button name="TWMFramePlayerJumpButton" text="TWM_PLAYERJUMP" inherits="UIPanelButtonTemplate">
 				<Size>
 					<AbsDimension x="108" y="24"/>
 				</Size>
 				<Anchors>
-					<Anchor point="LEFT" relativeTo="YatlasFrameDropDown2" relativePoint="RIGHT">
+					<Anchor point="LEFT" relativeTo="TWMFrameDropDown2" relativePoint="RIGHT">
 						<Offset>
 							<AbsDimension x="8" y="0"/>
 						</Offset>
@@ -196,24 +196,24 @@
 						self:RegisterEvent("VARIABLES_LOADED");
 					</OnLoad>
 					<OnEvent>
-						YatlasFramePlayerJumpButton_Update(self);
+						TWMFramePlayerJumpButton_Update(self);
 					</OnEvent>
 					<OnClick>
 						if(IsShiftKeyDown()) then
-							YatlasFramePlayerJumpButton_Toggle(self);
+							TWMFramePlayerJumpButton_Toggle(self);
 						else
-							YatlasFramePlayerJumpButton_Jump(self);
+							TWMFramePlayerJumpButton_Jump(self);
 						end
 					</OnClick>
 					<OnMouseUp>
-						YatlasFramePlayerJumpButton_Update(self);
+						TWMFramePlayerJumpButton_Update(self);
 					</OnMouseUp>
 					<OnShow>
-						YatlasFramePlayerJumpButton_Update(self);
+						TWMFramePlayerJumpButton_Update(self);
 					</OnShow>
 				</Scripts>
 			</Button>
-			<Button name="YatlasFrameOptionsButton" inherits="UIPanelButtonTemplate" text="TWM_OPTIONSBUTTON">
+			<Button name="TWMFrameOptionsButton" inherits="UIPanelButtonTemplate" text="TWM_OPTIONSBUTTON">
 				<Size>
 					<AbsDimension x="108" y="24"/>
 				</Size>
@@ -229,26 +229,26 @@
 						self:SetFrameLevel(self:GetFrameLevel() + 4);
 					</OnLoad>
 					<OnClick>
-						YatlasOptions_Toggle();
+						TWMOption_Toggle();
 					</OnClick>
 				</Scripts>
 			</Button>
 		</Frames>
 		<Scripts>
 			<OnLoad>
-				tinsert(UISpecialFrames,"YatlasFrame");
-				YatlasFrame_Bootstrap(self);
-				YatlasFrame_OnLoadExtra();
+				tinsert(UISpecialFrames,"TWMFrame");
+				TWMFrame_Bootstrap(self);
+				TWMFrame_OnLoadExtra();
 			</OnLoad>
 			<OnSizeChanged>
-				YatlasFrame_OnResizeStop(self);
+				TWMFrame_OnResizeStop(self);
 			</OnSizeChanged>
 		</Scripts>
 	</Frame>
 
-	<Frame name="YatlasTooltip" frameStrata="TOOLTIP" hidden="true" parent="YatlasFrame" inherits="YatlasTooltipTemplate">
+	<Frame name="TWMTooltip" frameStrata="TOOLTIP" hidden="true" parent="TWMFrame" inherits="TWMTooltipTemplate">
 		<Anchors>
-			<Anchor point="BOTTOMRIGHT" relativeTo="YatlasFrameViewFrame" relativePoint="BOTTOMRIGHT">
+			<Anchor point="BOTTOMRIGHT" relativeTo="TWMFrameViewFrame" relativePoint="BOTTOMRIGHT">
 				<Offset>
 					<AbsDimension x="0" y="0"/>
 				</Offset>
@@ -256,7 +256,7 @@
 		</Anchors>
 	</Frame>
 
-	<Button name="YFOO" parent="YatlasFrameViewFrame"> <!-- call me YFOO -->
+	<Button name="YFOO" parent="TWMFrameViewFrame"> <!-- call me YFOO -->
 		<Size>
 			<AbsDimension x="24" y="24"/>
 		</Size>
@@ -297,7 +297,7 @@
 		<HighlightTexture file="Interface\Buttons\UI-Common-MouseHilight" alphaMode="ADD"/>
 	</Button>
 
-	<Button name="YatlasFrameZoomButton" parent="YatlasFrameViewFrame">
+	<Button name="TWMFrameZoomButton" parent="TWMFrameViewFrame">
 		<Size>
 			<AbsDimension x="24" y="24"/>
 		</Size>
@@ -309,7 +309,7 @@
 			</Anchor>
 		</Anchors>
 		<Frames>
-			<Frame name="YatlasFrameZoomFrame" inherits="YatlasZoomTemplate" hidden="true">
+			<Frame name="TWMFrameZoomFrame" inherits="TWMZoomTemplate" hidden="true">
 				<Anchors>
 					<Anchor point="TOP">
 						<Offset>
@@ -321,10 +321,10 @@
 		</Frames>
 		<Scripts>
 			<OnClick>
-				if(not YatlasFrameZoomFrame:IsShown()) then
-					YatlasFrameZoomFrame:Show();
+				if(not TWMFrameZoomFrame:IsShown()) then
+					TWMFrameZoomFrame:Show();
 				else
-					YatlasFrameZoomFrame:Hide();
+					TWMFrameZoomFrame:Hide();
 				end
 			</OnClick>
 		</Scripts>

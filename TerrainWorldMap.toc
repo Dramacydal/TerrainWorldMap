@@ -6,7 +6,7 @@
 ## IconTexture: Interface\AddOns\TerrainWorldMap\images\Button
 ## DefaultState: Enabled
 ## LoadOnDemand: 0
-## SavedVariables: YatlasOptions
+## SavedVariables: TWMOption
 
 Libs\Libs.xml
 Locale\Locales.xml

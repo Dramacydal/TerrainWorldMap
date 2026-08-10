@@ -5,7 +5,7 @@ TWM_TITLE = C_AddOns.GetAddOnMetadata("TerrainWorldMap", "Title") or "Y";
 TWM_VERSION = C_AddOns.GetAddOnMetadata("TerrainWorldMap","Version") or "???";
 _,_,TWM_RELEASE_DATE = string.find(C_AddOns.GetAddOnMetadata("TerrainWorldMap","X-LastChangedDate") or "", "[(](.+)[)]");
 
-TWM_WEBSITE = "https://github.com/Dramacydal/Yatlas"
+TWM_WEBSITE = "https://github.com/Dramacydal/TerrainWorldMap"
 TWM_AUTHOR = "Boo Diddly, Dramacydal";
 TWM_AUTHOR_EMAIL = "PulLumBerMal@gmail.com";
 

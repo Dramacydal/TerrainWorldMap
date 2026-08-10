@@ -5,9 +5,9 @@ local pre = "World\\Minimaps\\";
 local MINI2BIGX = 533.3333;
 local MINI2BIGY = 533.3333;
 
-YatlasOptions = {}
+TWMOption = {}
 
-YA_FRAME_OPTION_DEFAULTS = {
+TWM_FRAME_OPTION_DEFAULTS = {
     ["Locked"] = false,
     ["Map"] = "Kalimdor",
     ["Location"] = {31.0625, 33.250},
@@ -19,11 +19,11 @@ YA_FRAME_OPTION_DEFAULTS = {
     ["Height"] = 628,
 };
 
--- YatlasFrame's on-screen position when first created (Yatlas.xml); not part
--- of YA_FRAME_OPTION_DEFAULTS since screen position isn't stored in
--- YatlasOptions at all -- the client remembers it on its own via
+-- TWMFrame's on-screen position when first created (TerrainWorldMap.xml); not part
+-- of TWM_FRAME_OPTION_DEFAULTS since screen position isn't stored in
+-- TWMOption at all -- the client remembers it on its own via
 -- SetUserPlaced(), same as any other movable frame with a stable name.
-local YA_FRAME_DEFAULT_POINT = {"TOPLEFT", "UIParent", "TOPLEFT", 64, -64};
+local TWM_FRAME_DEFAULT_POINT = {"TOPLEFT", "UIParent", "TOPLEFT", 64, -64};
 
 -- SetZoom sizes/tiles the texture grid off ViewFrame's *current* anchor-
 -- derived width/height, which doesn't necessarily reflect a just-applied
@@ -41,18 +41,18 @@ local function RefreshZoomNextFrame(f)
     end);
 end
 
-function Yatlas_ResetFramePosition()
-    local f = YatlasFrame;
+function TWM_ResetFramePosition()
+    local f = TWMFrame;
 
     f:StopMovingOrSizing();
     f:ClearAllPoints();
-    f:SetPoint(unpack(YA_FRAME_DEFAULT_POINT));
+    f:SetPoint(unpack(TWM_FRAME_DEFAULT_POINT));
     f:SetUserPlaced(false);
 
-    f.opt.Zoom = YA_FRAME_OPTION_DEFAULTS.Zoom;
-    f.opt.Width = YA_FRAME_OPTION_DEFAULTS.Width;
-    f.opt.Height = YA_FRAME_OPTION_DEFAULTS.Height;
-    f.opt.Location = {YA_FRAME_OPTION_DEFAULTS.Location[1], YA_FRAME_OPTION_DEFAULTS.Location[2]};
+    f.opt.Zoom = TWM_FRAME_OPTION_DEFAULTS.Zoom;
+    f.opt.Width = TWM_FRAME_OPTION_DEFAULTS.Width;
+    f.opt.Height = TWM_FRAME_OPTION_DEFAULTS.Height;
+    f.opt.Location = {TWM_FRAME_OPTION_DEFAULTS.Location[1], TWM_FRAME_OPTION_DEFAULTS.Location[2]};
 
     f:SetSize(f.opt.Width, f.opt.Height);
 
@@ -61,7 +61,7 @@ function Yatlas_ResetFramePosition()
     else
         -- Hidden frames don't even resolve anchor-derived layout until
         -- shown -- deferred further, to the OnShow hook in
-        -- YatlasFrame_OnLoadExtra instead.
+        -- TWMFrame_OnLoadExtra instead.
         f.needsZoomRefreshOnShow = true;
     end
 end
@@ -71,14 +71,14 @@ local nilfunc = function() end
 
 -- Debug: overlay each map tile with its grid-cell coordinate and the live
 -- zone reported there. Toggle with "/twm debug".
-Yatlas_DebugTiles = false;
+TWM_DebugTiles = false;
 
-function Yatlas_ToggleTileDebug()
-    Yatlas_DebugTiles = not Yatlas_DebugTiles;
-    if(YatlasFrame.opt) then
-        YatlasFrame:SetLocation(YatlasFrame.opt.Location[1], YatlasFrame.opt.Location[2], true);
+function TWM_ToggleTileDebug()
+    TWM_DebugTiles = not TWM_DebugTiles;
+    if(TWMFrame.opt) then
+        TWMFrame:SetLocation(TWMFrame.opt.Location[1], TWMFrame.opt.Location[2], true);
     end
-    print(Yatlas_DebugTiles and TWM_DEBUG_TILES_ON or TWM_DEBUG_TILES_OFF);
+    print(TWM_DebugTiles and TWM_DEBUG_TILES_ON or TWM_DEBUG_TILES_OFF);
 end
 
 -- Whether a map tile has real terrain, per this client's own WDT data
@@ -88,7 +88,7 @@ end
 -- leftover Cataclysm-only art with no TBC-era ADT behind it). Used both to
 -- gate map-tile rendering and for the "/twm debug" tile overlay, which
 -- also reports the specific named zone (Twm_mapareas) when there is one.
-function Yatlas_GetLiveZoneNameForBigCoord(map, bigx, bigy, tilekey)
+function TWM_GetLiveZoneNameForBigCoord(map, bigx, bigy, tilekey)
     local valid = tilekey and Twm_WDTValidTiles[map] and Twm_WDTValidTiles[map][tilekey];
     if(not valid) then return nil; end
 
@@ -106,18 +106,18 @@ end
 
 -- Twm_ContinentMapID is defined in mapdata_poi.lua (loads before this file).
 
-local Yatlas_ContinentByMapID = {};
+local TWM_ContinentByMapID = {};
 for h,v in pairs(Twm_ContinentMapID) do
-    Yatlas_ContinentByMapID[v] = h;
+    TWM_ContinentByMapID[v] = h;
 end
 
 -- Walks a uiMapID up its parent chain until it hits one of our known
 -- continents (C_Map has no "give me the continent" shortcut).
-function Yatlas_GetContinentForMapID(mapID)
+function TWM_GetContinentForMapID(mapID)
     local guard = 0;
     while(mapID and guard < 10) do
-        if(Yatlas_ContinentByMapID[mapID]) then
-            return Yatlas_ContinentByMapID[mapID];
+        if(TWM_ContinentByMapID[mapID]) then
+            return TWM_ContinentByMapID[mapID];
         end
         local info = C_Map.GetMapInfo(mapID);
         if(not info) then return nil; end
@@ -128,9 +128,9 @@ function Yatlas_GetContinentForMapID(mapID)
 end
 
 -- Replaces the old GetPlayerMapPosition(u); returns nil if the unit isn't on
--- one of Yatlas' 3 known continents (no WorldMapFrame navigation needed).
+-- one of TerrainWorldMap's 3 known continents (no WorldMapFrame navigation needed).
 -- Returns (continent, x, y) where x/y are normalized [0,1] *within that
--- continent's own Twm_mapareas[continent][0] box* -- callers (Yatlas.lua's
+-- continent's own Twm_mapareas[continent][0] box* -- callers (TerrainWorldMap.lua's
 -- "Goto Player", sets/players.lua) both convert via that box directly.
 --
 -- A few zones (Draenei/Blood Elf starting isles) are filed under a
@@ -140,11 +140,11 @@ end
 -- (Twm_UiMapID2Zone, ground truth) -- and its real WDT terrain -- is
 -- filed under Expansion01/Outland. Querying GetPlayerMapPosition against
 -- the hierarchy-hinted continent for these returns Blizzard's compressed
--- inset-icon position instead of a real location, which Yatlas' own terrain
+-- inset-icon position instead of a real location, which TerrainWorldMap's own terrain
 -- transform then maps to nonsense (e.g. open ocean on Kalimdor). So: query
 -- the immediate zone's own position when we have ground truth for it, and
 -- convert through its own real box instead of blindly trusting the hint.
-function Yatlas_GetUnitContinentPosition(u)
+function TWM_GetUnitContinentPosition(u)
     local mapID = C_Map.GetBestMapForUnit(u);
     if(not mapID) then return nil; end
 
@@ -156,7 +156,7 @@ function Yatlas_GetUnitContinentPosition(u)
         zoneBox = Twm_mapareas[continent][known[2]];
         queryMapID = mapID;
     else
-        continent = Yatlas_GetContinentForMapID(mapID);
+        continent = TWM_GetContinentForMapID(mapID);
         if(not continent) then return nil; end
         zoneBox = Twm_mapareas[continent][0];
         queryMapID = Twm_ContinentMapID[continent];
@@ -176,15 +176,15 @@ function Yatlas_GetUnitContinentPosition(u)
     return continent, (cx1-bigx)/(cx1-cx2), (cy1-bigy)/(cy1-cy2);
 end
 
-YatlasFrameTemplate = {};
+TWMFrameTemplate = {};
 
-function YatlasFrame_Bootstrap(self, frame)
-    --frame = YatlasFrame;
+function TWMFrame_Bootstrap(self, frame)
+    --frame = TWMFrame;
     if(frame == nil) then
         frame = self;
     end
 
-    for h,v in pairs(YatlasFrameTemplate) do
+    for h,v in pairs(TWMFrameTemplate) do
         if(frame[h]) then
             frame["old_"..h] = frame[h];
         end
@@ -194,7 +194,7 @@ function YatlasFrame_Bootstrap(self, frame)
     frame:OnLoad();
 end
 
-function YatlasFrameTemplate:OnLoad()
+function TWMFrameTemplate:OnLoad()
     local lm = self:GetName();
     local viewframe = _G[lm.."ViewFrame"];
 
@@ -212,43 +212,43 @@ function YatlasFrameTemplate:OnLoad()
     viewframe:RegisterForDrag("RightButton","LeftButton");
     viewframe:EnableMouseWheel(true);
 
-    YAPoints_RegisterFrame(self:GetName());
+    TWMPoints_RegisterFrame(self:GetName());
 
     self.update_time = 0;
 end
 
-function YatlasFrame_OnLoadExtra()
-    YatlasFrame.OnEventExtra = YatlasFrame_OnEventExtra;
-    YatlasFrame.YA_PD_allocText = "YA_PD_allocText";
-    YatlasFrame.YA_PD_ResetList = "YA_PD_ResetList";
+function TWMFrame_OnLoadExtra()
+    TWMFrame.OnEventExtra = TWMFrame_OnEventExtra;
+    TWMFrame.TWM_PD_allocText = "TWM_PD_allocText";
+    TWMFrame.TWM_PD_ResetList = "TWM_PD_ResetList";
     
-    SLASH_YATLAS1 = "/twm";
-    SlashCmdList["YATLAS"] = function(msg)
+    SLASH_TWM1 = "/twm";
+    SlashCmdList["TWM"] = function(msg)
         if(msg == "debug") then
-            Yatlas_ToggleTileDebug();
+            TWM_ToggleTileDebug();
         elseif(msg == "map on") then
-            Yatlas_SetWorldMapOverlay(true);
+            TWM_SetWorldMapOverlay(true);
         elseif(msg == "map off") then
-            Yatlas_SetWorldMapOverlay(false);
+            TWM_SetWorldMapOverlay(false);
         else
-            YatlasFrame:Toggle();
+            TWMFrame:Toggle();
         end
     end
 
-    YatlasFrame.hoverTooltip = "YatlasTooltip";
+    TWMFrame.hoverTooltip = "TWMTooltip";
 
     -- wrap mapnotes for updates
     if(MapNotes_DeleteNote) then
-        YA_old_MapNotes_DeleteNote = MapNotes_DeleteNote;
+        TWM_old_MapNotes_DeleteNote = MapNotes_DeleteNote;
         MapNotes_DeleteNote = function(...)
-            local v = YA_old_MapNotes_DeleteNote(...)
-            YAPoints_ForceUpdate();
+            local v = TWM_old_MapNotes_DeleteNote(...)
+            TWMPoints_ForceUpdate();
             return v;
         end
-        YA_old_MapNotes_WriteNote = MapNotes_WriteNote;
+        TWM_old_MapNotes_WriteNote = MapNotes_WriteNote;
         MapNotes_WriteNote = function(...)
-            local v = YA_old_MapNotes_WriteNote(...);
-            YAPoints_ForceUpdate();
+            local v = TWM_old_MapNotes_WriteNote(...);
+            TWMPoints_ForceUpdate();
             return v;
         end
     end
@@ -257,16 +257,16 @@ function YatlasFrame_OnLoadExtra()
     --print("Test for GatherMate")
     if(GatherMate) then
         --print("Found")
-         YA_old_GatherMate = GatherMate;
+         TWM_old_GatherMate = GatherMate;
          GatherMate = function(...)
-            local v = YA_old_GatherMate(...)
-            YAPoints_ForceUpdate();
+            local v = TWM_old_GatherMate(...)
+            TWMPoints_ForceUpdate();
             return v;
         end
     end
 
     -- myaddons support
-    YatlasDetails = {
+    TerrainWorldMapDetails = {
         name = TWM_TITLE,
 	version = TWM_VERSION,
 	releaseDate = TWM_RELEASE_DATE,
@@ -275,34 +275,34 @@ function YatlasFrame_OnLoadExtra()
 	email = TWM_AUTHOR_EMAIL,
 	category = MYADDONS_CATEGORY_MAP,
     };
-    YatlasMAHelp = TWM_HELP_TEXT;
+    TerrainWorldMapMAHelp = TWM_HELP_TEXT;
 
     -- Modern tiled backdrop replacing the old fixed corner-art border, since
     -- that art can't stretch -- needed for real (non-scaled) resizing.
-    YatlasFrame:SetBackdrop({
+    TWMFrame:SetBackdrop({
         bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
         edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
         tile = true, tileSize = 16, edgeSize = 16,
         insets = {left = 4, right = 4, top = 4, bottom = 4},
     });
-    YatlasFrame:SetBackdropColor(0, 0, 0, 1);
+    TWMFrame:SetBackdropColor(0, 0, 0, 1);
 
     -- Set here (not XML) since a layer region can't forward-reference a
     -- child Frame declared later in the same XML block.
-    YatlasFrameVersion:ClearAllPoints();
-    YatlasFrameVersion:SetPoint("RIGHT", YatlasFrameLockButton, "LEFT", -6, 0);
+    TWMFrameVersion:ClearAllPoints();
+    TWMFrameVersion:SetPoint("RIGHT", TWMFrameLockButton, "LEFT", -6, 0);
 
-    YatlasFrame:SetResizable(true);
+    TWMFrame:SetResizable(true);
     -- Width floor keeps the continent/zone dropdowns and the "Goto Player"
     -- button (58+176 from the left, 176 wide, 108+6 from the right -- see
-    -- YatlasFrame_LayoutHeader) from ever being squeezed into overlapping
+    -- TWMFrame_LayoutHeader) from ever being squeezed into overlapping
     -- each other.
-    YatlasFrame:SetResizeBounds(530, 300);
+    TWMFrame:SetResizeBounds(530, 300);
 
-    -- See Yatlas_ResetFramePosition: a size change applied while the frame
+    -- See TWM_ResetFramePosition: a size change applied while the frame
     -- is hidden doesn't actually reach the (anchor-derived) ViewFrame until
     -- the frame is shown, so the deferred zoom/tile-grid refresh happens here.
-    YatlasFrame:HookScript("OnShow", function(self)
+    TWMFrame:HookScript("OnShow", function(self)
         if(self.needsZoomRefreshOnShow) then
             self.needsZoomRefreshOnShow = nil;
             RefreshZoomNextFrame(self);
@@ -320,12 +320,12 @@ end
 -- own GetWidth()/GetHeight() calls can force a pending layout to resolve
 -- and fire ANOTHER OnSizeChanged while this call is still on the stack,
 -- which without this guard recurses without end ("script ran too long").
-function YatlasFrame_OnResizeStop(self)
+function TWMFrame_OnResizeStop(self)
     if(not self.opt or self.inResizeRefresh) then return; end
     self.inResizeRefresh = true;
     self.opt.Width, self.opt.Height = self:GetSize();
     self:SetZoom(self.opt.Zoom, true);
-    YatlasFrame_LayoutHeader(self);
+    TWMFrame_LayoutHeader(self);
     self.inResizeRefresh = false;
 end
 
@@ -337,7 +337,7 @@ end
 -- whatever the current width is" on their own, so this recomputes it in
 -- pixels each time.
 local TWM_HEADER_GAP = 8;
-function YatlasFrame_LayoutHeader(self)
+function TWMFrame_LayoutHeader(self)
     local lm = self:GetName();
     local dd1 = _G[lm.."DropDown"];
     local dd2 = _G[lm.."DropDown2"];
@@ -357,36 +357,36 @@ function YatlasFrame_LayoutHeader(self)
     jump:SetPoint("LEFT", dd2, "RIGHT", TWM_HEADER_GAP, 0);
 end
 
-function YatlasFrameTemplate:OnEvent(event, ...)
+function TWMFrameTemplate:OnEvent(event, ...)
     local framename = self:GetName();
 
     if(event == "VARIABLES_LOADED") then
-        if(YatlasOptions == nil) then
-            YatlasOptions = {};
+        if(TWMOption == nil) then
+            TWMOption = {};
         end
 
-        if(YatlasOptions.ShowButton == nil) then
-            YatlasOptions.ShowButton = true;
+        if(TWMOption.ShowButton == nil) then
+            TWMOption.ShowButton = true;
         end
-        if(YatlasOptions.ButtonLocation == nil) then
-            YatlasOptions.ButtonLocation = 0;
+        if(TWMOption.ButtonLocation == nil) then
+            TWMOption.ButtonLocation = 0;
         end
 
-        -- Stale saved data from before BigYatlasFrame was removed.
-        if(YatlasOptions.Frames) then
-            YatlasOptions.Frames["BigYatlasFrame"] = nil;
+        -- Stale saved data from before BigTWMFrame was removed.
+        if(TWMOption.Frames) then
+            TWMOption.Frames["BigTWMFrame"] = nil;
         end
 
         self:EnsureExistingOptions();
 
-        self.opt = YatlasOptions.Frames[framename];
+        self.opt = TWMOption.Frames[framename];
 
-        -- Landmark scraping ends by forcing a points refresh (YAPoints_ForceUpdate),
-        -- which reads YatlasOptions.Frames[framename] -- must run after
+        -- Landmark scraping ends by forcing a points refresh (TWMPoints_ForceUpdate),
+        -- which reads TWMOption.Frames[framename] -- must run after
         -- EnsureExistingOptions has populated it (e.g. on a fresh SavedVariables file).
-        if(not Yatlas_LandmarksScraped) then
-            Yatlas_LandmarksScraped = true;
-            Yatlas_ScrapeLandmarks();
+        if(not TWM_LandmarksScraped) then
+            TWM_LandmarksScraped = true;
+            TWM_ScrapeLandmarks();
         end
 
         -- Stale saved data from before IconSize became a 0.1-3.0 multiplier (was an absolute pixel size).
@@ -399,13 +399,13 @@ function YatlasFrameTemplate:OnEvent(event, ...)
         end
         self:SetZoom(self.opt.Zoom);
         self:SetMap(self.opt.Map);
-        YatlasFrame_LayoutHeader(self);
+        TWMFrame_LayoutHeader(self);
 
         self:UpdateLock();
         self:SetAlpha(self.opt.Alpha);
 
         if(self.opt.track) then
-            YatlasFramePlayerJumpButton_Seek(self, self.opt.track);
+            TWMFramePlayerJumpButton_Seek(self, self.opt.track);
         end
     end
 
@@ -414,47 +414,47 @@ function YatlasFrameTemplate:OnEvent(event, ...)
     end
 end
 
-function YatlasFrame_OnEventExtra(self, event, addonName)
+function TWMFrame_OnEventExtra(self, event, addonName)
     local framename = self:GetName();
 
     if(event == "ADDON_LOADED" and addonName == "TerrainWorldMap") then
         if(myAddOnsFrame_Register) then
-            myAddOnsFrame_Register(YatlasDetails, YatlasMAHelp);
+            myAddOnsFrame_Register(TerrainWorldMapDetails, TerrainWorldMapMAHelp);
         end
     end
 end
 
-function YatlasFrameTemplate:EnsureExistingOptions()
-    if(YatlasOptions.Frames == nil) then
-        YatlasOptions.Frames = {};
+function TWMFrameTemplate:EnsureExistingOptions()
+    if(TWMOption.Frames == nil) then
+        TWMOption.Frames = {};
     end
 
     local name = self:GetName();
 
-    if(YatlasOptions.Frames[name] == nil) then
-        YatlasOptions.Frames[name] = {};
+    if(TWMOption.Frames[name] == nil) then
+        TWMOption.Frames[name] = {};
     end
 
-    for h,v in pairs(YA_FRAME_OPTION_DEFAULTS) do
-        if(YatlasOptions.Frames[name][h] ~= nil) then
+    for h,v in pairs(TWM_FRAME_OPTION_DEFAULTS) do
+        if(TWMOption.Frames[name][h] ~= nil) then
             -- don't do anything!
-        elseif(YatlasOptions[h] ~= nil) then
-            YatlasOptions.Frames[name][h] = YatlasOptions[h];
-            YatlasOptions[h] = nil;
+        elseif(TWMOption[h] ~= nil) then
+            TWMOption.Frames[name][h] = TWMOption[h];
+            TWMOption[h] = nil;
         elseif(type(v) == "table") then
             -- don't copy reference.  copy value...unfortunately, we only 
             -- copy one level deep, which seems good enough...
-            YatlasOptions.Frames[name][h] = {};
+            TWMOption.Frames[name][h] = {};
             for x,k in pairs(v) do
-                YatlasOptions.Frames[name][h][x] = k;
+                TWMOption.Frames[name][h][x] = k;
             end
         else
-            YatlasOptions.Frames[name][h] = v;
+            TWMOption.Frames[name][h] = v;
         end
     end
 end
 
-function YatlasFrameTemplate:Toggle()
+function TWMFrameTemplate:Toggle()
     local lm = self:GetName();
 
     if(UIPanelWindows[lm] == nil) then
@@ -473,25 +473,25 @@ function YatlasFrameTemplate:Toggle()
     end
 end
 
-function YatlasFrameDropDown_OnLoad(self)
+function TWMFrameDropDown_OnLoad(self)
     self:RegisterEvent("VARIABLES_LOADED");
 end
 
-function YatlasFrameDropDown_OnEvent(self, event)
+function TWMFrameDropDown_OnEvent(self, event)
     if(event == "VARIABLES_LOADED") then
-        UIDropDownMenu_Initialize(self, YatlasFrameDropDown_Initialize);
+        UIDropDownMenu_Initialize(self, TWMFrameDropDown_Initialize);
         UIDropDownMenu_SetSelectedID(self, 1);
         UIDropDownMenu_SetWidth(self, 150);
     end
 end
 
-function YatlasFrameDropDown_Initialize()
+function TWMFrameDropDown_Initialize()
     local i = 1;
     local info;
     for h,v in pairs(TWM_MAPS) do
             info = {
                     text = h;
-                    func = YatlasFrameDropDownButton_OnClick;
+                    func = TWMFrameDropDownButton_OnClick;
                     --value = _G[UIDROPDOWNMENU_INIT_MENU]:GetParent();
             };
             UIDropDownMenu_AddButton(info);
@@ -499,19 +499,19 @@ function YatlasFrameDropDown_Initialize()
     end
 end
 
-function YatlasFrameDropDownButton_OnClick(self)
+function TWMFrameDropDownButton_OnClick(self)
         local d = 1;
 	i = self:GetID();
         for h,v in pairs(TWM_MAPS) do
             if(d == i) then
                 --print(tostring(self.value).." "..tostring(v[1]))
-                return _G["YatlasFrame"]:SetMap(v[1]);
+                return _G["TWMFrame"]:SetMap(v[1]);
             end
             d = d + 1;
         end
 end
 
-function YatlasFrameTemplate:ToggleLock()
+function TWMFrameTemplate:ToggleLock()
     if(self.opt.Locked) then
         self.opt.Locked = false;
     else
@@ -520,7 +520,7 @@ function YatlasFrameTemplate:ToggleLock()
     self:UpdateLock();
 end
 
-function YatlasFrameTemplate:UpdateLock()
+function TWMFrameTemplate:UpdateLock()
     local fm = self:GetName();
     local norm = _G[fm.."LockButtonNorm"];
     local push = _G[fm.."LockButtonPush"];
@@ -536,7 +536,7 @@ function YatlasFrameTemplate:UpdateLock()
     end
 end
 
-function YatlasFrameTemplate:SetMap(mapname)
+function TWMFrameTemplate:SetMap(mapname)
     local lm = self:GetName();
 
     self.opt.Map = mapname;
@@ -557,7 +557,7 @@ function YatlasFrameTemplate:SetMap(mapname)
     local mapdropdown2 = _G[lm.."DropDown2"];
     if(mapdropdown2) then
         UIDropDownMenu_ClearAll(mapdropdown2);
-        UIDropDownMenu_Initialize(mapdropdown2, YatlasFrameDropDown2_Initialize);
+        UIDropDownMenu_Initialize(mapdropdown2, TWMFrameDropDown2_Initialize);
     end
 
     self:AdjustLocation(0,0,true);
@@ -582,23 +582,23 @@ function YatlasFrameTemplate:SetMap(mapname)
         end
     end
 
-    YAPoints_OnMapChange(self);
+    TWMPoints_OnMapChange(self);
     self.lastmap = self.opt.Map;
 end
 
-function YatlasFrameDropDown2_OnLoad(self)
+function TWMFrameDropDown2_OnLoad(self)
     self:RegisterEvent("VARIABLES_LOADED");
 end
 
-function YatlasFrameDropDown2_OnEvent(self, event)
+function TWMFrameDropDown2_OnEvent(self, event)
     if(event == "VARIABLES_LOADED") then
         UIDropDownMenu_SetWidth(self, 150);
     end
 end
 
-function YatlasFrameDropDown2_Initialize()
+function TWMFrameDropDown2_Initialize()
     --local lm = string.gsub(UIDROPDOWNMENU_INIT_MENU,"DropDown2","");
-    local lm = "YatlasFrame";
+    local lm = "TWMFrame";
 
     local frame = _G[lm];
     frame.zonepulldowns = {};
@@ -618,14 +618,14 @@ function YatlasFrameDropDown2_Initialize()
         info = {
             text = Twm_areadb[v];
             value = frame;
-            func = YatlasFrameDropDownButton2_OnClick;
+            func = TWMFrameDropDownButton2_OnClick;
         };
         UIDropDownMenu_AddButton(info);
     end 
 
 end
 
-function YatlasFrameTemplate:CenterOnZone(z)
+function TWMFrameTemplate:CenterOnZone(z)
     local map = self.opt.Map;
     local zoom = self:GetZoom();
 
@@ -639,12 +639,12 @@ function YatlasFrameTemplate:CenterOnZone(z)
     local y = (Twm_mapareas[map][z][3]+
        Twm_mapareas[map][z][4])/2;
 
-    local mx, my = Yatlas_Big2Mini_Coord(x,y);
+    local mx, my = TWM_Big2Mini_Coord(x,y);
 
     self:SetLocation(mx-(512/2)/zoom, my-(512/2)/zoom);
 end
 
-function YatlasFrameDropDownButton2_OnClick(self)
+function TWMFrameDropDownButton2_OnClick(self)
     local frame = self.value;
     local lm = frame:GetName();
     local z = frame.zonepulldowns[self:GetID()];
@@ -670,7 +670,7 @@ function YatlasFrameDropDownButton2_OnClick(self)
     end
 end
 
-function YatlasFrameTemplate:UpdateDropDown2()
+function TWMFrameTemplate:UpdateDropDown2()
     local framename = self:GetName();
     local vfname = framename.."ViewFrame";
     local vf = _G[vfname];
@@ -703,35 +703,35 @@ end
 
 --
 
-function YatlasFramePlayerJumpButton_Toggle(btn)
+function TWMFramePlayerJumpButton_Toggle(btn)
     local f = btn:GetParent();
     local o = f.opt;
     if(o.track) then
         o.track = nil;
     else
         o.track = "player";
-        YatlasFramePlayerJumpButton_Seek(f, "player");
+        TWMFramePlayerJumpButton_Seek(f, "player");
     end
 
-    YatlasFramePlayerJumpButton_Update(btn)
+    TWMFramePlayerJumpButton_Update(btn)
 end
 
-function YatlasFramePlayerJumpButton_Jump(btn)
+function TWMFramePlayerJumpButton_Jump(btn)
     local f = btn:GetParent();
     local o = f.opt;
     
     o.track = nil;
-    YatlasFramePlayerJumpButton_Seek(f, "player");
+    TWMFramePlayerJumpButton_Seek(f, "player");
     
-    YatlasFramePlayerJumpButton_Update(btn)
+    TWMFramePlayerJumpButton_Update(btn)
 end
 
-function YatlasFramePlayerJumpButton_Seek(frame, unit)
+function TWMFramePlayerJumpButton_Seek(frame, unit)
     frame.trackseek = unit;
     frame:OnWorldMapUpdateU(unit);
 end
 
-function YatlasFramePlayerJumpButton_Update(btn)
+function TWMFramePlayerJumpButton_Update(btn)
     if(btn:GetParent() and btn:GetParent().opt) then
         local t = btn:GetParent().opt.track;
 
@@ -746,11 +746,11 @@ function YatlasFramePlayerJumpButton_Update(btn)
     end
 end
 
-function YatlasFrameTemplate:GetMap()
+function TWMFrameTemplate:GetMap()
     return self.opt.Map;
 end
 
-function YatlasFrameTemplate:SetZoom(z, nocenter)
+function TWMFrameTemplate:SetZoom(z, nocenter)
     local textureno = 1;
     local lm = self:GetName();
     local vf = _G[lm.."ViewFrame"];
@@ -830,11 +830,11 @@ function YatlasFrameTemplate:SetZoom(z, nocenter)
     end
 end
 
-function YatlasFrameTemplate:GetZoom()
+function TWMFrameTemplate:GetZoom()
     return self.opt and self.opt.Zoom or 256;
 end
 
-function YatlasFrameTemplate:SetLocation(x,y,forceupdate)
+function TWMFrameTemplate:SetLocation(x,y,forceupdate)
     local zx, zy, mymap;
     local framename = self:GetName();
     local vfname = framename.."ViewFrame";
@@ -869,13 +869,13 @@ function YatlasFrameTemplate:SetLocation(x,y,forceupdate)
                 -- "map11_09" under World\Minimaps\<continent>\) -- that
                 -- convention holds for the vast majority of tiles. We only
                 -- draw it if this spot falls inside a known TBC-era zone
-                -- (see Yatlas_GetLiveZoneNameForBigCoord), which skips
+                -- (see TWM_GetLiveZoneNameForBigCoord), which skips
                 -- Cataclysm-only terrain that doesn't exist on this client
                 -- without needing a hand-maintained tile table at all.
                 local col, row = zx+hx-1, zy+hy-1;
                 local tilekey = format("%.2dx%.2d", col, row);
-                local cbx, cby = Yatlas_Mini2Big_Coord(col+0.5, row+0.5);
-                local livezone = Yatlas_GetLiveZoneNameForBigCoord(mymap, cbx, cby, tilekey);
+                local cbx, cby = TWM_Mini2Big_Coord(col+0.5, row+0.5);
+                local livezone = TWM_GetLiveZoneNameForBigCoord(mymap, cbx, cby, tilekey);
 
                 if(livezone) then
                     v[hx][hy] = { format("map%.2d_%.2d", col, row) };
@@ -894,7 +894,7 @@ function YatlasFrameTemplate:SetLocation(x,y,forceupdate)
 
                 -- debug: label this tile with its grid coordinate and the
                 -- live zone name the client reports at that spot.
-                if(Yatlas_DebugTiles) then
+                if(TWM_DebugTiles) then
                     if(not tex.debugLabel) then
                         tex.debugLabel = vf:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge");
                         tex.debugLabel:SetPoint("CENTER", tex, "CENTER");
@@ -932,7 +932,7 @@ function YatlasFrameTemplate:SetLocation(x,y,forceupdate)
     -- center textures (easy)
     for w = 2,wzoom-1 do
         for h = 2,hzoom-1 do
-            ya_raw_setoff(texturelayout[w][h],vfname,px,py);
+            twm_raw_setoff(texturelayout[w][h],vfname,px,py);
         end
     end
 
@@ -940,7 +940,7 @@ function YatlasFrameTemplate:SetLocation(x,y,forceupdate)
     texturelayout[1][1]:SetTexCoord( (x-zx), 1, (y-zy), 1);
     texturelayout[1][1]:SetHeight( zoom-py);
     texturelayout[1][1]:SetWidth( zoom-px);
-    ya_raw_setoff(texturelayout[1][1],vfname,0,0);
+    twm_raw_setoff(texturelayout[1][1],vfname,0,0);
 
     -- Upper right corner
     if(px ~= 0 or wzoom ~= wzoom_real) then
@@ -948,7 +948,7 @@ function YatlasFrameTemplate:SetLocation(x,y,forceupdate)
         texturelayout[wzoom][1]:SetTexCoord( 0, rightw/zoom, (y-zy), 1);
         texturelayout[wzoom][1]:SetHeight( zoom-py);
         texturelayout[wzoom][1]:SetWidth(rightw);
-        ya_raw_setoff(texturelayout[wzoom][1],vfname,px,0);
+        twm_raw_setoff(texturelayout[wzoom][1],vfname,px,0);
     else
         texturelayout[wzoom][1]:Hide();
     end
@@ -959,7 +959,7 @@ function YatlasFrameTemplate:SetLocation(x,y,forceupdate)
         texturelayout[1][hzoom]:SetTexCoord( (x-zx), 1, 0, bottomh/zoom);
         texturelayout[1][hzoom]:SetWidth( zoom-px);
         texturelayout[1][hzoom]:SetHeight(bottomh);
-        ya_raw_setoff(texturelayout[1][hzoom],vfname,0,py);
+        twm_raw_setoff(texturelayout[1][hzoom],vfname,0,py);
     else
         texturelayout[1][hzoom]:Hide();
     end
@@ -970,7 +970,7 @@ function YatlasFrameTemplate:SetLocation(x,y,forceupdate)
         texturelayout[wzoom][hzoom]:SetTexCoord( 0, rightw/zoom, 0, bottomh/zoom);
         texturelayout[wzoom][hzoom]:SetHeight(bottomh);
         texturelayout[wzoom][hzoom]:SetWidth(rightw);
-        ya_raw_setoff(texturelayout[wzoom][hzoom],vfname,px,py);
+        twm_raw_setoff(texturelayout[wzoom][hzoom],vfname,px,py);
     else
         texturelayout[wzoom][hzoom]:Hide();
     end
@@ -979,7 +979,7 @@ function YatlasFrameTemplate:SetLocation(x,y,forceupdate)
     for h = 2,wzoom-1 do
         texturelayout[h][1]:SetTexCoord( 0, 1, (y-zy), 1);
         texturelayout[h][1]:SetHeight( zoom-py);
-        ya_raw_setoff(texturelayout[h][1],vfname,px,0);
+        twm_raw_setoff(texturelayout[h][1],vfname,px,0);
     end
 
     -- bottom line
@@ -988,7 +988,7 @@ function YatlasFrameTemplate:SetLocation(x,y,forceupdate)
             texturelayout[h][hzoom]:Show();
             texturelayout[h][hzoom]:SetTexCoord( 0, 1, 0, bottomh/zoom);
             texturelayout[h][hzoom]:SetHeight(bottomh);
-            ya_raw_setoff(texturelayout[h][hzoom],vfname, px,py);
+            twm_raw_setoff(texturelayout[h][hzoom],vfname, px,py);
         end
     else
         for h = 2,wzoom-1 do
@@ -1000,7 +1000,7 @@ function YatlasFrameTemplate:SetLocation(x,y,forceupdate)
     for h = 2,hzoom-1 do
         texturelayout[1][h]:SetTexCoord( (x-zx), 1, 0, 1);
         texturelayout[1][h]:SetWidth( zoom-px);
-        ya_raw_setoff(texturelayout[1][h],vfname,0,py);
+        twm_raw_setoff(texturelayout[1][h],vfname,0,py);
     end
 
     -- right line
@@ -1009,7 +1009,7 @@ function YatlasFrameTemplate:SetLocation(x,y,forceupdate)
             texturelayout[wzoom][h]:Show();
             texturelayout[wzoom][h]:SetTexCoord( 0, rightw/zoom, 0, 1);
             texturelayout[wzoom][h]:SetWidth(rightw);
-            ya_raw_setoff(texturelayout[wzoom][h],vfname,px,py);
+            twm_raw_setoff(texturelayout[wzoom][h],vfname,px,py);
         end
     else
         for h = 2,hzoom-1 do
@@ -1049,7 +1049,7 @@ function YatlasFrameTemplate:SetLocation(x,y,forceupdate)
                         if(h == 1) then
                             texturelayout[h][hzoom_real]:SetTexCoord( (x-zx), 1, 0, bottomh/zoom);
                             texturelayout[h][hzoom_real]:SetWidth(zoom-px);
-                            ya_raw_setoff(texturelayout[h][hzoom_real],vfname,0,py);
+                            twm_raw_setoff(texturelayout[h][hzoom_real],vfname,0,py);
                         elseif(h == lastCol and not needright_extra) then
                             -- lastCol is genuinely the right edge here (wzoom)
                             -- only when there's no further column beyond it --
@@ -1058,11 +1058,11 @@ function YatlasFrameTemplate:SetLocation(x,y,forceupdate)
                             -- is true, so it must not be used for this column then.
                             texturelayout[h][hzoom_real]:SetWidth(rightw);
                             texturelayout[h][hzoom_real]:SetTexCoord( 0, rightw/zoom, 0, bottomh/zoom);
-                            ya_raw_setoff(texturelayout[h][hzoom_real],vfname,px,py);
+                            twm_raw_setoff(texturelayout[h][hzoom_real],vfname,px,py);
                         else
                             texturelayout[h][hzoom_real]:SetWidth(zoom);
                             texturelayout[h][hzoom_real]:SetTexCoord( 0, 1, 0, bottomh/zoom);
-                            ya_raw_setoff(texturelayout[h][hzoom_real],vfname,px,py);
+                            twm_raw_setoff(texturelayout[h][hzoom_real],vfname,px,py);
                         end
                         texturelayout[h][hzoom_real]:Show();
                     end
@@ -1097,15 +1097,15 @@ function YatlasFrameTemplate:SetLocation(x,y,forceupdate)
                         if(h == 1) then
                             texturelayout[wzoom_real][h]:SetTexCoord( 0, rightw/zoom, (y-zy), 1);
                             texturelayout[wzoom_real][h]:SetHeight(zoom-py);
-                            ya_raw_setoff(texturelayout[wzoom_real][h],vfname,px,0);
+                            twm_raw_setoff(texturelayout[wzoom_real][h],vfname,px,0);
                         elseif(h == lastRow) then
                             texturelayout[wzoom_real][h]:SetHeight(bottomh);
                             texturelayout[wzoom_real][h]:SetTexCoord( 0, rightw/zoom, 0, bottomh/zoom);
-                            ya_raw_setoff(texturelayout[wzoom_real][h],vfname,px,py);
+                            twm_raw_setoff(texturelayout[wzoom_real][h],vfname,px,py);
                         else
                             texturelayout[wzoom_real][h]:SetHeight(zoom);
                             texturelayout[wzoom_real][h]:SetTexCoord( 0, rightw/zoom, 0, 1);
-                            ya_raw_setoff(texturelayout[wzoom_real][h],vfname,px,py);
+                            twm_raw_setoff(texturelayout[wzoom_real][h],vfname,px,py);
                         end
                     end
 
@@ -1127,17 +1127,17 @@ function YatlasFrameTemplate:SetLocation(x,y,forceupdate)
     self.opt.Location[1] = x;
     self.opt.Location[2] = y;
 
-    YAPoints_OnMove(self, x,y);
+    TWMPoints_OnMove(self, x,y);
 end
 
-function YatlasFrameTemplate:GetLocation()
+function TWMFrameTemplate:GetLocation()
     local fm = self:GetName();
 
     return self.opt.Location[1],
         self.opt.Location[2];
 end
 
-function YatlasFrameTemplate:AdjustLocation(dx,dy,forceupdate)
+function TWMFrameTemplate:AdjustLocation(dx,dy,forceupdate)
     local fm = self:GetName();
 
     if(self.opt == nil) then
@@ -1151,7 +1151,7 @@ function YatlasFrameTemplate:AdjustLocation(dx,dy,forceupdate)
                         forceupdate);
 end
 
-function YatlasFrameTemplate:GetZoneText(offx, offy)
+function TWMFrameTemplate:GetZoneText(offx, offy)
     -- untested?
     local f = {YF_GetZoneIDs(offx, offy)};
 
@@ -1167,7 +1167,7 @@ function YatlasFrameTemplate:GetZoneText(offx, offy)
     return unpack(r);
 end
 
-function YatlasFrameTemplate:GetZoneIDs(offx, offy)
+function TWMFrameTemplate:GetZoneIDs(offx, offy)
     local fm = self:GetName();
     local x, y = unpack(self.opt.Location);
     local zoom = self:GetZoom();
@@ -1176,7 +1176,7 @@ function YatlasFrameTemplate:GetZoneIDs(offx, offy)
     local cx = x+(viewframe:GetWidth()/2)/zoom
     local cy = y+(viewframe:GetHeight()/2)/zoom
 
-    local cbx, cby = Yatlas_Mini2Big_Coord(cx, cy)
+    local cbx, cby = TWM_Mini2Big_Coord(cx, cy)
 
     -- TODO: this isn't very accurate
     local maparea = Twm_mapareas[self.opt.Map];
@@ -1187,7 +1187,7 @@ function YatlasFrameTemplate:GetZoneIDs(offx, offy)
     end
 end
 
-function YatlasFrameTemplate:OnWorldMapUpdate()
+function TWMFrameTemplate:OnWorldMapUpdate()
     if(self.trackseek or (self.opt and self.opt.track)) then
         self:OnWorldMapUpdateU(self.trackseek or self.opt.track)
     end
@@ -1197,7 +1197,7 @@ end
 -- WorldMapFrame to be shown/navigated (unlike the old GetNumMapLandmarks
 -- API, which only reported landmarks for whatever page WorldMapFrame had
 -- open at the time).
-function Yatlas_ScrapeLandmarks()
+function TWM_ScrapeLandmarks()
     for mapname, uiMapID in pairs(Twm_ContinentMapID) do
         if(Twm_Landmarks[mapname] == nil and Twm_mapareas[mapname]) then
             local x1,x2,y1,y2;
@@ -1232,11 +1232,11 @@ function Yatlas_ScrapeLandmarks()
         end
     end
 
-    YAPoints_ForceUpdate();
+    TWMPoints_ForceUpdate();
 end
 
-function YatlasFrameTemplate:OnWorldMapUpdateU(u)
-    local map, x, y = Yatlas_GetUnitContinentPosition(u);
+function TWMFrameTemplate:OnWorldMapUpdateU(u)
+    local map, x, y = TWM_GetUnitContinentPosition(u);
     local lm = self:GetName();
     local viewframe = _G[lm.."ViewFrame"];
     local zoom = self.opt.Zoom
@@ -1262,7 +1262,7 @@ function YatlasFrameTemplate:OnWorldMapUpdateU(u)
     local unitx, unity = (-x*(x1-x2) + x1), (-y*(y1-y2) + y1);
 
     if(u == self.trackseek) then
-        local zx,zy = Yatlas_Big2Mini_Coord(unitx, unity);
+        local zx,zy = TWM_Big2Mini_Coord(unitx, unity);
 
         self:SetMap(map);
         self:SetLocation(zx-(viewframe:GetWidth()/2)/zoom,
@@ -1271,7 +1271,7 @@ function YatlasFrameTemplate:OnWorldMapUpdateU(u)
         self.trackseek = nil;
     elseif(u == self.opt.track) then
         local rx,ry = self:GetLocation();
-        local zx,zy = Yatlas_Big2Mini_Coord(unitx, unity);
+        local zx,zy = TWM_Big2Mini_Coord(unitx, unity);
         local whaffzoom = (viewframe:GetWidth()/2)/zoom;
         local hhaffzoom = (viewframe:GetHeight()/2)/zoom;
 
@@ -1289,7 +1289,7 @@ function YatlasFrameTemplate:OnWorldMapUpdateU(u)
     end
 end
 
-function ya_raw_setoff(texture, parent, px, py) 
+function twm_raw_setoff(texture, parent, px, py) 
     local zoom = _G[parent]:GetParent().opt.Zoom
     texture:ClearAllPoints();
     texture:SetPoint("TOPLEFT", parent,
@@ -1297,8 +1297,8 @@ function ya_raw_setoff(texture, parent, px, py)
             -(zoom)*(texture.hy-1) + py);
 end
 
-ya_lastdragx, ya_lastdragy = nil, nil;
-function YatlasFrameViewFrame_OnDrag(self)
+twm_lastdragx, twm_lastdragy = nil, nil;
+function TWMFrameViewFrame_OnDrag(self)
     local x,y = GetCursorPosition();
     local fx, fy;
     local zoom = self:GetParent().opt.Zoom;
@@ -1308,19 +1308,19 @@ function YatlasFrameViewFrame_OnDrag(self)
 
     fx = math.floor(x - self:GetLeft())/(zoom);
     fy = math.floor(y - self:GetBottom())/(zoom);
-    if(ya_lastdragx ~= nil) then
-        self:GetParent():AdjustLocation(ya_lastdragx - fx, ya_lastdragy - fy);
+    if(twm_lastdragx ~= nil) then
+        self:GetParent():AdjustLocation(twm_lastdragx - fx, twm_lastdragy - fy);
     end
 
-    ya_lastdragx = fx;
-    ya_lastdragy = fy;
+    twm_lastdragx = fx;
+    twm_lastdragy = fy;
 end
 
-function YatlasFrameViewFrame_UpdateCursorCoord(self)
+function TWMFrameViewFrame_UpdateCursorCoord(self)
     local x, y = GetCursorPosition();
-    local rx, ry = unpack(YatlasFrame.opt.Location);
+    local rx, ry = unpack(TWMFrame.opt.Location);
     local top = self:GetTop();
-    local zoom = YatlasFrame.opt.Zoom;
+    local zoom = TWMFrame.opt.Zoom;
     
     if(self.lastoux == x and self.lastouy == y) then
         return;
@@ -1333,31 +1333,31 @@ function YatlasFrameViewFrame_UpdateCursorCoord(self)
 
     rx = rx + math.floor(x - self:GetLeft())/zoom;
     ry = ry + 512/zoom-math.floor(y - self:GetBottom())/zoom;
-    local bigx, bigy = Yatlas_Mini2Big_Coord(rx,ry);
+    local bigx, bigy = TWM_Mini2Big_Coord(rx,ry);
 end
 
-function YatlasFrameTemplate:OnUpdate(elapsed)
+function TWMFrameTemplate:OnUpdate(elapsed)
     self.update_time = self.update_time + elapsed;
 
     if(self.update_time > 0.5) then
-       YAPoints_OnUpdate(self, self.update_time);
+       TWMPoints_OnUpdate(self, self.update_time);
        self:OnWorldMapUpdate();
        self.update_time = 0;
    end
 end
 
-function Yatlas_Mini2Big_Coord(x,y)
+function TWM_Mini2Big_Coord(x,y)
     return (x - 32)*-MINI2BIGX,(y-32)*-MINI2BIGY;
 end
 
-function Yatlas_Big2Mini_Coord(x,y)
+function TWM_Big2Mini_Coord(x,y)
     return (x/-MINI2BIGX + 32),(y/-MINI2BIGY + 32);
 end
 
--- YatlasTooltip
-YatlasTooltipTemplate = {};
+-- TWMTooltip
+TWMTooltipTemplate = {};
 
-function YatlasTooltipTemplate:OnLoad()
+function TWMTooltipTemplate:OnLoad()
     self:SetBackdrop{
         bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
         edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
@@ -1377,13 +1377,13 @@ function YatlasTooltipTemplate:OnLoad()
     self.nextfree = 1;
 end
 
-function YatlasTooltipTemplate:Show()
+function TWMTooltipTemplate:Show()
     local r = getmetatable(self).__index.Show(self);
     self:FixSize();
     return r;
 end
 
-function YatlasTooltipTemplate:GetNext()
+function TWMTooltipTemplate:GetNext()
     if(self.nextfree < self.nextnew) then
         self.nextfree = self.nextfree + 1;
         return self.lines[self.nextfree-1];
@@ -1429,7 +1429,7 @@ function YatlasTooltipTemplate:GetNext()
     return f;
 end
 
-function YatlasTooltipTemplate:FixSize() 
+function TWMTooltipTemplate:FixSize() 
     local hei = 16;
     local wid = 4;
 
@@ -1444,7 +1444,7 @@ function YatlasTooltipTemplate:FixSize()
 end
 
 
-function YatlasTooltipTemplate:Clear() 
+function TWMTooltipTemplate:Clear() 
     for h = 1,(self.nextfree-1) do
         self.lines[h]:Hide();
     end
