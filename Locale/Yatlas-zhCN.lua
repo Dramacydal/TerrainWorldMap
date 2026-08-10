@@ -4,8 +4,12 @@
 
 if(GetLocale() == "zhCN") then
 
-YATLAS_TAB_DATA = "显示数据";
-YATLAS_TAB_OPTIONS = "设定";
+YATLAS_HELP_TEXT = {
+    "卫星地图基于小地图数据，提供高精度的世界地图。\n\n"..
+    "直接在地图上点击并拖动即可移动视野。可以在顶部选择要查看的地图"..
+    "（目前支持卡利姆多、东部王国和外域）。您也可以按区域跳转，或缩放至玩家所在位置。\n\n"..
+    "将鼠标悬停在标记点上会显示提示信息。\n"
+    };
 
 YATLAS_BUTTON_TOOLTIP1 = "卫星地图";
 YATLAS_PLAYERJUMP = "玩家位置";
@@ -29,13 +33,10 @@ YATLAS_DEBUG_TILES_OFF = "卫星地图：贴图调试标签 关闭";
 YATLAS_OPTIONS_TITLE = "卫星地图设定";
 YATLAS_OPTIONS_TAB_WORLDMAP = "世界地图";
 YATLAS_OPTIONS_TAB_BROWSER = "浏览器";
-YATLAS_OPTIONS_BUTTONPOS = "按钮位置";
-YATLAS_OPTIONS_BUTTONPOS_TIP = "%d 度";
 YATLAS_OPTIONS_ENABLEBUTTON = "开启按钮";
 YATLAS_OPTIONS_TRACKONSHOW = "缩放至玩家可见";
 YATLAS_OPTIONS_ALPHA = "透明度";
 YATLAS_OPTIONS_ICONSIZE = "图标大小";
-YATLAS_OPTIONS_ENABLECOORD = "开启鼠标位置";
 YATLAS_OPTIONS_RESETPOSITION = "重置位置";
 
 YATLAS_POINTS_SHOWPOINTS_TITLE = "显示标记";
@@ -43,12 +44,10 @@ YATLAS_POINTS_LANDMARKS = "地名";
 
 YATLAS_UNKNOWN_ZONE = "未知";
 
-YATLAS_BIGDRAGMESSAGE = "拖动地图浏览\n鼠标滚轮缩放"
 YATLAS_ZOOMIN =     "+";
 YATLAS_ZOOMOUT =     "-";
 
 BINDING_NAME_YATLAS_TOGGLE = "正常卫星地图";
 BINDING_HEADER_YATLAS = YATLAS_TITLE;
-BINDING_CATEGORY_YATLAS ="地图增强";
 
 end

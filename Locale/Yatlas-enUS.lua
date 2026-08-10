@@ -14,14 +14,11 @@ YATLAS_HELP_TEXT = {
     "Yatlas provides a minimap-based map of the world (reasonably high "..
         "detail).\n\n"..
     "To move your view around click and drag on the map itself. You can "..
-        "choose which map (currently only Kalimdor and the Eastern "..
-        "Kingdoms) at the top. You can jump around by zone and zoom to "..
+        "choose which map (currently Kalimdor, the Eastern Kingdoms, and "..
+        "Outland) at the top. You can jump around by zone and zoom to "..
         "player as well.\n\n"..
     "Mousing over a point of interest will bring up a tooltip.\n"
     };
-
-YATLAS_TAB_DATA = "Show Data";
-YATLAS_TAB_OPTIONS = "Options";
 
 YATLAS_BUTTON_TOOLTIP1 = "Yatlas";
 YATLAS_PLAYERJUMP = "Goto Player";
@@ -45,13 +42,10 @@ YATLAS_DEBUG_TILES_OFF = "Yatlas: tile debug labels OFF";
 YATLAS_OPTIONS_TITLE = "Yatlas Options";
 YATLAS_OPTIONS_TAB_WORLDMAP = "World Map";
 YATLAS_OPTIONS_TAB_BROWSER = "Browser";
-YATLAS_OPTIONS_BUTTONPOS = "Minimap Button Position";
-YATLAS_OPTIONS_BUTTONPOS_TIP = "%d degrees";
 YATLAS_OPTIONS_ENABLEBUTTON = "Enable Minimap Button";
 YATLAS_OPTIONS_TRACKONSHOW = "Zoom to Player on Show";
 YATLAS_OPTIONS_ALPHA = "Transparency";
 YATLAS_OPTIONS_ICONSIZE = "Icon Size";
-YATLAS_OPTIONS_ENABLECOORD = "Enable Cursor Coordinates";
 YATLAS_OPTIONS_RESETPOSITION = "Reset Position";
 
 YATLAS_POINTS_SHOWPOINTS_TITLE = "Show Points";
@@ -59,7 +53,6 @@ YATLAS_POINTS_LANDMARKS = "Landmarks";
 
 YATLAS_UNKNOWN_ZONE = "Unknown";
 
-YATLAS_BIGDRAGMESSAGE = "Click on map and drag to move view."
 YATLAS_ZOOMIN =     "+";
 YATLAS_ZOOMOUT =     "-";
 

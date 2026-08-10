@@ -12,16 +12,13 @@ if (GetLocale() == "deDE") then
 YATLAS_HELP_TEXT = {
     "Yatlas bietet eine Minimap-basierte Weltkarte (deutlich mehr Details).\n\n"..
     "Zum Schieben der Karte klickt direkt auf die Karte und verschiebt sie."..
-    "W\195\164hlt den darzustellenden Kontinent oberhalb der Karte aus (derzeit nur".. 
-    "Kalimdor und die \195\182stlichen K\195\182nigreiche). \n"..
+    "W\195\164hlt den darzustellenden Kontinent oberhalb der Karte aus (derzeit"..
+    "Kalimdor, die \195\182stlichen K\195\182nigreiche und die Scherbenwelt). \n"..
     "Ihr k\195\182nnt verschieden Zonen ausw\195\164hlen oder zur Spielerposition springen."..
     "Im Bereich \"Daten\" werden wichtige Orte in Form einer Legende angezeigt"..
     "und im Bereich \"Optionen\" k\195\182nnen Sichtbarkeit und Position des Minimap-Icons"..
     "und auch die Transparenz des Yatlas-Fensters ver\195\164ndert werden.\n"
     };
-
-YATLAS_TAB_DATA = "Zeige Daten";
-YATLAS_TAB_OPTIONS = "Optionen";
 
 YATLAS_BUTTON_TOOLTIP1 = "Yatlas";
 YATLAS_PLAYERJUMP = "Spielerposition";
@@ -45,12 +42,10 @@ YATLAS_DEBUG_TILES_OFF = "Yatlas: Kachel-Debug-Beschriftungen AUS";
 YATLAS_OPTIONS_TITLE = "Yatlas-Optionen";
 YATLAS_OPTIONS_TAB_WORLDMAP = "Weltkarte";
 YATLAS_OPTIONS_TAB_BROWSER = "Browser";
-YATLAS_OPTIONS_BUTTONPOS = " Position des Minimap-Icons";
-YATLAS_OPTIONS_BUTTONPOS_TIP = "%d\�";
 YATLAS_OPTIONS_ENABLEBUTTON = "Aktiviere Minimap-Icon";
+YATLAS_OPTIONS_TRACKONSHOW = "Beim \195\150ffnen zum Spieler zoomen";
 YATLAS_OPTIONS_ALPHA = "Transparenz";
 YATLAS_OPTIONS_ICONSIZE = "Icon Gr\195\182\195\159e";
-YATLAS_OPTIONS_ENABLECOORD = "Aktiviere Cursor-Koordinaten";
 YATLAS_OPTIONS_RESETPOSITION = "Position zur\195\188cksetzen";
 
 YATLAS_POINTS_SHOWPOINTS_TITLE = "Zeige Punkte";
@@ -60,7 +55,6 @@ YATLAS_POINTS_LANDMARKS = "wichtige Orte";
 
 YATLAS_UNKNOWN_ZONE = "Unbekannt";
 
-YATLAS_BIGDRAGMESSAGE = "Klicke und ziehe die Karte um den Ausschnitt zu verschieben."
 
 BINDING_NAME_YATLAS_TOGGLE = "Ein- und Ausblenden des Yatlas-Fensters";
 BINDING_HEADER_YATLAS = YATLAS_TITLE;

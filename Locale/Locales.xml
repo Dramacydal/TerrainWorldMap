@@ -2,4 +2,5 @@
 	<Script file="Yatlas-enUS.lua"/>
 	<Script file="Yatlas-deDE.lua"/>
 	<Script file="Yatlas-zhCN.lua"/>
+	<Script file="Yatlas-ruRU.lua"/>
 </Ui>
