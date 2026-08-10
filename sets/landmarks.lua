@@ -102,7 +102,7 @@ end
 function set.configmenu(name, lm)
     if(UIDROPDOWNMENU_MENU_LEVEL == 1) then
         local info = {};
-        info.text = YATLAS_POINTS_LANDMARKS;
+        info.text = TWM_POINTS_LANDMARKS;
         info.func = YFOODropDown_do_toggle_normal;
         info.checked = YatlasOptions.Frames[lm].PointCfg and not YatlasOptions.Frames[lm].PointCfg[name];
         info.value = name;

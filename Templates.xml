@@ -851,7 +851,7 @@
 			<AbsDimension x="48" y="72" />
 		</Size>
 		<Frames>
-			<Button name="$parentPlusButton" inherits="UIPanelButtonTemplate" text="YATLAS_ZOOMIN">
+			<Button name="$parentPlusButton" inherits="UIPanelButtonTemplate" text="TWM_ZOOMIN">
 				<Size>
 					<AbsDimension x="24" y="24"/>
 				</Size>
@@ -869,7 +869,7 @@
 					</OnClick>
 				</Scripts>
 			</Button>
-			<Button name="$parentMinusButton" inherits="UIPanelButtonTemplate" text="YATLAS_ZOOMOUT">
+			<Button name="$parentMinusButton" inherits="UIPanelButtonTemplate" text="TWM_ZOOMOUT">
 				<Size>
 					<AbsDimension x="24" y="24"/>
 				</Size>

@@ -592,7 +592,7 @@ function YFOODropDown_Initialize()
 
     if(UIDROPDOWNMENU_MENU_LEVEL == 1) then
         local info = {};
-        info.text = YATLAS_POINTS_SHOWPOINTS_TITLE;
+        info.text = TWM_POINTS_SHOWPOINTS_TITLE;
         info.notClickable = 1;
         info.isTitle = 1;
         info.notCheckable = 1;

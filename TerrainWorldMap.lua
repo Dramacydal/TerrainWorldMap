@@ -78,7 +78,7 @@ function Yatlas_ToggleTileDebug()
     if(YatlasFrame.opt) then
         YatlasFrame:SetLocation(YatlasFrame.opt.Location[1], YatlasFrame.opt.Location[2], true);
     end
-    print(Yatlas_DebugTiles and YATLAS_DEBUG_TILES_ON or YATLAS_DEBUG_TILES_OFF);
+    print(Yatlas_DebugTiles and TWM_DEBUG_TILES_ON or TWM_DEBUG_TILES_OFF);
 end
 
 -- Whether a map tile has real terrain, per this client's own WDT data
@@ -267,15 +267,15 @@ function YatlasFrame_OnLoadExtra()
 
     -- myaddons support
     YatlasDetails = {
-        name = YATLAS_TITLE,
-	version = YATLAS_VERSION,
-	releaseDate = YATLAS_RELEASE_DATE,
-	author = YATLAS_AUTHOR,
-        website = YATLAS_WEBSITE,
-	email = YATLAS_AUTHOR_EMAIL,
+        name = TWM_TITLE,
+	version = TWM_VERSION,
+	releaseDate = TWM_RELEASE_DATE,
+	author = TWM_AUTHOR,
+        website = TWM_WEBSITE,
+	email = TWM_AUTHOR_EMAIL,
 	category = MYADDONS_CATEGORY_MAP,
     };
-    YatlasMAHelp = YATLAS_HELP_TEXT;
+    YatlasMAHelp = TWM_HELP_TEXT;
 
     -- Modern tiled backdrop replacing the old fixed corner-art border, since
     -- that art can't stretch -- needed for real (non-scaled) resizing.
@@ -336,7 +336,7 @@ end
 -- the edges. XML anchors can't express "center this cluster within
 -- whatever the current width is" on their own, so this recomputes it in
 -- pixels each time.
-local YATLAS_HEADER_GAP = 8;
+local TWM_HEADER_GAP = 8;
 function YatlasFrame_LayoutHeader(self)
     local lm = self:GetName();
     local dd1 = _G[lm.."DropDown"];
@@ -344,17 +344,17 @@ function YatlasFrame_LayoutHeader(self)
     local jump = _G[lm.."PlayerJumpButton"];
     if(not (dd1 and dd2 and jump)) then return; end
 
-    local groupWidth = dd1:GetWidth() + YATLAS_HEADER_GAP + dd2:GetWidth() + YATLAS_HEADER_GAP + jump:GetWidth();
+    local groupWidth = dd1:GetWidth() + TWM_HEADER_GAP + dd2:GetWidth() + TWM_HEADER_GAP + jump:GetWidth();
     local leftMargin = (self:GetWidth() - groupWidth) / 2;
 
     dd1:ClearAllPoints();
     dd1:SetPoint("TOPLEFT", self, "TOPLEFT", leftMargin, -40);
 
     dd2:ClearAllPoints();
-    dd2:SetPoint("LEFT", dd1, "RIGHT", YATLAS_HEADER_GAP, 0);
+    dd2:SetPoint("LEFT", dd1, "RIGHT", TWM_HEADER_GAP, 0);
 
     jump:ClearAllPoints();
-    jump:SetPoint("LEFT", dd2, "RIGHT", YATLAS_HEADER_GAP, 0);
+    jump:SetPoint("LEFT", dd2, "RIGHT", TWM_HEADER_GAP, 0);
 end
 
 function YatlasFrameTemplate:OnEvent(event, ...)
@@ -1156,7 +1156,7 @@ function YatlasFrameTemplate:GetZoneText(offx, offy)
     local f = {YF_GetZoneIDs(offx, offy)};
 
     if(#f < 1) then
-        return YATLAS_UNKNOWN_ZONE;
+        return TWM_UNKNOWN_ZONE;
     end
 
     local r = {};

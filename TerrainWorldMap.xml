@@ -35,7 +35,7 @@
 			<Layer level="BORDER">
 			</Layer>
 			<Layer level="OVERLAY">
-				<FontString name="$parentName" inherits="GameFontHighlight" text="YATLAS_TITLE">
+				<FontString name="$parentName" inherits="GameFontHighlight" text="TWM_TITLE">
 					<Size>
 						<AbsDimension x="256" y="12"/>
 					</Size>
@@ -51,7 +51,7 @@
 				lock button itself, so it can never end up underneath it;
 				a layer region here can't forward-reference a child Frame
 				that's declared later in this same XML block. -->
-				<FontString name="$parentVersion" inherits="GameFontHighlight" justifyH="RIGHT" text="YATLAS_VERSION">
+				<FontString name="$parentVersion" inherits="GameFontHighlight" justifyH="RIGHT" text="TWM_VERSION">
 					<Size>
 						<AbsDimension x="112" y="12"/>
 					</Size>
@@ -179,7 +179,7 @@
 			grouped with the two dropdowns and centers the whole cluster under
 			the frame's current width; this anchor is only the pre-layout
 			fallback. -->
-			<Button name="YatlasFramePlayerJumpButton" text="YATLAS_PLAYERJUMP" inherits="UIPanelButtonTemplate">
+			<Button name="YatlasFramePlayerJumpButton" text="TWM_PLAYERJUMP" inherits="UIPanelButtonTemplate">
 				<Size>
 					<AbsDimension x="108" y="24"/>
 				</Size>
@@ -213,7 +213,7 @@
 					</OnShow>
 				</Scripts>
 			</Button>
-			<Button name="YatlasFrameOptionsButton" inherits="UIPanelButtonTemplate" text="YATLAS_OPTIONSBUTTON">
+			<Button name="YatlasFrameOptionsButton" inherits="UIPanelButtonTemplate" text="TWM_OPTIONSBUTTON">
 				<Size>
 					<AbsDimension x="108" y="24"/>
 				</Size>

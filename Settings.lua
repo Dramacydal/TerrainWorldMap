@@ -26,13 +26,13 @@ end
 --
 
 local MainPanel = CreateFrame("Frame");
-MainPanel.name = YATLAS_TITLE;
+MainPanel.name = TWM_TITLE;
 
 local title = MainPanel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge");
 title:SetPoint("TOPLEFT", 16, -16);
-title:SetText(YATLAS_OPTIONS_TITLE);
+title:SetText(TWM_OPTIONS_TITLE);
 
-local enableButton = CreateCheckbox(MainPanel, "YatlasOptionsButtonEnable", YATLAS_OPTIONS_ENABLEBUTTON);
+local enableButton = CreateCheckbox(MainPanel, "YatlasOptionsButtonEnable", TWM_OPTIONS_ENABLEBUTTON);
 enableButton:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -24);
 enableButton:SetScript("OnClick", function(self)
     YatlasOptions.ShowButton = self:GetChecked() and true or false;
@@ -48,21 +48,21 @@ end
 --
 
 local WorldMapPanel = CreateFrame("Frame");
-WorldMapPanel.name = YATLAS_OPTIONS_TAB_WORLDMAP;
+WorldMapPanel.name = TWM_OPTIONS_TAB_WORLDMAP;
 
-local childMapTilesButton = CreateCheckbox(WorldMapPanel, "YatlasOptionsChildMapTiles", YATLAS_MENU_CHILDMAP_TILES);
+local childMapTilesButton = CreateCheckbox(WorldMapPanel, "YatlasOptionsChildMapTiles", TWM_MENU_CHILDMAP_TILES);
 childMapTilesButton:SetPoint("TOPLEFT", 16, -16);
 childMapTilesButton:SetScript("OnClick", function(self)
     Yatlas_SetChildMapTiles(self:GetChecked() and true or false);
 end);
 
-local worldViewTilesButton = CreateCheckbox(WorldMapPanel, "YatlasOptionsWorldViewTiles", YATLAS_MENU_WORLDVIEW_TILES);
+local worldViewTilesButton = CreateCheckbox(WorldMapPanel, "YatlasOptionsWorldViewTiles", TWM_MENU_WORLDVIEW_TILES);
 worldViewTilesButton:SetPoint("TOPLEFT", childMapTilesButton, "BOTTOMLEFT", 0, -12);
 worldViewTilesButton:SetScript("OnClick", function(self)
     Yatlas_SetWorldViewTiles(self:GetChecked() and true or false);
 end);
 
-local cityMapTilesButton = CreateCheckbox(WorldMapPanel, "YatlasOptionsCityMapTiles", YATLAS_MENU_CITYMAP_TILES);
+local cityMapTilesButton = CreateCheckbox(WorldMapPanel, "YatlasOptionsCityMapTiles", TWM_MENU_CITYMAP_TILES);
 cityMapTilesButton:SetPoint("TOPLEFT", worldViewTilesButton, "BOTTOMLEFT", 0, -12);
 cityMapTilesButton:SetScript("OnClick", function(self)
     Yatlas_SetCityMapTiles(self:GetChecked() and true or false);
@@ -79,9 +79,9 @@ end
 --
 
 local BrowserPanel = CreateFrame("Frame");
-BrowserPanel.name = YATLAS_OPTIONS_TAB_BROWSER;
+BrowserPanel.name = TWM_OPTIONS_TAB_BROWSER;
 
-local trackOnShowButton = CreateCheckbox(BrowserPanel, "YatlasOptionsTrackOnShow", YATLAS_OPTIONS_TRACKONSHOW);
+local trackOnShowButton = CreateCheckbox(BrowserPanel, "YatlasOptionsTrackOnShow", TWM_OPTIONS_TRACKONSHOW);
 trackOnShowButton:SetPoint("TOPLEFT", 16, -16);
 trackOnShowButton:SetScript("OnClick", function(self)
     for h,v in pairs(YatlasOptions.Frames) do
@@ -93,14 +93,14 @@ trackOnShowButton:SetScript("OnClick", function(self)
     end
 end);
 
-local alphaSlider = CreateSlider(BrowserPanel, "YatlasOptionsAlphaSlider", YATLAS_OPTIONS_ALPHA, .1, 1, .05);
+local alphaSlider = CreateSlider(BrowserPanel, "YatlasOptionsAlphaSlider", TWM_OPTIONS_ALPHA, .1, 1, .05);
 alphaSlider:SetPoint("TOPLEFT", trackOnShowButton, "BOTTOMLEFT", 4, -32);
 alphaSlider:SetScript("OnValueChanged", function(self)
     YatlasFrame:SetAlpha(self:GetValue());
     YatlasOptions.Frames["YatlasFrame"].Alpha = self:GetValue();
 end);
 
-local iconSizeSlider = CreateSlider(BrowserPanel, "YatlasOptionsIconSizeSlider", YATLAS_OPTIONS_ICONSIZE, 0.5, 3.0, 0.1);
+local iconSizeSlider = CreateSlider(BrowserPanel, "YatlasOptionsIconSizeSlider", TWM_OPTIONS_ICONSIZE, 0.5, 3.0, 0.1);
 iconSizeSlider:SetPoint("TOPLEFT", alphaSlider, "BOTTOMLEFT", 0, -32);
 iconSizeSlider:SetScript("OnValueChanged", function(self)
     local v = self:GetValue();
@@ -113,7 +113,7 @@ end);
 local resetPositionButton = CreateFrame("Button", "YatlasOptionsResetPosition", BrowserPanel, "UIPanelButtonTemplate");
 resetPositionButton:SetSize(160, 22);
 resetPositionButton:SetPoint("TOPLEFT", iconSizeSlider, "BOTTOMLEFT", -4, -32);
-resetPositionButton:SetText(YATLAS_OPTIONS_RESETPOSITION);
+resetPositionButton:SetText(TWM_OPTIONS_RESETPOSITION);
 resetPositionButton:SetScript("OnClick", function()
     Yatlas_ResetFramePosition();
 end);

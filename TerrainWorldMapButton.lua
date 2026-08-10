@@ -7,19 +7,19 @@ local YatlasLDB = LDB:NewDataObject("TerrainWorldMap", {
     OnClick = function(self, button)
         if(button == "RightButton") then
             MenuUtil.CreateContextMenu(self, function(owner, rootDescription)
-                rootDescription:CreateButton(YATLAS_MENU_OPEN, function()
+                rootDescription:CreateButton(TWM_MENU_OPEN, function()
                     YatlasFrame:Toggle();
                 end);
-                rootDescription:CreateButton(YATLAS_MENU_SETTINGS, function()
+                rootDescription:CreateButton(TWM_MENU_SETTINGS, function()
                     YatlasOptions_Toggle();
                 end);
-                rootDescription:CreateCheckbox(YATLAS_MENU_CHILDMAP_TILES,
+                rootDescription:CreateCheckbox(TWM_MENU_CHILDMAP_TILES,
                     Yatlas_IsChildMapTilesEnabled,
                     function() Yatlas_SetChildMapTiles(not Yatlas_IsChildMapTilesEnabled()); end);
-                rootDescription:CreateCheckbox(YATLAS_MENU_WORLDVIEW_TILES,
+                rootDescription:CreateCheckbox(TWM_MENU_WORLDVIEW_TILES,
                     Yatlas_IsWorldViewTilesEnabled,
                     function() Yatlas_SetWorldViewTiles(not Yatlas_IsWorldViewTilesEnabled()); end);
-                rootDescription:CreateCheckbox(YATLAS_MENU_CITYMAP_TILES,
+                rootDescription:CreateCheckbox(TWM_MENU_CITYMAP_TILES,
                     Yatlas_IsCityMapTilesEnabled,
                     function() Yatlas_SetCityMapTiles(not Yatlas_IsCityMapTilesEnabled()); end);
             end);
@@ -28,9 +28,9 @@ local YatlasLDB = LDB:NewDataObject("TerrainWorldMap", {
         end
     end,
     OnTooltipShow = function(tooltip)
-        tooltip:AddLine(YATLAS_BUTTON_TOOLTIP1, 1, 1, 1);
-        tooltip:AddLine(YATLAS_TOOLTIP_LEFTCLICK_OPEN);
-        tooltip:AddLine(YATLAS_TOOLTIP_RIGHTCLICK_MENU);
+        tooltip:AddLine(TWM_BUTTON_TOOLTIP1, 1, 1, 1);
+        tooltip:AddLine(TWM_TOOLTIP_LEFTCLICK_OPEN);
+        tooltip:AddLine(TWM_TOOLTIP_RIGHTCLICK_MENU);
     end,
 });
 
