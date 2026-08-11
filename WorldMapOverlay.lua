@@ -167,7 +167,7 @@ local function DrawTiles(continent, bx1, bx2, by1, by2, targetX1, targetY1, targ
                     tex:SetPoint("TOPLEFT", overlay, "TOPLEFT", ix1, -iy1);
                     tex:SetWidth(ix2-ix1);
                     tex:SetHeight(iy2-iy1);
-                    tex:SetTexture(pre..continent.."\\"..format("map%.2d_%.2d", col, row));
+                    tex:SetTexture(pre..continent.."\\"..TWM_GetTileFileName(continent, col, row));
                     tex:SetTexCoord((ix1-tx1)/(tx2-tx1), (ix2-tx1)/(tx2-tx1), (iy1-ty1)/(ty2-ty1), (iy2-ty1)/(ty2-ty1));
                     tex:Show();
                 end
@@ -368,6 +368,22 @@ function TWM_IsCityMapTilesEnabled()
     return TWMOption.WorldMapOverlayCityMaps;
 end
 
+-- On by default (see TerrainWorldMap.lua's VARIABLES_LOADED handler) -- only
+-- ever surfaced (Settings.lua checkbox, this file's and
+-- TerrainWorldMapButton.lua's right-click menus) when TWM_HasNoLiquidData()
+-- is true, i.e. this flavor's data was actually generated with a minimaps
+-- dir (see scripts/parse_wdt.js) and found at least one noLiquid tile
+-- somewhere. Flavors without that data never show this option at all.
+function TWM_SetDrawUnderwater(enabled)
+    TWMOption.DrawUnderwater = enabled;
+    RefreshOverlay();
+    TWM_RefreshFrameTiles();
+end
+
+function TWM_IsDrawUnderwaterEnabled()
+    return TWMOption.DrawUnderwater;
+end
+
 -- Icon on the stock WorldMapFrame (see WorldMapButton.xml): left-click
 -- toggles this overlay, right-click opens a context menu (open TerrainWorldMap /
 -- toggle child-map tiles), same as the minimap button (TWMButton.lua).
@@ -410,6 +426,11 @@ function TWMWorldMapButtonMixin:OnClick(button)
             rootDescription:CreateCheckbox(TWM_MENU_CITYMAP_TILES,
                 TWM_IsCityMapTilesEnabled,
                 function() TWM_SetCityMapTiles(not TWM_IsCityMapTilesEnabled()); end);
+            if(TWM_HasNoLiquidData()) then
+                rootDescription:CreateCheckbox(TWM_MENU_DRAW_UNDERWATER,
+                    TWM_IsDrawUnderwaterEnabled,
+                    function() TWM_SetDrawUnderwater(not TWM_IsDrawUnderwaterEnabled()); end);
+            end
         end);
     else
         TWM_SetWorldMapOverlay(not TWM_IsWorldMapOverlayEnabled(), true);

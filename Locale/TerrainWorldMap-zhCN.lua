@@ -25,6 +25,7 @@ TWM_MENU_SETTINGS = "设定";
 TWM_MENU_CHILDMAP_TILES = "绘制子地图贴图";
 TWM_MENU_WORLDVIEW_TILES = "在艾泽拉斯（世界）地图上绘制贴图";
 TWM_MENU_CITYMAP_TILES = "在城市地图上绘制贴图";
+TWM_MENU_DRAW_UNDERWATER = "显示水下地形";
 TWM_WORLDMAP_OVERLAY_ON = "地形世界地图：世界地图叠加层 开启";
 TWM_WORLDMAP_OVERLAY_OFF = "地形世界地图：世界地图叠加层 关闭";
 TWM_DEBUG_TILES_ON = "地形世界地图：贴图调试标签 开启";
@@ -42,7 +43,6 @@ TWM_OPTIONS_RESETPOSITION = "重置位置";
 TWM_POINTS_SHOWPOINTS_TITLE = "显示标记";
 TWM_POINTS_LANDMARKS = "地名";
 
-TWM_UNKNOWN_ZONE = "未知";
 
 TWM_ZOOMIN =     "+";
 TWM_ZOOMOUT =     "-";

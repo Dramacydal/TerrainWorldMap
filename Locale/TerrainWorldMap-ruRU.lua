@@ -24,6 +24,7 @@ TWM_MENU_SETTINGS = "Настройки";
 TWM_MENU_CHILDMAP_TILES = "Отображать тайлы дочерних карт";
 TWM_MENU_WORLDVIEW_TILES = "Отображать тайлы на карте Азерота (мира)";
 TWM_MENU_CITYMAP_TILES = "Отображать тайлы на картах городов";
+TWM_MENU_DRAW_UNDERWATER = "Отображать рельеф под водой";
 TWM_WORLDMAP_OVERLAY_ON = "TerrainWorldMap: наложение на карту мира ВКЛ";
 TWM_WORLDMAP_OVERLAY_OFF = "TerrainWorldMap: наложение на карту мира ВЫКЛ";
 TWM_DEBUG_TILES_ON = "TerrainWorldMap: отладочные метки тайлов ВКЛ";
@@ -41,7 +42,6 @@ TWM_OPTIONS_RESETPOSITION = "Сбросить положение";
 TWM_POINTS_SHOWPOINTS_TITLE = "Показывать метки";
 TWM_POINTS_LANDMARKS = "Достопримечательности";
 
-TWM_UNKNOWN_ZONE = "Неизвестно";
 
 BINDING_NAME_TWM_TOGGLE = "Открыть/закрыть окно TerrainWorldMap";
 BINDING_HEADER_TWM = TWM_TITLE;

@@ -1,0 +1,28 @@
+## Interface: 20506
+## Title: TerrainWorldMap
+## Version: 1.0.0
+## Author: Boo Diddly, Dramacydal
+## Notes: Overlays real terrain tiles onto the World Map
+## IconTexture: Interface\AddOns\TerrainWorldMap\images\Button
+## DefaultState: Enabled
+## LoadOnDemand: 0
+## SavedVariables: TWMOption
+
+Libs\Libs.xml
+Locale\Locales.xml
+
+mapdata_zones.lua
+Data_TBC\mapdata_zones.lua
+Data_TBC\mapdata_continents.lua
+mapdata_poi.lua
+Data_TBC\mapdata_poi.lua
+Data_TBC\mapdata_tiles.lua
+Points.lua
+TerrainWorldMap.lua
+WorldMapOverlay.lua
+WorldMapButton.xml
+Templates.xml
+TerrainWorldMap.xml
+Settings.lua
+TerrainWorldMapButton.lua
+sets\index.xml

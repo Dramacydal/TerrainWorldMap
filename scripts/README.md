@@ -3,34 +3,46 @@
 Node.js scripts (run outside the game, `node <script>.js ...`) used to (re)generate
 TerrainWorldMap's map data from real client data instead of hand-collecting/guessing it.
 Not loaded by the addon itself — `.js` files are ignored by the WoW addon loader
-(only files listed in `TerrainWorldMap.toc` get loaded), so this folder is safe to keep
-in the addon directory or delete entirely once you're done with it.
+(only files listed in one of the `TerrainWorldMap_<Flavor>.toc` files get loaded),
+so this folder is safe to keep in the addon directory or delete entirely once
+you're done with it.
 
 Both scripts print progress/warnings to stderr and write a **complete,
 ready-to-use Lua file** you drop straight into the addon, overwriting the
 previous one wholesale — no manual merging/pasting into the middle of
 another file needed.
 
-You only need to re-run these if Blizzard reshapes the world again (another
-Cataclysm-style event) or ships a client where the current
-`mapdata_continents.lua`/`mapdata_tiles.lua` data turns out to be stale/wrong for
-some zone.
+**Multi-flavor note:** TerrainWorldMap ships one `.toc` per client flavor
+(`TerrainWorldMap_TBC.toc`, `_Vanilla.toc`, `_Mists.toc`, ...). The data these
+scripts generate is flavor-specific (continent/zone uiMapIDs and terrain
+differ per expansion), so it lives under `Data_<Flavor>/` (e.g.
+`Data_TBC/mapdata_continents.lua`), never in the flavor-agnostic root
+`mapdata_zones.lua`/`mapdata_poi.lua`. Point `<out-file.lua>` at the
+`Data_<Flavor>/` copy for whichever client you exported the CSVs/WDTs from.
 
-## gen_mapareas.js — zone bounding boxes (`mapdata_continents.lua`)
+You only need to re-run these for a given flavor if Blizzard reshapes that
+expansion's world again (another Cataclysm-style event), ships a client
+build where the current `Data_<Flavor>/mapdata_continents.lua`/
+`mapdata_tiles.lua` data turns out to be stale/wrong for some zone, or
+you're filling in a flavor's data for the first time (see the `TODO`
+comments in `Data_Vanilla/`/`Data_Mists/`).
 
-Rebuilds `mapdata_continents.lua` — the Azeroth/Kalimdor/Expansion01
+## gen_mapareas.js — zone bounding boxes (`Data_<Flavor>/mapdata_continents.lua`)
+
+Rebuilds `Data_<Flavor>/mapdata_continents.lua` — the Azeroth/Kalimdor/Expansion01
 `Twm_mapareas[...]` assignments (per-zone bounding boxes used for the
 zone dropdown, click-to-center, and zone-name lookups) — straight from
 Blizzard's own `Map`/`UiMap`/`UiMapAssignment` DBC tables, instead of the
 addon's original ~2011 hand-collected coordinates (which, it turns out, are
 measurably stale — see "why regenerate" below).
 
-`mapdata_continents.lua` loads right after `mapdata_zones.lua` in `TerrainWorldMap.toc`.
-`mapdata_zones.lua` just declares an empty `Twm_mapareas = {}` table —
-`mapdata_continents.lua` adds the three continent keys to it, so it's safe
-to overwrite on its own without touching `mapdata_zones.lua`. TerrainWorldMap only
-ever renders these 3 continents, so no other keys (battlegrounds, dungeons,
-raids, Northrend) belong in this table.
+`Data_<Flavor>/mapdata_continents.lua` loads right after the root
+`mapdata_zones.lua` (which just declares an empty `Twm_mapareas = {}` table)
+in that flavor's `.toc` — `mapdata_continents.lua` adds the continent keys to
+it, so it's safe to overwrite on its own without touching `mapdata_zones.lua`.
+TerrainWorldMap only ever renders the continents it's told about (3 for TBC:
+Azeroth/Kalimdor/Expansion01), so no other keys (battlegrounds, dungeons,
+raids) belong in this table.
 
 The same file also emits `Twm_UiMapID2Zone[uiMapID] = {continent, areaID}`,
 a straight index from a WorldMapFrame-style uiMapID to its
@@ -46,15 +58,38 @@ hand-collected TerrainWorldMap data already had it.
 
 **Usage:**
 ```
-node gen_mapareas.js <csv-dir> <out-file.lua>
+node gen_mapareas.js <csv-dir> [<out-file.lua>]
 ```
 - `<csv-dir>` — a folder containing `Map.*.csv`, `UiMap.*.csv`, and
   `UiMapAssignment.*.csv` for the client build you're targeting (filenames
   are matched by prefix, so e.g. `Map.2.5.6.69110.csv` works fine).
 - `<out-file.lua>` — where to write the generated Lua (point this straight
-  at `../mapdata_continents.lua` to overwrite it in place, or write
-  elsewhere first and diff/copy it over by hand if you want to sanity-check
-  the output first).
+  at `../Data_<Flavor>/mapdata_continents.lua` to overwrite it in place, or
+  write elsewhere first and diff/copy it over by hand if you want to
+  sanity-check the output first). **Optional** — omit it to skip writing
+  anything and just print the detected continent names.
+
+**Getting the continent name list** — run with just `<csv-dir>`, no
+`<out-file.lua>`:
+```
+node gen_mapareas.js ../Data_Mists
+```
+prints 4 lines to stdout:
+```
+Azeroth Kalimdor Expansion01 Northrend Deephome LostIsles Gilneas2 MaelstromZone TolBarad HawaiiMainLand MoguIslandDailyArea
+minimaps/(azeroth|kalimdor|expansion01|northrend|deephome|lostisles|gilneas2|maelstromzone|tolbarad|hawaiimainland|moguislanddailyarea)/noliq
+(azeroth|kalimdor|expansion01|northrend|deephome|lostisles|gilneas2|maelstromzone|tolbarad|hawaiimainland|moguislanddailyarea)\.wdt
+maps/(azeroth|kalimdor|expansion01|northrend|deephome|lostisles|gilneas2|maelstromzone|tolbarad|hawaiimainland|moguislanddailyarea)/\w+_\d+_\d+\.adt
+```
+- Line 1 — case-sensitive names, paste straight as `parse_wdt.js`'s trailing
+  `<ContinentName>` args.
+- Lines 2-4 — ready-to-paste search regexes for wow.export's file-list
+  search box (one per extraction target: noLiquid minimaps, WDTs, root
+  ADTs), all-lowercase (the real wow.export folder names) so you don't have
+  to type/match each continent by hand.
+
+This only needs `Map`/`UiMap`/`UiMapAssignment` CSVs (the same ones
+`gen_mapareas.js` always needs) — no WDT/ADT required to find out what to extract.
 
 **Getting the CSVs:** export `Map`, `UiMap`, and `UiMapAssignment` for your
 client's build via wow.export's DBC export tab (or any other WDBX/DBD-based
@@ -89,18 +124,16 @@ this is how Vashj'ir, Twilight Highlands, Southern Barrens, Uldum, and
 Kalimdor's Hyjal all disappeared from the zone dropdown, with no manual
 Cataclysm-zone blocklist needed.
 
-If Blizzard ever renumbers the continent uiMapIDs (`ourUiMapID` in the
-script, currently Azeroth=1415/Kalimdor=1414/Expansion01=1945 — used only to
-pick out the `[0]` whole-continent box), get the current values in-game with:
-```
-/run for _,v in ipairs(C_Map.GetMapChildrenInfo(946, Enum.UIMapType.Continent, true)) do print(v.mapID, v.name) end
-```
+Continents (including small "island" maps like Deepholm) are auto-detected
+straight from `Map.csv`/`UiMapAssignment.csv` — see `findContinents()`'s
+header comment in the script for the exact rule and why it doesn't need a
+hardcoded per-flavor list of names or uiMapIDs.
 
-## parse_wdt.js — real terrain existence (`Twm_WDTValidTiles`, `mapdata_tiles.lua`)
+## parse_wdt.js — real terrain existence (`Twm_WDTValidTiles`, `Data_<Flavor>/mapdata_tiles.lua`)
 
 Determines which map tiles have **real terrain** in this specific client
-build, and generates the `Twm_WDTValidTiles` table (`mapdata_tiles.lua`) that
-TerrainWorldMap actually gates its tile rendering on.
+build, and generates the `Twm_WDTValidTiles` table (`Data_<Flavor>/mapdata_tiles.lua`)
+that TerrainWorldMap actually gates its tile rendering on.
 
 **Why this exists:** a map tile's *minimap preview texture*
 (`World\Minimaps\<continent>\mapXX_YY.blp`, what TerrainWorldMap actually draws) and
@@ -116,16 +149,67 @@ gives the actual ground truth Blizzard's own tools use (confirmed by
 reverse-engineering `wow.export`, specifically `src/js/3D/loaders/WDTLoader.js`
 and `src/js/map-viewer/TerrainRenderer.js`'s `!entry.rootADT` check).
 
-**Usage** (pass as many `.wdt`/name pairs as you like in one run):
+**Usage:**
 ```
-node parse_wdt.js <out-file.lua> <path-to-.wdt> <ContinentName> [<path-to-.wdt> <ContinentName> ...]
+node parse_wdt.js --root <wow.export-flavor-root> --out <out-file.lua> [--noliquid] [--areatable-dir <dir>] <ContinentName> [<ContinentName> ...]
 ```
-Example — regenerating the addon's actual `mapdata_tiles.lua` from all 3 continents
-in one shot:
+`<ContinentName>` is **case-sensitive** and used as-is for the
+`Twm_WDTValidTiles`/`Twm_mapareas` Lua table key (e.g. `HawaiiMainLand`,
+matching `gen_mapareas.js`'s own `mapdata_continents.lua` key). The script
+derives every file path itself (lowercased) under `--root`, matching
+wow.export's own extraction layout:
 ```
-node parse_wdt.js ../mapdata_tiles.lua azeroth.wdt Azeroth kalimdor.wdt Kalimdor expansion01.wdt Expansion01
+<root>/world/maps/<lowercase>/<lowercase>.wdt        (WDT -- MAIN/MAID)
+<root>/world/maps/<lowercase>/<lowercase>_C_R.adt     (root ADT files)
+<root>/world/minimaps/<lowercase>/                   (only scanned with --noliquid)
 ```
-Point `<out-file.lua>` straight at `../mapdata_tiles.lua` to overwrite it in place.
+Example — regenerating Mists' `mapdata_tiles.lua` from all 11 continents in
+one shot, with underwater-tile detection and AreaTable-based zone resolution:
+```
+node parse_wdt.js --root "C:/Users/you/wow.export/_mop_" --out ../Data_Mists/mapdata_tiles.lua --noliquid --areatable-dir ../Data_Mists Azeroth Kalimdor Expansion01 Northrend HawaiiMainLand Deephome LostIsles MaelstromZone Gilneas2 TolBarad MoguIslandDailyArea
+```
+Point `--out` straight at `../Data_<Flavor>/mapdata_tiles.lua` to overwrite
+it in place.
+
+**`--noliquid`** — omit to skip the underwater step entirely
+(`Twm_NoLiquidTiles` won't even be declared, which is also how the addon's
+"Show underwater terrain" option/menu-entry decide whether to show up at all
+— see `TWM_HasNoLiquidData()` in `TerrainWorldMap.lua`). Pass it to also scan
+each continent's `<root>/world/minimaps/<lowercase>/` for
+`noLiquid_mapXX_YY.blp`/`noliquid_mapXX_YY.blp` files (underwater zones like
+Vashj'ir ship a second minimap texture per tile that the client swaps to when
+submerged, so the water tint baked into the normal tile doesn't muddy the
+minimap). This must be the **actual extracted files** from `world/minimaps/`
+for this specific client (e.g. wow.export's "Raw Client Files" bulk export)
+— **not** a community listfile. A listfile is the union of every path that
+has ever existed across every patch in WoW's history, so a path being
+*listed* proves nothing about whether it exists in *this* client's CASC
+storage; only a real extracted file is proof.
+Continents whose minimap folder wasn't extracted (or that just have no
+underwater tiles) are skipped/empty with a log line, not an error.
+
+**Root ADT files** under each continent's own `<root>/world/maps/<lowercase>/`
+are always read if present — no separate flag needed, same folder as the
+`.wdt`. If found, majority-votes each tile's real `AreaID` straight out of
+its own ADT's 256 `MCNK` sub-chunks (`areaid` field, offset `0x34`) and uses
+that instead of plain `true` — see `getDominantAreaID()` for why this is
+both more accurate (irregular real zone borders, not a rectangle) and fully
+offline compared to a live `C_Map.GetMapInfoAtPosition()` scan. Only root
+`.adt` files are read (not `_tex0`/`_obj0`/`_obj1`), matched by filename
+ending in `_<col>_<row>.adt`. A continent with no ADTs found just keeps
+plain `true` for every tile (existence only) — not an error.
+
+**`--areatable-dir <dir>`** — omit to use each MCNK's raw `AreaID` as-is,
+which can be a sub-area/POI (e.g. "Garadar") rather than the top-level zone
+("Nagrand") — won't match any `Twm_mapareas`/zone-dropdown key. Pass a
+directory containing `AreaTable.<version>.csv` (wow.export's DBC export tab)
+to instead resolve every chunk's `AreaID` up its `ParentAreaID` chain to the
+top-level zone (`ParentAreaID=0`) **before** majority-voting — this also
+fixes spurious "a border cuts through this tile" warnings caused by a zone's
+own POIs/sub-areas splitting votes against its own base terrain. This is the
+only thing in this script that needs `csv-parse` (see "Setup" below) — the
+rest (WDT/ADT parsing) has no CSV dependency at all, so omitting this flag
+also means you don't need `npm install` for the rest to work.
 
 Writes one complete file containing all the continents you passed:
 ```lua

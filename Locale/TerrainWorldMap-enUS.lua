@@ -34,6 +34,7 @@ TWM_MENU_SETTINGS = "Settings";
 TWM_MENU_CHILDMAP_TILES = "Draw child-map tiles";
 TWM_MENU_WORLDVIEW_TILES = "Draw tiles on Azeroth (world) map";
 TWM_MENU_CITYMAP_TILES = "Draw tiles on city maps";
+TWM_MENU_DRAW_UNDERWATER = "Show underwater terrain";
 TWM_WORLDMAP_OVERLAY_ON = "TerrainWorldMap: world map overlay ON";
 TWM_WORLDMAP_OVERLAY_OFF = "TerrainWorldMap: world map overlay OFF";
 TWM_DEBUG_TILES_ON = "TerrainWorldMap: tile debug labels ON";
@@ -51,7 +52,6 @@ TWM_OPTIONS_RESETPOSITION = "Reset Position";
 TWM_POINTS_SHOWPOINTS_TITLE = "Show Points";
 TWM_POINTS_LANDMARKS = "Landmarks";
 
-TWM_UNKNOWN_ZONE = "Unknown";
 
 TWM_ZOOMIN =     "+";
 TWM_ZOOMOUT =     "-";

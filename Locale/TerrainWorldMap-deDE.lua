@@ -34,6 +34,7 @@ TWM_MENU_SETTINGS = "Einstellungen";
 TWM_MENU_CHILDMAP_TILES = "Kindkarten-Kacheln zeichnen";
 TWM_MENU_WORLDVIEW_TILES = "Kacheln auf der Azeroth-Weltkarte zeichnen";
 TWM_MENU_CITYMAP_TILES = "Kacheln auf Stadtkarten zeichnen";
+TWM_MENU_DRAW_UNDERWATER = "Gelände unter Wasser anzeigen";
 TWM_WORLDMAP_OVERLAY_ON = "TerrainWorldMap: Weltkarten-Overlay AN";
 TWM_WORLDMAP_OVERLAY_OFF = "TerrainWorldMap: Weltkarten-Overlay AUS";
 TWM_DEBUG_TILES_ON = "TerrainWorldMap: Kachel-Debug-Beschriftungen AN";
@@ -53,7 +54,6 @@ TWM_POINTS_SHOWPOINTS_TITLE = "Zeige Punkte";
 -- I would prefer "wichtige Orte" over "Landmarken"
 TWM_POINTS_LANDMARKS = "wichtige Orte";
 
-TWM_UNKNOWN_ZONE = "Unbekannt";
 
 
 BINDING_NAME_TWM_TOGGLE = "Ein- und Ausblenden des TerrainWorldMap-Fensters";

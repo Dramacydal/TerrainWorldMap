@@ -1,0 +1,8 @@
+{
+  "name": "terrainworldmap-scripts",
+  "private": true,
+  "description": "Offline data-generation scripts for the TerrainWorldMap addon (not loaded by the addon itself -- .js files are ignored by the WoW addon loader)",
+  "dependencies": {
+    "csv-parse": "^5.5.6"
+  }
+}

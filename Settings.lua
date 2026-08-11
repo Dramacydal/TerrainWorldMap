@@ -68,10 +68,25 @@ cityMapTilesButton:SetScript("OnClick", function(self)
     TWM_SetCityMapTiles(self:GetChecked() and true or false);
 end);
 
+-- Only exists for flavors whose data was actually generated with a minimaps
+-- dir and found at least one noLiquid tile (see TWM_HasNoLiquidData() in
+-- TerrainWorldMap.lua) -- e.g. not TBC/Vanilla, which never got this data.
+local drawUnderwaterButton;
+if(TWM_HasNoLiquidData()) then
+    drawUnderwaterButton = CreateCheckbox(WorldMapPanel, "TWMOptionDrawUnderwater", TWM_MENU_DRAW_UNDERWATER);
+    drawUnderwaterButton:SetPoint("TOPLEFT", cityMapTilesButton, "BOTTOMLEFT", 0, -12);
+    drawUnderwaterButton:SetScript("OnClick", function(self)
+        TWM_SetDrawUnderwater(self:GetChecked() and true or false);
+    end);
+end
+
 function WorldMapPanel.OnRefresh()
     childMapTilesButton:SetChecked(TWM_IsChildMapTilesEnabled());
     worldViewTilesButton:SetChecked(TWM_IsWorldViewTilesEnabled());
     cityMapTilesButton:SetChecked(TWM_IsCityMapTilesEnabled());
+    if(drawUnderwaterButton) then
+        drawUnderwaterButton:SetChecked(TWM_IsDrawUnderwaterEnabled());
+    end
 end
 
 --

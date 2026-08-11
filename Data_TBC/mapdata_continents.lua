@@ -1,9 +1,10 @@
 -- GENERATED FILE -- do not hand-edit, regenerate with scripts/gen_mapareas.js
 -- and replace this file wholesale. See scripts/README.md for details.
 --
--- Zone bounding boxes for the 3 open-world continents, extracted straight
--- from this client's own Map/UiMap/UiMapAssignment DBC data (rather than
--- hand-collected). Loads after mapdata_zones.lua, which declares Twm_mapareas.
+-- Zone bounding boxes for this client's open-world continents, extracted
+-- straight from this client's own Map/UiMap/UiMapAssignment DBC data
+-- (rather than hand-collected). Loads after mapdata_zones.lua, which
+-- declares Twm_mapareas.
 
 Twm_mapareas["Azeroth"] = {
 	[0] = {18171.970703125, -22569.2109375, 11176.34375, -15973.34375},    --Azeroth

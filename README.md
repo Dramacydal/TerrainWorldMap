@@ -1,8 +1,8 @@
 # TerrainWorldMap
 
 Overlays the real minimap terrain tiles onto WoW's own World Map, and provides
-a movable/resizable minimap-style map window — for WoW Classic TBC Anniversary
-(client 2.5.6, Interface 20506).
+a movable/resizable minimap-style map window — for WoW Classic (Vanilla, TBC,
+Mists of Pandaria; ships one `.toc` per flavor, see `Data_<Flavor>/`).
 
 ## Features
 
@@ -13,7 +13,9 @@ a movable/resizable minimap-style map window — for WoW Classic TBC Anniversary
 - **Player/party/raid tracking** on the map.
 - **Minimap button** and a **World Map button**, both with a right-click menu.
 - **Native settings panel** (Esc → Options → AddOns → TerrainWorldMap).
-- Covers Kalimdor, Eastern Kingdoms, and Outland.
+- Covers whichever continents the running client's flavor data has been
+  generated for (TBC: Kalimdor, Eastern Kingdoms, Outland; Vanilla/Mists:
+  see the `TODO`s in `Data_Vanilla/`/`Data_Mists/`).
 - Localized: enUS, deDE, zhCN, ruRU.
 
 ## Usage

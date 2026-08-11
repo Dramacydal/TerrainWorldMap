@@ -22,6 +22,11 @@ local TWMLDB = LDB:NewDataObject("TerrainWorldMap", {
                 rootDescription:CreateCheckbox(TWM_MENU_CITYMAP_TILES,
                     TWM_IsCityMapTilesEnabled,
                     function() TWM_SetCityMapTiles(not TWM_IsCityMapTilesEnabled()); end);
+                if(TWM_HasNoLiquidData()) then
+                    rootDescription:CreateCheckbox(TWM_MENU_DRAW_UNDERWATER,
+                        TWM_IsDrawUnderwaterEnabled,
+                        function() TWM_SetDrawUnderwater(not TWM_IsDrawUnderwaterEnabled()); end);
+                end
             end);
         else
             TWMFrame:Toggle();

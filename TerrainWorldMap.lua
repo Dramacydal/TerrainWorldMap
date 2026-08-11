@@ -7,6 +7,48 @@ local MINI2BIGY = 533.3333;
 
 TWMOption = {}
 
+-- Twm_NoLiquidTiles is only ever declared (even as an empty table) by
+-- scripts/parse_wdt.js when it was run with a real minimaps directory --
+-- flavors that never got this data (everything before Mists so far) leave
+-- the global nil. That absence is also how the "Show underwater terrain"
+-- option/menu-entry decide whether to show up at all (see Settings.lua,
+-- WorldMapOverlay.lua, TerrainWorldMapButton.lua).
+function TWM_HasNoLiquidData()
+    return Twm_NoLiquidTiles ~= nil and next(Twm_NoLiquidTiles) ~= nil;
+end
+
+-- TWM_SetDrawUnderwater/TWM_IsDrawUnderwaterEnabled live in WorldMapOverlay.lua
+-- (so the setter can force-refresh the overlay, same as the other tile
+-- toggles there) even though this helper is used by both that file and this
+-- one -- fine, Lua resolves the global by name at call time, not load time.
+
+-- Picks between the normal "mapCC_RR" minimap tile and its "noliquid_mapCC_RR"
+-- variant (see scripts/parse_wdt.js's findNoLiquidTiles()) purely based on
+-- the "Show underwater terrain" checkbox -- no live IsSubmerged() check, no
+-- automatic swapping. If the option is on and this tile has a noLiquid
+-- variant, that's what gets drawn, everywhere, regardless of where the
+-- player actually is.
+function TWM_GetTileFileName(continent, col, row)
+    if(TWM_IsDrawUnderwaterEnabled()
+            and Twm_NoLiquidTiles and Twm_NoLiquidTiles[continent]
+            and Twm_NoLiquidTiles[continent][format("%.2dx%.2d", col, row)]) then
+        return format("noliquid_map%.2d_%.2d", col, row);
+    end
+    return format("map%.2d_%.2d", col, row);
+end
+
+-- Forces TWMFrame's own tile grid to rebuild with fresh texture names (e.g.
+-- after toggling "Show underwater terrain") even though the view hasn't
+-- actually panned/zoomed/changed map -- SetLocation()'s forceupdate param
+-- already exists for exactly this ("re-derive everything, don't shortcut on
+-- unchanged location"), just nothing outside of pan/zoom/zone-switch called
+-- it with that flag before.
+function TWM_RefreshFrameTiles()
+    if(TWMFrame and TWMFrame.opt) then
+        TWMFrame:SetLocation(TWMFrame.opt.Location[1], TWMFrame.opt.Location[2], true);
+    end
+end
+
 TWM_FRAME_OPTION_DEFAULTS = {
     ["Locked"] = false,
     ["Map"] = "Kalimdor",
@@ -92,19 +134,58 @@ function TWM_GetLiveZoneNameForBigCoord(map, bigx, bigy, tilekey)
     local valid = tilekey and Twm_WDTValidTiles[map] and Twm_WDTValidTiles[map][tilekey];
     if(not valid) then return nil; end
 
-    local areas = Twm_mapareas[map];
-    if(areas) then
-        for id, box in pairs(areas) do
-            if(id ~= 0 and bigx < box[1] and bigx > box[2] and bigy < box[3] and bigy > box[4]) then
-                return Twm_areadb[id];
-            end
+    local id = TWM_FindZoneAtBigCoord(map, bigx, bigy, tilekey);
+    if(id) then
+        local name = Twm_areadb[id];
+        if(name and not (Twm_mapareas[map] and Twm_mapareas[map][id])) then
+            -- Real AreaTable name, but not a key in Twm_mapareas -- an
+            -- orphan top-level (ParentAreaID=0) entry that never got a real
+            -- UiMapAssignment row, i.e. never a zone the game actually
+            -- surfaces (confirmed case: Gillijim's Isle near Wetlands).
+            -- Flagged in amber so it reads as "real name, don't trust it as
+            -- a proper zone" instead of a normal resolved zone.
+            return "|cffffa500"..name.."|r";
         end
+        return name;
     end
 
     return "|cff8080ff(terrain)|r";
 end
 
--- Twm_ContinentMapID is defined in mapdata_poi.lua (loads before this file).
+-- Which zone (Twm_mapareas areaID) a Big-coordinate point belongs to.
+-- Ground truth first: Twm_WDTValidTiles[map][tilekey] holds the tile's own
+-- majority-vote AreaID straight from its ADT's MCNK sub-chunks (see
+-- scripts/parse_wdt.js's findAdtAreaIDs()) whenever that flavor's data was
+-- generated with an ADT maps dir -- exact, handles irregular real zone
+-- borders correctly (confirmed: Outland's Nagrand/Terokkar Forest, whose
+-- Twm_mapareas *rectangular* boxes overlap by several tiles even though the
+-- real terrain border is nowhere near that wide). Falls back to the old
+-- smallest-area rectangular-box check for flavors/tiles that only ever got
+-- `true` there (no ADT dir given) -- an approximation, but the only one
+-- available without that data.
+function TWM_FindZoneAtBigCoord(map, bigx, bigy, tilekey)
+    local fromTile = tilekey and Twm_WDTValidTiles[map] and Twm_WDTValidTiles[map][tilekey];
+    if(type(fromTile) == "number") then
+        return fromTile;
+    end
+
+    local areas = Twm_mapareas[map];
+    if(not areas) then return nil; end
+
+    local bestID, bestArea;
+    for id, box in pairs(areas) do
+        if(id ~= 0 and bigx < box[1] and bigx > box[2] and bigy < box[3] and bigy > box[4]) then
+            local area = (box[1]-box[2]) * (box[3]-box[4]);
+            if(not bestArea or area < bestArea) then
+                bestID, bestArea = id, area;
+            end
+        end
+    end
+
+    return bestID;
+end
+
+-- Twm_ContinentMapID is defined in Data_<Flavor>/mapdata_poi.lua (loads before this file).
 
 local TWM_ContinentByMapID = {};
 for h,v in pairs(Twm_ContinentMapID) do
@@ -369,6 +450,10 @@ function TWMFrameTemplate:OnEvent(event, ...)
             TWMOption.ShowButton = true;
         end
 
+        if(TWMOption.DrawUnderwater == nil) then
+            TWMOption.DrawUnderwater = true;
+        end
+
         -- Stale saved data from before BigTWMFrame was removed.
         if(TWMOption.Frames) then
             TWMOption.Frames["BigTWMFrame"] = nil;
@@ -563,9 +648,7 @@ function TWMFrameTemplate:SetMap(mapname)
     -- the new continent; if so, jump to the first zone instead of leaving
     -- the view (and zone dropdown) sitting on empty space.
     if(self.zonepulldowns and self.zonepulldowns[1]) then
-        local vf = _G[lm.."ViewFrame"];
-        local zoom = self.opt.Zoom;
-        local zid = self:GetZoneIDs((vf:GetHeight()/zoom/2),(vf:GetWidth()/zoom/2));
+        local zid = self:GetZoneIDs();
         local found = false;
         for i,v in ipairs(self.zonepulldowns) do
             if(v == zid) then
@@ -651,10 +734,13 @@ function TWMFrameDropDownButton2_OnClick(self)
     frame:CenterOnZone(z);
 
     -- SetLocation() re-derives a zone from the new view's center via
-    -- GetZoneIDs(), which picks whichever zone's (overlapping)
-    -- bounding box it happens to hit first -- that can silently
-    -- relabel the dropdown to a neighboring zone. We already know
-    -- exactly which zone was picked, so re-assert it here.
+    -- GetZoneIDs(), which picks the smallest-area (most specific) zone
+    -- whose box contains that point -- for a zone whose own box is fully
+    -- nested inside another's (e.g. a city inset), the center can still
+    -- land there and get correctly reselected, but it's not guaranteed to
+    -- exactly match `z` (e.g. dead center of a oddly-shaped zone can fall
+    -- just outside its own box). We already know exactly which zone was
+    -- picked here, so re-assert it rather than trust the recomputation.
     local dd2 = _G[lm.."DropDown2"];
     if(dd2) then
         for i,v in ipairs(frame.zonepulldowns) do
@@ -669,14 +755,9 @@ end
 
 function TWMFrameTemplate:UpdateDropDown2()
     local framename = self:GetName();
-    local vfname = framename.."ViewFrame";
-    local vf = _G[vfname];
-    local zoom = self.opt.Zoom;
     local dd2 = _G[framename.."DropDown2"];
---print(tostring(framename).." "..tostring(vfname).." "..tostring(zoom).." "..tostring(dd2))
     if(dd2 and self.zonepulldowns) then
-        -- FIXME this isn't quite right somehow!! (besides height/width being flipped)
-        local zid = self:GetZoneIDs((vf:GetHeight()/zoom/2),(vf:GetWidth()/zoom/2));
+        local zid = self:GetZoneIDs();
         local found = false;
         for i,v in ipairs(self.zonepulldowns) do
 	--print(tostring(v).." "..tostring(vid))
@@ -875,7 +956,7 @@ function TWMFrameTemplate:SetLocation(x,y,forceupdate)
                 local livezone = TWM_GetLiveZoneNameForBigCoord(mymap, cbx, cby, tilekey);
 
                 if(livezone) then
-                    v[hx][hy] = { format("map%.2d_%.2d", col, row) };
+                    v[hx][hy] = { TWM_GetTileFileName(mymap, col, row) };
                 else
                     v[hx][hy] = dummyv;
                 end
@@ -1148,23 +1229,10 @@ function TWMFrameTemplate:AdjustLocation(dx,dy,forceupdate)
                         forceupdate);
 end
 
-function TWMFrameTemplate:GetZoneText(offx, offy)
-    -- untested?
-    local f = {YF_GetZoneIDs(offx, offy)};
-
-    if(#f < 1) then
-        return TWM_UNKNOWN_ZONE;
-    end
-
-    local r = {};
-    for h,v in pairs(f) do
-        r[h] = Twm_areadb[v];
-    end
-
-    return unpack(r);
-end
-
-function TWMFrameTemplate:GetZoneIDs(offx, offy)
+-- Which zone (Twm_mapareas areaID) the view's current center point falls
+-- inside -- see TWM_FindZoneAtBigCoord for the ground-truth-first, box-
+-- fallback lookup rule.
+function TWMFrameTemplate:GetZoneIDs()
     local fm = self:GetName();
     local x, y = unpack(self.opt.Location);
     local zoom = self:GetZoom();
@@ -1174,14 +1242,9 @@ function TWMFrameTemplate:GetZoneIDs(offx, offy)
     local cy = y+(viewframe:GetHeight()/2)/zoom
 
     local cbx, cby = TWM_Mini2Big_Coord(cx, cy)
+    local tilekey = format("%.2dx%.2d", math.floor(cx), math.floor(cy));
 
-    -- TODO: this isn't very accurate
-    local maparea = Twm_mapareas[self.opt.Map];
-    for h,k in pairs(maparea) do
-        if(h ~= 0 and cbx < k[1] and cbx > k[2] and cby < k[3] and cby > k[4])then
-            return h
-        end
-    end
+    return TWM_FindZoneAtBigCoord(self.opt.Map, cbx, cby, tilekey);
 end
 
 function TWMFrameTemplate:OnWorldMapUpdate()

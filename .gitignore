@@ -1,3 +1,4 @@
 .vscode/
+scripts/node_modules
 *.csv
 *.wdt

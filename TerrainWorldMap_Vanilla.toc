@@ -1,4 +1,4 @@
-## Interface: 20506
+## Interface: 11509
 ## Title: TerrainWorldMap
 ## Version: 1.0.0
 ## Author: Boo Diddly, Dramacydal
@@ -12,9 +12,11 @@ Libs\Libs.xml
 Locale\Locales.xml
 
 mapdata_zones.lua
-mapdata_continents.lua
+Data_Vanilla\mapdata_zones.lua
+Data_Vanilla\mapdata_continents.lua
 mapdata_poi.lua
-mapdata_tiles.lua
+Data_Vanilla\mapdata_poi.lua
+Data_Vanilla\mapdata_tiles.lua
 Points.lua
 TerrainWorldMap.lua
 WorldMapOverlay.lua
