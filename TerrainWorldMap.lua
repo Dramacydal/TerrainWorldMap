@@ -368,9 +368,6 @@ function TWMFrameTemplate:OnEvent(event, ...)
         if(TWMOption.ShowButton == nil) then
             TWMOption.ShowButton = true;
         end
-        if(TWMOption.ButtonLocation == nil) then
-            TWMOption.ButtonLocation = 0;
-        end
 
         -- Stale saved data from before BigTWMFrame was removed.
         if(TWMOption.Frames) then
