@@ -14,8 +14,8 @@ Locale\Locales.xml
 mapdata_zones.lua
 Data_TBC\mapdata_zones.lua
 Data_TBC\mapdata_continents.lua
-mapdata_poi.lua
 Data_TBC\mapdata_poi.lua
+Data_TBC\mapdata_poi_areas.lua
 Data_TBC\mapdata_tiles.lua
 Points.lua
 TerrainWorldMap.lua

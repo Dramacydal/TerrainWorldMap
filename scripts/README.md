@@ -5,7 +5,8 @@ Regenerates `Data_<Flavor>/mapdata_continents.lua` and
 addon (`.js`/`.ps1` files are ignored by the WoW addon loader).
 
 Pipeline: `init_workdir.ps1` (fetch client data) → `gen_mapareas.js` (zone
-boxes) → `parse_wdt.js` (tile validity + AreaIDs).
+boxes) → `parse_wdt.js` (tile validity + AreaIDs) → `gen_poi_areas.js`
+(sub-area/POI labels).
 
 ## Setup
 
@@ -108,6 +109,64 @@ Prints per-continent diagnostics to stderr, including `*** MISMATCH ***`
 lines from built-in sanity checks — investigate before trusting the output
 if any appear (a mismatch against Vanilla-era reference tiles on a
 post-Cataclysm client, e.g. reshaped Azeroth tiles, is expected, not a bug).
+
+## Step 4 — `gen_poi_areas.js`: sub-area/POI labels (`Twm_poi_areas`)
+
+```bash
+node gen_poi_areas.js --flavor-dir <dir> --mapareas-file <mapdata_continents.lua> --out <out-file.lua> [--areatable-dir <dir>] <ContinentName> [<ContinentName> ...]
+```
+
+- **`--flavor-dir`** (required) — `<WorkDir>/<Product>` from step 1 (needs `AreaTable.*.csv` and the extracted ADTs)
+- **`--mapareas-file`** (required) — the flavor's own already-generated `Data_<Flavor>/mapdata_continents.lua` (step 2's output)
+- **`--out`** (required) — output path, e.g. `Data_<Flavor>/mapdata_poi_areas.lua`
+- **`--areatable-dir`** (optional, defaults to `--flavor-dir`) — folder containing `AreaTable.*.csv`
+- **`<ContinentName>...`** (required) — must match a key in `--mapareas-file`'s `Twm_mapareas`
+
+Algorithm (no `AreaPOI` DB2 involved — an earlier version of this script
+used it, but its `Icon` field turned out to be a numeric atlas index that
+shifts between client builds, plus assorted non-settlement noise):
+1. **A** = the AreaIDs this continent actually displays — the keys of
+   `Twm_mapareas["<Continent>"]` in `--mapareas-file`, minus the `[0]`
+   whole-map sentinel.
+2. **B** = every `AreaTable` row whose parent chain (`ParentAreaID`,
+   walked all the way up) passes through some zone in A — every real
+   sub-area/POI nested anywhere under a displayed zone.
+3. Each entry in B is positioned by its own centroid — the average MCNK
+   chunk position across every root ADT of that continent (same
+   world→Big transform as `gen_mapareas.js`, computed straight from the
+   `IndexX`/`IndexY`/`areaid` fields already used in `parse_wdt.js`). An
+   AreaID never actually painted on any ADT chunk in this build is
+   skipped. Chunks that fall outside their resolved top-level zone's own
+   `Twm_mapareas` box (padded by `BOX_PADDING`, 2000 yards) are excluded
+   from the average — some sub-areas have a near-identical duplicate copy
+   of their own terrain painted thousands of yards away elsewhere on the
+   same continent (confirmed for Outland's Draenei starting zone, Ammen
+   Vale/Emberglade/The Sacred Grove under Azuremyst Isle — almost
+   certainly a private copy used only during the starting-zone intro
+   sequence); averaging both blindly lands the centroid in open ocean
+   between them.
+
+Known caveat: this also picks up large non-settlement sub-areas whose
+`ParentAreaID` happens to point at a displayed zone — e.g. "The Great
+Sea"/"The Veiled Sea" (open ocean, spread along the whole coastline, one
+AreaTable row per stretch of coast). Left in as-is; prune by name/AreaID
+by hand if it bothers you.
+
+**Example:**
+```bash
+node gen_poi_areas.js --flavor-dir C:\wow-data\wow_anniversary --mapareas-file Data_TBC/mapdata_continents.lua --out Data_TBC/mapdata_poi_areas.lua Azeroth Kalimdor Expansion01
+```
+
+## Other scripts
+
+- **`gen_area_centroids.js`** — standalone diagnostic tool, not part of the
+  pipeline above. Dumps every AreaID's centroid for a continent
+  (`Twm_area_centroids["<Continent>"][areaID] = {x, y}`) and, given
+  `--mapareas-file`, self-checks each zone's rolled-up centroid against
+  its `Twm_mapareas` bounding box. Useful for validating the ADT
+  chunk-position formula (`gen_poi_areas.js` duplicates the same
+  computation internally) or just inspecting where a given AreaID
+  actually sits.
 
 ## When to re-run
 

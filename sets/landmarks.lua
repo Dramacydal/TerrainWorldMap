@@ -1,20 +1,11 @@
 
 local landmarkaltinstance = {nil,nil,nil,nil,-1};
-local landmarkalttown = {nil,nil,nil,nil,-4};
+local landmarkalthamlet   = {nil,nil,nil,nil,-4};
 
 local set = {name="landmarks"};
 
-function set.getpoints(name, map) 
-    -- we got these from map api.  don't use if we see Megellan
-    if(type(Twm_Landmarks[map]) == "table" and Magellan_Init == nil) then
-        for h,v in ipairs(Twm_Landmarks[map]) do
-            local x,y = TWM_Big2Mini_Coord(v[1],v[2]);
-
-            TWMPoints_AddPoint(nil, "landmarks", v[3], x, y, nil, Twm_Landmarks[map][h]);
-        end
-    end
-
-    -- we got these...from OURSELVES!
+function set.getpoints(name, map)
+    -- Dungeon/raid entrances -- hand-collected, see Data_<Flavor>/mapdata_poi.lua.
     if(type(Twm_instances[map]) == "table") then
         for h,v in ipairs(Twm_instances[map]) do
             local x,y = TWM_Big2Mini_Coord(v[2],v[3]);
@@ -23,56 +14,31 @@ function set.getpoints(name, map)
         end
     end
 
-     -- 'other towns' ...we got these...from OURSELVES!
-    if(type(Twm_towns2[map]) == "table") then
-        for h,v in ipairs(Twm_towns2[map]) do
+    -- Sub-area/POI labels, generated from AreaTable's own zone hierarchy
+    -- (see scripts/gen_poi_areas.js).
+    if(type(Twm_poi_areas[map]) == "table") then
+        for h,v in ipairs(Twm_poi_areas[map]) do
             local x,y = TWM_Big2Mini_Coord(v[2],v[3]);
 
-            TWMPoints_AddPoint(nil, "landmarks", v[1], x, y, nil, landmarkalttown);
+            TWMPoints_AddPoint(nil, "landmarks", v[1], x, y, nil, landmarkalthamlet);
         end
     end
 end
 
 function set.setuppoint(point, env, dat)
     local text, bg = point.Foreground, point.Icon;
-    local x1, x2, y1, y2;
-    local r, g, b;
-    local bgtextname;
     local iconsize = env.iconsize;
     local kind = dat.userdat[5];
 
-    -- kind is a string (POI atlas name) for landmarks scraped via
-    -- C_AreaPoiInfo; a sentinel number for our own instance/town tables.
-    local atlas = (type(kind) == "string") and kind or nil;
+    local r, g, b = 0.2, 0.6, 1;
+    local bgtextname = "Interface\\AddOns\\TerrainWorldMap\\images\\Icons\\Icon-Circle";
 
-    if(atlas) then
-        r, g, b = 1, 1, 1;
-    elseif(type(kind) == "number" and (kind == 4 or kind == 5 or kind < 0)) then
-        x1 = 0; y1 = 0;
-        x2 = 1; y2 = 1;
-
-        r = 0.2;
-        g = 0.6;
-        b = 1;
-        bgtextname = "Interface\\AddOns\\TerrainWorldMap\\images\\Icons\\Icon-Circle";
-        if(kind == 5) then
-            bgtextname = "Interface\\AddOns\\TerrainWorldMap\\images\\Icons\\Icon-Star";
-            iconsize = iconsize+2;
-        elseif(kind == -1) then
-            r = 0.9;
-            g = 0.1;
-            b = 0.9;
-            bgtextname = "Interface\\AddOns\\TerrainWorldMap\\images\\Icons\\Icon-Cave";
-        elseif(kind == -4) then
-            r = 0.3;
-            g = 0.8;
-            b = 1;
-            bgtextname = "Interface\\AddOns\\TerrainWorldMap\\images\\Icons\\Icon-Exclaim";
-        end
-    else
-        x1, x2, y1, y2 = 0, 1, 0, 1;
-        r, g, b = 0.2, 0.6, 1;
-        bgtextname = "Interface\\AddOns\\TerrainWorldMap\\images\\Icons\\Icon-Circle";
+    if(kind == -1) then
+        r, g, b = 0.9, 0.1, 0.9;
+        bgtextname = "Interface\\AddOns\\TerrainWorldMap\\images\\Icons\\Icon-Cave";
+    elseif(kind == -4) then
+        r, g, b = 0.3, 0.8, 1;
+        bgtextname = "Interface\\AddOns\\TerrainWorldMap\\images\\Icons\\Icon-Exclaim";
     end
 
     point:Show();
@@ -82,13 +48,8 @@ function set.setuppoint(point, env, dat)
     bg:Show();
     bg:SetHeight(iconsize);
     bg:SetWidth(iconsize);
-    if(atlas) then
-        bg:SetTexCoord(0, 1, 0, 1);
-        bg:SetAtlas(atlas, false);
-    else
-        bg:SetTexture(bgtextname);
-        bg:SetTexCoord(x1, x2, y1, y2);
-    end
+    bg:SetTexture(bgtextname);
+    bg:SetTexCoord(0, 1, 0, 1);
     bg:SetVertexColor(r, g, b, 1);
 end
 
@@ -112,4 +73,3 @@ function set.configmenu(name, lm)
 end
 
 TWMPoints_RegisterSet(set);
-

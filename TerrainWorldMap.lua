@@ -459,14 +459,6 @@ function TWMFrameTemplate:OnEvent(event, ...)
 
         self.opt = TWMOption.Frames[framename];
 
-        -- Landmark scraping ends by forcing a points refresh (TWMPoints_ForceUpdate),
-        -- which reads TWMOption.Frames[framename] -- must run after
-        -- EnsureExistingOptions has populated it (e.g. on a fresh SavedVariables file).
-        if(not TWM_LandmarksScraped) then
-            TWM_LandmarksScraped = true;
-            TWM_ScrapeLandmarks();
-        end
-
         -- Stale saved data from before IconSize became a 0.1-3.0 multiplier (was an absolute pixel size).
         if(self.opt.IconSize == nil or self.opt.IconSize > 3.5) then
             self.opt.IconSize = 1.0;
@@ -1247,48 +1239,6 @@ function TWMFrameTemplate:OnWorldMapUpdate()
     if(self.trackseek or (self.opt and self.opt.track)) then
         self:OnWorldMapUpdateU(self.trackseek or self.opt.track)
     end
-end
-
--- One-time landmark scrape for all 4 known continents. Doesn't need the
--- WorldMapFrame to be shown/navigated (unlike the old GetNumMapLandmarks
--- API, which only reported landmarks for whatever page WorldMapFrame had
--- open at the time).
-function TWM_ScrapeLandmarks()
-    for mapname, uiMapID in pairs(Twm_ContinentMapID) do
-        if(Twm_Landmarks[mapname] == nil and Twm_mapareas[mapname]) then
-            local x1,x2,y1,y2;
-            if(Twm_mapareas[mapname][0] ~= nil) then
-                x1 = Twm_mapareas[mapname][0][1];
-                x2 = Twm_mapareas[mapname][0][2];
-                y1 = Twm_mapareas[mapname][0][3];
-                y2 = Twm_mapareas[mapname][0][4];
-            else
-                local _,va = next(Twm_mapareas[mapname]);
-                x1 = va[1];
-                x2 = va[2];
-                y1 = va[3];
-                y2 = va[4];
-            end
-
-            Twm_Landmarks[mapname] = {};
-
-            local pois = C_AreaPoiInfo.GetAreaPOIForMap(uiMapID);
-            if(pois) then
-                for _, poiID in ipairs(pois) do
-                    local info = C_AreaPoiInfo.GetAreaPOIInfo(uiMapID, poiID);
-                    if(info and info.position) then
-                        local px, py = info.position:GetXY();
-                        local x = (-px*(x1-x2) + x1);
-                        local y = (-py*(y1-y2) + y1);
-                        tinsert(Twm_Landmarks[mapname],
-                                {x, y, info.name, info.description, info.atlasName});
-                    end
-                end
-            end
-        end
-    end
-
-    TWMPoints_ForceUpdate();
 end
 
 function TWMFrameTemplate:OnWorldMapUpdateU(u)
