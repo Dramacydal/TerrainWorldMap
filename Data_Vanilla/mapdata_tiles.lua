@@ -7,7 +7,7 @@
 -- ever real if the client actually ships terrain for it, regardless of
 -- what the (possibly orphaned) minimap preview texture or C_Map zone data
 -- might otherwise suggest. Value is `true` if no ADT areaID could be
--- resolved for that tile (see --root's ADT dir), otherwise the tile's own
+-- resolved for that tile (see --flavor-dir's ADT dir), otherwise the tile's own
 -- majority-vote AreaID (a real, truthy number) -- resolve to a display
 -- name via Twm_areadb[id].
 Twm_WDTValidTiles = {}

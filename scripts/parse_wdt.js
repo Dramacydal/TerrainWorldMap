@@ -5,19 +5,20 @@
 // many continents as you pass in in one go.
 //
 // Usage:
-//   node parse_wdt.js --root <wow.export-flavor-root> --out <out-file.lua> [--noliquid] [--areatable-dir <dir>] <ContinentName> [<ContinentName> ...]
+//   node parse_wdt.js --flavor-dir <dir> --out <out-file.lua> [--noliquid] [--areatable-dir <dir>] <ContinentName> [<ContinentName> ...]
 //
 // <ContinentName> is case-SENSITIVE and used as-is for the
 // Twm_WDTValidTiles/Twm_mapareas Lua table key (e.g. "HawaiiMainLand"). The
 // WDT/ADT/minimap file paths are derived automatically from it (lowercased)
-// under --root, matching wow.export's own extraction layout:
-//   <root>/world/maps/<lowercase>/<lowercase>.wdt        (WDT, MAIN/MAID)
-//   <root>/world/maps/<lowercase>/<lowercase>_C_R.adt    (root ADT files)
-//   <root>/world/minimaps/<lowercase>/                   (only if --noliquid)
+// under --flavor-dir, matching init_workdir.ps1's / wow.export's own
+// extraction layout:
+//   <flavor-dir>/world/maps/<lowercase>/<lowercase>.wdt        (WDT, MAIN/MAID)
+//   <flavor-dir>/world/maps/<lowercase>/<lowercase>_C_R.adt    (root ADT files)
+//   <flavor-dir>/world/minimaps/<lowercase>/                   (only if --noliquid)
 //
 // Example (regenerating Mists' mapdata_tiles.lua from all 11 continents,
 // with underwater-tile detection and AreaTable-based zone resolution):
-//   node parse_wdt.js --root "C:/Users/you/wow.export/_mop_" --out ../Data_Mists/mapdata_tiles.lua --noliquid --areatable-dir ../Data_Mists Azeroth Kalimdor Expansion01 Northrend HawaiiMainLand Deephome LostIsles MaelstromZone Gilneas2 TolBarad MoguIslandDailyArea
+//   node parse_wdt.js --flavor-dir "C:/Users/you/wow-data/wow_classic" --out ../Data_Mists/mapdata_tiles.lua --noliquid Azeroth Kalimdor Expansion01 Northrend HawaiiMainLand Deephome LostIsles MaelstromZone Gilneas2 TolBarad MoguIslandDailyArea
 //
 // --noliquid: scan each continent's `<root>/world/minimaps/<lowercase>/` for
 // noLiquid_mapXX_YY.blp/noliquid_mapXX_YY.blp files (underwater zones like
@@ -38,14 +39,17 @@
 // C_Map.GetMapInfoAtPosition() scan) -- a continent with none found just
 // keeps Twm_WDTValidTiles' plain `true` for every tile, existence only.
 //
-// --areatable-dir <dir>: without it, each MCNK's raw AreaID is used as-is,
-// which can be a sub-area/POI (e.g. "Garadar") rather than the top-level
-// zone ("Nagrand") -- won't match any Twm_mapareas/zone-dropdown key. Pass
-// a directory containing AreaTable.<version>.csv (wow.export's DBC export
-// tab) to instead resolve every chunk's AreaID up its ParentAreaID chain to
-// the top-level zone (ParentAreaID=0) BEFORE majority-voting -- this also
-// fixes spurious "a border cuts through this tile" warnings caused by a
-// zone's own POIs/sub-areas splitting votes against its own base terrain.
+// --areatable-dir <dir>: defaults to --flavor-dir (init_workdir.ps1 always
+// downloads AreaTable.<version>.csv straight into the work dir alongside
+// the extracted WDT/ADT files, so this needs overriding only if your
+// AreaTable CSV lives somewhere else). Without a resolvable AreaTable, each
+// MCNK's raw AreaID would be used as-is, which can be a sub-area/POI (e.g.
+// "Garadar") rather than the top-level zone ("Nagrand") -- won't match any
+// Twm_mapareas/zone-dropdown key. Resolving walks every chunk's AreaID up
+// its ParentAreaID chain to the top-level zone (ParentAreaID=0) BEFORE
+// majority-voting -- this also fixes spurious "a border cuts through this
+// tile" warnings caused by a zone's own POIs/sub-areas splitting votes
+// against its own base terrain.
 //
 // Axis mapping (derived from wow.export's MapViewerScreen.js world<->tile
 // formulas + TerrainWorldMap's own TWM_Mini2Big_Coord): TerrainWorldMap's tile "col" is
@@ -311,12 +315,12 @@ function findAdtAreaIDs(dir, parentOf) {
 }
 
 function parseArgs(argv) {
-	const opts = { root: null, out: null, noliquid: false, areaTableDir: '' };
+	const opts = { flavorDir: null, out: null, noliquid: false, areaTableDir: null };
 	const continents = [];
 
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i];
-		if (a === '--root') opts.root = argv[++i];
+		if (a === '--flavor-dir') opts.flavorDir = argv[++i];
 		else if (a === '--out') opts.out = argv[++i];
 		else if (a === '--noliquid') opts.noliquid = true;
 		else if (a === '--areatable-dir') opts.areaTableDir = argv[++i];
@@ -324,13 +328,17 @@ function parseArgs(argv) {
 		else continents.push(a);
 	}
 
+	if (opts.areaTableDir === null)
+		opts.areaTableDir = opts.flavorDir;
+
 	return { opts, continents };
 }
 
 function printUsage() {
-	console.error('Usage: node parse_wdt.js --root <wow.export-flavor-root> --out <out-file.lua> [--noliquid] [--areatable-dir <dir>] <ContinentName> [<ContinentName> ...]');
+	console.error('Usage: node parse_wdt.js --flavor-dir <dir> --out <out-file.lua> [--noliquid] [--areatable-dir <dir>] <ContinentName> [<ContinentName> ...]');
 	console.error('  <ContinentName> is case-sensitive (used as-is for the Twm_mapareas/Twm_WDTValidTiles key);');
-	console.error('  paths are derived under --root as world/maps/<lowercase>/<lowercase>.wdt etc.');
+	console.error('  paths are derived under --flavor-dir as world/maps/<lowercase>/<lowercase>.wdt etc.');
+	console.error('  --areatable-dir defaults to --flavor-dir if omitted.');
 }
 
 function main() {
@@ -343,12 +351,12 @@ function main() {
 		process.exit(1);
 	}
 
-	if (!opts.root || !opts.out || continents.length === 0) {
+	if (!opts.flavorDir || !opts.out || continents.length === 0) {
 		printUsage();
 		process.exit(1);
 	}
 
-	const parentOf = opts.areaTableDir !== '' ? loadAreaParents(opts.areaTableDir) : null;
+	const parentOf = loadAreaParents(opts.areaTableDir);
 
 	let lua = "-- GENERATED FILE -- do not hand-edit, regenerate with scripts/parse_wdt.js\n"
 		+ "-- and replace this file wholesale. See scripts/README.md for details.\n"
@@ -359,7 +367,7 @@ function main() {
 		+ "-- ever real if the client actually ships terrain for it, regardless of\n"
 		+ "-- what the (possibly orphaned) minimap preview texture or C_Map zone data\n"
 		+ "-- might otherwise suggest. Value is `true` if no ADT areaID could be\n"
-		+ "-- resolved for that tile (see --root's ADT dir), otherwise the tile's own\n"
+		+ "-- resolved for that tile (see --flavor-dir's ADT dir), otherwise the tile's own\n"
 		+ "-- majority-vote AreaID (a real, truthy number) -- resolve to a display\n"
 		+ "-- name via Twm_areadb[id].\n"
 		+ "Twm_WDTValidTiles = {}\n";
@@ -368,8 +376,8 @@ function main() {
 
 	for (const contName of continents) {
 		const lower = contName.toLowerCase();
-		const wdtPath = path.join(opts.root, 'world', 'maps', lower, `${lower}.wdt`);
-		const adtDir = path.join(opts.root, 'world', 'maps', lower);
+		const wdtPath = path.join(opts.flavorDir, 'world', 'maps', lower, `${lower}.wdt`);
+		const adtDir = path.join(opts.flavorDir, 'world', 'maps', lower);
 
 		console.error(`${contName}:`);
 		const validTiles = getValidTiles(wdtPath);
@@ -391,7 +399,7 @@ function main() {
 		}
 
 		if (opts.noliquid) {
-			const minimapDir = path.join(opts.root, 'world', 'minimaps', lower);
+			const minimapDir = path.join(opts.flavorDir, 'world', 'minimaps', lower);
 			noLiquidByContinent[contName] = findNoLiquidTiles(minimapDir);
 		}
 	}
