@@ -1,18 +1,16 @@
 -- Mists-flavor data (loaded on top of the generic mapdata_poi.lua).
--- uiMapIDs for the top-level continents, confirmed via
--- Data_Mists/UiMapAssignment.5.5.4.69155.csv (see scripts/gen_mapareas.js's
--- findContinents()). "HawaiiMainLand" is Blizzard's own internal Map.csv
--- Directory name for Pandaria (its dev codename) -- not a bug, matches the
--- key gen_mapareas.js wrote into Data_Mists/mapdata_continents.lua.
+-- uiMapIDs for the top-level continents (Data_Mists/UiMapAssignment.5.5.4.69155.csv,
+-- see scripts/gen_mapareas.js's findContinents()). "HawaiiMainLand" is
+-- Blizzard's own internal Map.csv Directory name for Pandaria (dev
+-- codename) -- matches the key gen_mapareas.js wrote into
+-- Data_Mists/mapdata_continents.lua.
 --
 -- Deephome/LostIsles/Gilneas2/MaelstromZone/TolBarad/MoguIslandDailyArea are
 -- standalone single-or-few-zone "island" maps (own MapID, own real WDT --
--- see gen_mapareas.js's findContinents() comment for how these get detected
--- alongside the 5 big continents, no hardcoded per-flavor list needed) --
--- picked whichever child uiMapID is the "main" one where more than one
--- exists (e.g. LostIsles over its Kezan sub-zone, TolBarad over its
--- Peninsula sub-zone). This dict entry is what a caller sees on
--- C_Map.GetMapInfo(uiMapID).name when standing there -- unlike
+-- see gen_mapareas.js's findContinents()). Where a map has more than one
+-- child uiMapID, picks the "main" one (e.g. LostIsles over its Kezan
+-- sub-zone, TolBarad over its Peninsula sub-zone) -- what a caller sees on
+-- C_Map.GetMapInfo(uiMapID).name when standing there. Unlike
 -- mapdata_continents.lua, this file is hand-maintained, not generated.
 Twm_ContinentMapID = {
     ["Kalimdor"] = 12,

@@ -1,7 +1,6 @@
 -- Vanilla-flavor data (loaded on top of the generic mapdata_poi.lua).
--- uiMapIDs for the top-level continents, confirmed via
--- Data_Vanilla/UiMapAssignment.1.15.9.69109.csv (same continent uiMapIDs as
--- TBC's Azeroth=1415/Kalimdor=1414 -- these are stable DB2 IDs).
+-- uiMapIDs for the top-level continents (Data_Vanilla/UiMapAssignment.1.15.9.69109.csv);
+-- same continent uiMapIDs as TBC's Azeroth=1415/Kalimdor=1414 (stable DB2 IDs).
 -- No Expansion01 entry: Classic Era has no Outland continent map.
 Twm_ContinentMapID = {
     ["Kalimdor"] = 1414,

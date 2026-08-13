@@ -139,11 +139,10 @@ function TWM_GetLiveZoneNameForBigCoord(map, bigx, bigy, tilekey)
         local name = Twm_areadb[id];
         if(name and not (Twm_mapareas[map] and Twm_mapareas[map][id])) then
             -- Real AreaTable name, but not a key in Twm_mapareas -- an
-            -- orphan top-level (ParentAreaID=0) entry that never got a real
-            -- UiMapAssignment row, i.e. never a zone the game actually
-            -- surfaces (confirmed case: Gillijim's Isle near Wetlands).
-            -- Flagged in amber so it reads as "real name, don't trust it as
-            -- a proper zone" instead of a normal resolved zone.
+            -- orphan top-level (ParentAreaID=0) entry with no real
+            -- UiMapAssignment row, i.e. not a zone the game actually
+            -- surfaces (e.g. Gillijim's Isle near Wetlands). Flagged in
+            -- amber so it reads as "real name, don't trust it as a zone".
             return "|cffffa500"..name.."|r";
         end
         return name;
@@ -155,14 +154,11 @@ end
 -- Which zone (Twm_mapareas areaID) a Big-coordinate point belongs to.
 -- Ground truth first: Twm_WDTValidTiles[map][tilekey] holds the tile's own
 -- majority-vote AreaID straight from its ADT's MCNK sub-chunks (see
--- scripts/parse_wdt.js's findAdtAreaIDs()) whenever that flavor's data was
--- generated with an ADT maps dir -- exact, handles irregular real zone
--- borders correctly (confirmed: Outland's Nagrand/Terokkar Forest, whose
--- Twm_mapareas *rectangular* boxes overlap by several tiles even though the
--- real terrain border is nowhere near that wide). Falls back to the old
--- smallest-area rectangular-box check for flavors/tiles that only ever got
--- `true` there (no ADT dir given) -- an approximation, but the only one
--- available without that data.
+-- scripts/parse_wdt.js's findAdtAreaIDs()), handling irregular real zone
+-- borders that a rectangular Twm_mapareas box can't (e.g. Outland's
+-- Nagrand/Terokkar Forest boxes overlap by several tiles). Falls back to
+-- the smallest-area rectangular-box check for tiles that only got plain
+-- `true` (no ADT data available).
 function TWM_FindZoneAtBigCoord(map, bigx, bigy, tilekey)
     local fromTile = tilekey and Twm_WDTValidTiles[map] and Twm_WDTValidTiles[map][tilekey];
     if(type(fromTile) == "number") then

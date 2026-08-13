@@ -1,66 +1,10 @@
-// Standalone port of wow.export's WDTLoader.js MAIN/MAID parsing, plus a
-// per-tile AreaID resolver reading straight from ADT/MCNK and AreaTable.csv.
-// Regenerates mapdata_tiles.lua (Twm_WDTValidTiles, and optionally
-// Twm_NoLiquidTiles) -- a complete, ready-to-use replacement, covering as
-// many continents as you pass in in one go.
+// Regenerates Data_<Flavor>/mapdata_tiles.lua (Twm_WDTValidTiles, optionally
+// Twm_NoLiquidTiles) from real WDT/ADT/minimap files. See README.md for usage.
 //
-// Usage:
-//   node parse_wdt.js --flavor-dir <dir> --out <out-file.lua> [--noliquid] [--areatable-dir <dir>] <ContinentName> [<ContinentName> ...]
-//
-// <ContinentName> is case-SENSITIVE and used as-is for the
-// Twm_WDTValidTiles/Twm_mapareas Lua table key (e.g. "HawaiiMainLand"). The
-// WDT/ADT/minimap file paths are derived automatically from it (lowercased)
-// under --flavor-dir, matching init_workdir.ps1's / wow.export's own
-// extraction layout:
-//   <flavor-dir>/world/maps/<lowercase>/<lowercase>.wdt        (WDT, MAIN/MAID)
-//   <flavor-dir>/world/maps/<lowercase>/<lowercase>_C_R.adt    (root ADT files)
-//   <flavor-dir>/world/minimaps/<lowercase>/                   (only if --noliquid)
-//
-// Example (regenerating Mists' mapdata_tiles.lua from all 11 continents,
-// with underwater-tile detection and AreaTable-based zone resolution):
-//   node parse_wdt.js --flavor-dir "C:/Users/you/wow-data/wow_classic" --out ../Data_Mists/mapdata_tiles.lua --noliquid Azeroth Kalimdor Expansion01 Northrend HawaiiMainLand Deephome LostIsles MaelstromZone Gilneas2 TolBarad MoguIslandDailyArea
-//
-// --noliquid: scan each continent's `<root>/world/minimaps/<lowercase>/` for
-// noLiquid_mapXX_YY.blp/noliquid_mapXX_YY.blp files (underwater zones like
-// Vashj'ir ship a second minimap texture per tile that the client swaps to
-// when submerged, so the water tint baked into the normal tile doesn't
-// muddy the minimap) -- see findNoLiquidTiles() below for why this needs
-// the actual extracted files and can't be done from a community listfile
-// or from WDT data alone. Omit this flag to skip the step entirely
-// (Twm_NoLiquidTiles won't even be declared in the output -- this is also
-// how the addon's "Show underwater terrain" option/menu-entry decide
-// whether to show up at all, see TWM_HasNoLiquidData() in TerrainWorldMap.lua).
-//
-// Root ADT files under each continent's own `world/maps/<lowercase>/` are
-// always read if present (majority-vote each tile's real AreaID straight
-// out of its own ADT's 256 MCNK sub-chunks, see getDominantAreaID() for why
-// this is both more accurate and fully offline compared to either a
-// Twm_mapareas rectangular bounding-box check or a live
-// C_Map.GetMapInfoAtPosition() scan) -- a continent with none found just
-// keeps Twm_WDTValidTiles' plain `true` for every tile, existence only.
-//
-// --areatable-dir <dir>: defaults to --flavor-dir (init_workdir.ps1 always
-// downloads AreaTable.<version>.csv straight into the work dir alongside
-// the extracted WDT/ADT files, so this needs overriding only if your
-// AreaTable CSV lives somewhere else). Without a resolvable AreaTable, each
-// MCNK's raw AreaID would be used as-is, which can be a sub-area/POI (e.g.
-// "Garadar") rather than the top-level zone ("Nagrand") -- won't match any
-// Twm_mapareas/zone-dropdown key. Resolving walks every chunk's AreaID up
-// its ParentAreaID chain to the top-level zone (ParentAreaID=0) BEFORE
-// majority-voting -- this also fixes spurious "a border cuts through this
-// tile" warnings caused by a zone's own POIs/sub-areas splitting votes
-// against its own base terrain.
-//
-// Axis mapping (derived from wow.export's MapViewerScreen.js world<->tile
-// formulas + TerrainWorldMap's own TWM_Mini2Big_Coord): TerrainWorldMap's tile "col" is
-// the WDT's tile Y index, TerrainWorldMap's tile "row" is the WDT's tile X index.
-// i.e. TerrainWorldMap key "COLxROW" <-> WDT tile (x=ROW, y=COL).
-// This was empirically verified (not just theorized) by matching a real
-// bug screenshot pixel-for-pixel against this script's output -- see
-// README.md's "Axis mapping" section for the full story. If you ever
-// re-derive this from scratch, treat it as a hypothesis to be
-// cross-checked against known reference tiles (see checkTiles below)
-// before trusting the output wholesale.
+// Axis mapping: TerrainWorldMap tile key "COLxROW" <-> WDT tile (x=ROW, y=COL)
+// (WDT's MAIN/MAID chunks index tiles by (x, y); TerrainWorldMap's "col" is the WDT's y,
+// "row" is the WDT's x). Empirically verified against a known bug screenshot --
+// if tiles come out systematically transposed/mirrored, check this first.
 
 const fs = require('fs');
 const path = require('path');
@@ -80,14 +24,9 @@ const ID_MCNK = chunkID('M', 'C', 'N', 'K');
 const AREAID_OFFSET = 0x34; // uint32 field inside MCNK's own chunk data
 const EXPECTED_MCNK_COUNT = 256;
 
-// id -> ParentAreaID, from AreaTable.csv. Walking this chain (see
-// resolveToZone()) turns a raw MCNK sub-area/POI AreaID into its top-level
-// zone AreaID (ParentAreaID=0), matching Twm_mapareas' own keys.
-//
-// Lazy require: csv.js pulls in the `csv-parse` npm package, which only
-// needs to be installed (`npm install` in this scripts/ folder) if
-// --areatable-dir is actually used -- the rest of this script (WDT/ADT
-// parsing) has no CSV dependency at all.
+// id -> ParentAreaID, from AreaTable.csv. resolveToZone() walks this chain
+// to turn a raw MCNK sub-area/POI AreaID into its top-level zone AreaID
+// (ParentAreaID=0), matching Twm_mapareas' own keys.
 function loadAreaParents(areaTableDir) {
 	const { parseCsvFile, findCsv } = require('./csv');
 	const rows = parseCsvFile(findCsv(areaTableDir, 'AreaTable.'));
@@ -190,19 +129,15 @@ function getValidTiles(filePath) {
 	return validTiles;
 }
 
-// Known reference tiles to sanity-check per continent, from prior manual
-// investigation -- if these stop matching, double check the axis mapping
-// above before trusting a fresh run's output.
+// Reference tiles for regression-checking the axis mapping (Azeroth's are
+// Vanilla-era; a mismatch on a post-Cataclysm client is expected, not a bug).
 const sanityChecks = {
 	Azeroth: { '43x39': false, '44x39': false, '41x39': true, '42x39': true, '41x40': true, '42x40': true },
 	Expansion01: { '45x06': true },
 };
 
-// Confirmed empirically: the minimap filename's own "mapXX_YY" numbering
-// already matches TerrainWorldMap's own tile-key numbering directly (no
-// axis swap like the WDT MAIN/MAID chunk needed) -- e.g. Data_Mists's
-// existing key "16x18" for HawaiiMainLand corresponds to the real files
-// map16_18.blp / noliquid_map16_18.blp on disk.
+// Minimap filename's own "mapXX_YY" numbering already matches
+// TerrainWorldMap's tile-key numbering directly -- no axis swap here.
 function findNoLiquidTiles(dir) {
 	if (!fs.existsSync(dir)) {
 		console.error(`  no noLiquid check: ${dir} doesn't exist (minimaps not extracted for this continent)`);
@@ -220,23 +155,10 @@ function findNoLiquidTiles(dir) {
 	return tiles;
 }
 
-// Majority-vote AreaID across every MCNK in this ADT (not just "the center
-// one"), plus how many MCNKs were found (sanity -- should be 256) and what
-// fraction agreed with the winning AreaID (low agreement = a real zone
-// border cuts through this tile -- confirmed case: Outland's Nagrand and
-// Terokkar Forest, whose Twm_mapareas *rectangular* boxes overlap by
-// several tiles even though the real terrain border between them is
-// nowhere near that wide -- rectangles can't represent irregular zone
-// shapes, this reads the actual per-chunk ground truth instead).
-//
-// If parentOf is given, each chunk's raw AreaID is resolved to its
-// top-level zone (see resolveToZone()) BEFORE counting -- important, not
-// just cosmetic: a zone's own base terrain and every little POI/sub-area
-// scattered around it (a town, a cave mouth, a landmark) all carry
-// DIFFERENT raw AreaIDs, so counting raw IDs needlessly splits votes within
-// a single real zone and reports false "a border cuts through this tile"
-// warnings. Resolving first makes agreement reflect genuine zone-to-zone
-// borders only.
+// Majority-vote AreaID across every MCNK in this ADT. `agreement` < 1 means
+// a real zone border cuts through this tile. Resolves each chunk's raw
+// AreaID to its top-level zone (resolveToZone()) BEFORE counting, so a
+// zone's own POIs/sub-areas don't split votes against its base terrain.
 function getDominantAreaID(filePath, parentOf) {
 	const buf = fs.readFileSync(filePath);
 	const counts = {};
@@ -270,14 +192,10 @@ function getDominantAreaID(filePath, parentOf) {
 	return { areaID: bestID, mcnkCount, agreement: mcnkCount ? bestCount / mcnkCount : 0 };
 }
 
-// Root ADT files only (not the split _tex0/_obj0/_obj1 files -- MCNK/areaid
-// lives in the root file), named however wow.export exports them as long as
-// the filename ends in "..._<col>_<row>.adt". <col>/<row> use the exact
-// same x,y tile-grid numbering as this addon's own "COLxROW" tile-key
-// convention -- empirically confirmed against the minimap tile filenames in
-// findNoLiquidTiles() above (same grid, same numbering, no axis swap here
-// either, unlike the WDT MAIN/MAID chunk which does need one -- see header
-// comment).
+// Root ADT files only (not split _tex0/_obj0/_obj1 -- MCNK/areaid lives in
+// the root file), matched by filename ending in "..._<col>_<row>.adt".
+// col/row match TerrainWorldMap's "COLxROW" tile-key numbering directly, no
+// axis swap needed here (unlike the WDT MAIN/MAID chunk, see header comment).
 function findAdtAreaIDs(dir, parentOf) {
 	if (!fs.existsSync(dir)) {
 		console.error(`  no ADT areaID check: ${dir} doesn't exist (ADTs not extracted for this continent)`);
