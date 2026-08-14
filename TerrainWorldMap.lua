@@ -1,5 +1,3 @@
---local GatherMate = LibStub("AceAddon-3.0"):GetAddon("GatherMate")
---local pre = "textures\\Minimap\\";
 local pre = "World\\Minimaps\\";
 
 local MINI2BIGX = 533.3333;
@@ -295,7 +293,6 @@ function TWMFrameTemplate:OnLoad()
 end
 
 function TWMFrame_OnLoadExtra()
-    TWMFrame.OnEventExtra = TWMFrame_OnEventExtra;
     TWMFrame.TWM_PD_allocText = "TWM_PD_allocText";
     TWMFrame.TWM_PD_ResetList = "TWM_PD_ResetList";
     
@@ -313,46 +310,6 @@ function TWMFrame_OnLoadExtra()
     end
 
     TWMFrame.hoverTooltip = "TWMTooltip";
-
-    -- wrap mapnotes for updates
-    if(MapNotes_DeleteNote) then
-        TWM_old_MapNotes_DeleteNote = MapNotes_DeleteNote;
-        MapNotes_DeleteNote = function(...)
-            local v = TWM_old_MapNotes_DeleteNote(...)
-            TWMPoints_ForceUpdate();
-            return v;
-        end
-        TWM_old_MapNotes_WriteNote = MapNotes_WriteNote;
-        MapNotes_WriteNote = function(...)
-            local v = TWM_old_MapNotes_WriteNote(...);
-            TWMPoints_ForceUpdate();
-            return v;
-        end
-    end
-
-    -- wrap gatherer
-    --print("Test for GatherMate")
-    if(GatherMate) then
-        --print("Found")
-         TWM_old_GatherMate = GatherMate;
-         GatherMate = function(...)
-            local v = TWM_old_GatherMate(...)
-            TWMPoints_ForceUpdate();
-            return v;
-        end
-    end
-
-    -- myaddons support
-    TerrainWorldMapDetails = {
-        name = TWM_TITLE,
-	version = TWM_VERSION,
-	releaseDate = TWM_RELEASE_DATE,
-	author = TWM_AUTHOR,
-        website = TWM_WEBSITE,
-	email = TWM_AUTHOR_EMAIL,
-	category = MYADDONS_CATEGORY_MAP,
-    };
-    TerrainWorldMapMAHelp = TWM_HELP_TEXT;
 
     -- Modern tiled backdrop replacing the old fixed corner-art border, since
     -- that art can't stretch -- needed for real (non-scaled) resizing.
@@ -503,20 +460,6 @@ function TWMFrameTemplate:OnEvent(event, ...)
 
         if(self.opt.track) then
             TWMFramePlayerJumpButton_Seek(self, self.opt.track);
-        end
-    end
-
-    if(self.OnEventExtra) then
-        self:OnEventExtra(event, ...);
-    end
-end
-
-function TWMFrame_OnEventExtra(self, event, addonName)
-    local framename = self:GetName();
-
-    if(event == "ADDON_LOADED" and addonName == "TerrainWorldMap") then
-        if(myAddOnsFrame_Register) then
-            myAddOnsFrame_Register(TerrainWorldMapDetails, TerrainWorldMapMAHelp);
         end
     end
 end

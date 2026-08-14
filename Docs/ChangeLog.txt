@@ -10,9 +10,7 @@ TerrainWorldMap ChangeLog
 - Added: Graveyard markers (spirit healer locations).
 - Added: Capital city markers (new city icon).
 - Added: Dungeon & Raid entrance markers, covering Vanilla through Mists of
-  Pandaria automatically -- including several dungeons/raids (Molten Core,
-  Naxxramas, Uldaman, Stormwind Stockade in Vanilla) that were missing from
-  the old hand-collected list, and every dungeon/raid wing as its own
+  Pandaria automatically -- and every dungeon/raid wing as its own
   separate entrance where the real instance has more than one door.
 - Added: a single "Dungeons" toggle covers both dungeon and raid markers;
   new checkboxes for all four marker types (Landmarks/Graveyards/

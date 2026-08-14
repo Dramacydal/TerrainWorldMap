@@ -3,23 +3,8 @@
 -- metadata magic
 TWM_TITLE = C_AddOns.GetAddOnMetadata("TerrainWorldMap", "Title") or "Y";
 TWM_VERSION = C_AddOns.GetAddOnMetadata("TerrainWorldMap","Version") or "???";
-_,_,TWM_RELEASE_DATE = string.find(C_AddOns.GetAddOnMetadata("TerrainWorldMap","X-LastChangedDate") or "", "[(](.+)[)]");
-
-TWM_WEBSITE = "https://github.com/Dramacydal/TerrainWorldMap"
-TWM_AUTHOR = "Boo Diddly, Dramacydal";
-TWM_AUTHOR_EMAIL = "PulLumBerMal@gmail.com";
 
 -- localize from this point on as needed
-TWM_HELP_TEXT = {
-    "TerrainWorldMap provides a minimap-based map of the world (reasonably high "..
-        "detail).\n\n"..
-    "To move your view around click and drag on the map itself. You can "..
-        "choose which map (currently Kalimdor, the Eastern Kingdoms, and "..
-        "Outland) at the top. You can jump around by zone and zoom to "..
-        "player as well.\n\n"..
-    "Mousing over a point of interest will bring up a tooltip.\n"
-    };
-
 TWM_BUTTON_TOOLTIP1 = "TerrainWorldMap";
 TWM_PLAYERJUMP = "Goto Player";
 TWM_OPTIONSBUTTON = "Options";

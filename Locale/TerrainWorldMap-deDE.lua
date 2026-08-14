@@ -9,17 +9,6 @@ if (GetLocale() == "deDE") then
 -- "          \"
 -- '          \'
 
-TWM_HELP_TEXT = {
-    "TerrainWorldMap bietet eine Minimap-basierte Weltkarte (deutlich mehr Details).\n\n"..
-    "Zum Schieben der Karte klickt direkt auf die Karte und verschiebt sie."..
-    "W\195\164hlt den darzustellenden Kontinent oberhalb der Karte aus (derzeit"..
-    "Kalimdor, die \195\182stlichen K\195\182nigreiche und die Scherbenwelt). \n"..
-    "Ihr k\195\182nnt verschieden Zonen ausw\195\164hlen oder zur Spielerposition springen."..
-    "Im Bereich \"Daten\" werden wichtige Orte in Form einer Legende angezeigt"..
-    "und im Bereich \"Optionen\" k\195\182nnen Sichtbarkeit und Position des Minimap-Icons"..
-    "und auch die Transparenz des TerrainWorldMap-Fensters ver\195\164ndert werden.\n"
-    };
-
 TWM_BUTTON_TOOLTIP1 = "TerrainWorldMap";
 TWM_PLAYERJUMP = "Spielerposition";
 TWM_OPTIONSBUTTON = "Optionen";
