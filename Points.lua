@@ -214,6 +214,14 @@ function TWMPoints_Update(frame, x, y)
                 -- this gets changed around a lot
                 env.iconsize = TWM_GetIconSize(lm);
 
+                -- point's own hit-test area must track the icon size too --
+                -- it's created at a fixed 16x16 (see TWMPoints_GetPoint) and
+                -- each set's setuppoint only resizes the child Icon texture,
+                -- so a bigger-than-default icon size left the mouseover/
+                -- tooltip area stuck at the icon's original top-left corner.
+                point:SetWidth(env.iconsize);
+                point:SetHeight(env.iconsize);
+
                 -- call functions
                 point.dat = val;
                 if(pointfunc) then
@@ -561,6 +569,10 @@ function YMP_Update(point, frame)
         local iconsz = TWM_GetIconSize(frame:GetName());
         point.Icon:SetWidth(iconsz);
         point.Icon:SetHeight(iconsz);
+        -- point's own hit-test area must track the icon size too -- see the
+        -- same fix/comment in TWMPoints_Update for the fixed-point case.
+        point:SetWidth(iconsz);
+        point:SetHeight(iconsz);
         point:SetOffset(point.locx, point.locy);
         point:Show();
     else

@@ -54,9 +54,11 @@ TWM_POINTS_SHOWPOINTS_TITLE = "Zeige Punkte";
 -- I would prefer "wichtige Orte" over "Landmarken"
 TWM_POINTS_LANDMARKS = "wichtige Orte";
 TWM_POINTS_GRAVEYARDS = "Friedh\195\182fe";
+TWM_POINTS_CAPITALS = "Hauptst\195\164dte";
 
 TWM_OPTIONS_SHOW_LANDMARKS = "Zeige wichtige Orte";
 TWM_OPTIONS_SHOW_GRAVEYARDS = "Zeige Friedh\195\182fe";
+TWM_OPTIONS_SHOW_CAPITALS = "Zeige Hauptst\195\164dte";
 
 
 

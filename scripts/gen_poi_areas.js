@@ -10,11 +10,20 @@
 //       mapdata_continents.lua, minus the [0] whole-map sentinel).
 //   B = every AreaTable row whose parent chain (ParentAreaID, walked all
 //       the way up) passes through some zone in A -- i.e. every real
-//       sub-area/POI nested anywhere under a displayed zone.
+//       sub-area/POI nested anywhere under a displayed zone -- PLUS every
+//       top-level AreaID (ParentAreaID 0) not already in A, e.g. Northrend's
+//       Dalaran, which has no Twm_mapareas box at all (this build has no
+//       dedicated UiMapAssignment zone row for it) but is real terrain with
+//       real ADT chunks. This is how a capital city with no zone box of its
+//       own still gets a usable position -- see sets/capitals.lua, which
+//       looks up a capital's AreaID here as a fallback when Twm_mapareas
+//       has no box for it.
 //   Twm_poi_areas gets B, positioned via each AreaID's own centroid
 //   (average MCNK chunk position across every root ADT of this
 //   continent -- see gen_area_centroids.js, same computation, duplicated
-//   here to keep this script self-contained).
+//   here to keep this script self-contained). Each entry is
+//   {AreaID, "Name", x, y} -- the AreaID lets other code (sets/capitals.lua)
+//   match an entry back to a known AreaID instead of just a display name.
 //
 // An AreaID in B with no matching centroid (never actually painted on any
 // ADT chunk in this build) is silently skipped -- it exists in AreaTable
@@ -279,10 +288,16 @@ function main() {
 		const entries = [];
 		for (const areaID of Object.keys(centroids)) {
 			if (setA.has(areaID)) continue; // the zone itself, not a sub-area
-			if (!hasAncestorIn(areaID, setA, parentOf)) continue;
+			// A sub-area nested under a displayed zone (the usual case), OR a
+			// top-level zone (ParentAreaID 0) that isn't itself displayed --
+			// e.g. Northrend's Dalaran, which has no Twm_mapareas box at all
+			// (no dedicated UiMapAssignment zone row in this build) but is
+			// real terrain with real ADT chunks.
+			const isTopLevel = !parentOf[areaID];
+			if (!isTopLevel && !hasAncestorIn(areaID, setA, parentOf)) continue;
 			const name = nameOf[areaID];
 			if (!name) continue;
-			entries.push({ name, ...centroids[areaID] });
+			entries.push({ areaID, name, ...centroids[areaID] });
 		}
 		entries.sort((a, b) => a.name.localeCompare(b.name));
 
@@ -291,7 +306,7 @@ function main() {
 		fullOutput += `    ["${contName}"] = {\n`;
 		for (const e of entries) {
 			const name = e.name.replace(/"/g, '\\"');
-			fullOutput += `        {"${name}", ${e.x.toFixed(2)}, ${e.y.toFixed(2)}},\n`;
+			fullOutput += `        {${e.areaID}, "${name}", ${e.x.toFixed(2)}, ${e.y.toFixed(2)}},\n`;
 		}
 		fullOutput += '    },\n';
 	}

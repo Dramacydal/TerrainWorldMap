@@ -15,12 +15,12 @@ function set.getpoints(name, map)
     end
 
     -- Sub-area/POI labels, generated from AreaTable's own zone hierarchy
-    -- (see scripts/gen_poi_areas.js).
+    -- (see scripts/gen_poi_areas.js). Entries are {AreaID, Name, x, y}.
     if(type(Twm_poi_areas[map]) == "table") then
         for h,v in ipairs(Twm_poi_areas[map]) do
-            local x,y = TWM_Big2Mini_Coord(v[2],v[3]);
+            local x,y = TWM_Big2Mini_Coord(v[3],v[4]);
 
-            TWMPoints_AddPoint(nil, "landmarks", v[1], x, y, nil, landmarkalthamlet);
+            TWMPoints_AddPoint(nil, "landmarks", v[2], x, y, nil, landmarkalthamlet);
         end
     end
 end

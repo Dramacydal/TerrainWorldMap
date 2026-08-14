@@ -122,8 +122,15 @@ showGraveyardsButton:SetScript("OnClick", function(self)
     TWMPoints_ForceUpdate(TWMFrame);
 end);
 
+local showCapitalsButton = CreateCheckbox(BrowserPanel, "TWMOptionShowCapitals", TWM_OPTIONS_SHOW_CAPITALS);
+showCapitalsButton:SetPoint("TOPLEFT", showGraveyardsButton, "BOTTOMLEFT", 0, -12);
+showCapitalsButton:SetScript("OnClick", function(self)
+    TWMOption.Frames["TWMFrame"].PointCfg["capitals"] = not self:GetChecked();
+    TWMPoints_ForceUpdate(TWMFrame);
+end);
+
 local alphaSlider = CreateSlider(BrowserPanel, "TWMOptionAlphaSlider", TWM_OPTIONS_ALPHA, .1, 1, .05);
-alphaSlider:SetPoint("TOPLEFT", showGraveyardsButton, "BOTTOMLEFT", 4, -32);
+alphaSlider:SetPoint("TOPLEFT", showCapitalsButton, "BOTTOMLEFT", 4, -32);
 alphaSlider:SetScript("OnValueChanged", function(self)
     TWMFrame:SetAlpha(self:GetValue());
     TWMOption.Frames["TWMFrame"].Alpha = self:GetValue();
@@ -157,6 +164,7 @@ function BrowserPanel.OnRefresh()
         iconSizeSlider:SetValue(opt.IconSize);
         showLandmarksButton:SetChecked(not (opt.PointCfg and opt.PointCfg["landmarks"]));
         showGraveyardsButton:SetChecked(not (opt.PointCfg and opt.PointCfg["graveyards"]));
+        showCapitalsButton:SetChecked(not (opt.PointCfg and opt.PointCfg["capitals"]));
     end
 end
 

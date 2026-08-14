@@ -137,21 +137,33 @@ shifts between client builds, plus assorted non-settlement noise):
    whole-map sentinel.
 2. **B** = every `AreaTable` row whose parent chain (`ParentAreaID`,
    walked all the way up) passes through some zone in A — every real
-   sub-area/POI nested anywhere under a displayed zone.
+   sub-area/POI nested anywhere under a displayed zone — **plus** every
+   top-level AreaID (`ParentAreaID` 0) not already in A. That second part
+   exists for capitals with no zone box of their own — e.g. Northrend's
+   Dalaran, which has no `Twm_mapareas` entry at all in some builds (no
+   dedicated `UiMapAssignment` zone row) but is still real AreaTable data;
+   `sets/capitals.lua` looks it up here as a fallback when `Twm_mapareas`
+   has no box for a capital's AreaID.
 3. Each entry in B is positioned by its own centroid — the average MCNK
    chunk position across every root ADT of that continent (same
    world→Big transform as `gen_mapareas.js`, computed straight from the
    `IndexX`/`IndexY`/`areaid` fields already used in `parse_wdt.js`). An
    AreaID never actually painted on any ADT chunk in this build is
-   skipped. Chunks that fall outside their resolved top-level zone's own
-   `Twm_mapareas` box (padded by `BOX_PADDING`, 2000 yards) are excluded
-   from the average — some sub-areas have a near-identical duplicate copy
-   of their own terrain painted thousands of yards away elsewhere on the
-   same continent (confirmed for Outland's Draenei starting zone, Ammen
-   Vale/Emberglade/The Sacred Grove under Azuremyst Isle — almost
-   certainly a private copy used only during the starting-zone intro
-   sequence); averaging both blindly lands the centroid in open ocean
-   between them.
+   skipped (confirmed for Dalaran itself — it's a phased/WMO city with no
+   real terrain chunks stamped with its AreaID, so it never gets a
+   position at all, in any flavor). Chunks that fall outside their
+   resolved top-level zone's own `Twm_mapareas` box (padded by
+   `BOX_PADDING`, 2000 yards) are excluded from the average — some
+   sub-areas have a near-identical duplicate copy of their own terrain
+   painted thousands of yards away elsewhere on the same continent
+   (confirmed for Outland's Draenei starting zone, Ammen Vale/Emberglade/
+   The Sacred Grove under Azuremyst Isle — almost certainly a private copy
+   used only during the starting-zone intro sequence); averaging both
+   blindly lands the centroid in open ocean between them.
+
+Each output entry is `{AreaID, "Name", x, y}` — the AreaID lets other code
+(`sets/capitals.lua`) match an entry back to a known AreaID instead of just
+a display name.
 
 Known caveat: this also picks up large non-settlement sub-areas whose
 `ParentAreaID` happens to point at a displayed zone — e.g. "The Great

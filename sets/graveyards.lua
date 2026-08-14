@@ -26,7 +26,7 @@ function set.setuppoint(point, env, dat)
     bg:SetWidth(iconsize);
     bg:SetTexture("Interface\\AddOns\\TerrainWorldMap\\images\\Icons\\Icon-Graveyard");
     bg:SetTexCoord(0, 1, 0, 1);
-    bg:SetVertexColor(1.0, 0.65, 0.3, 1);
+    bg:SetVertexColor(1, 1, 1, 1);
 end
 
 function set.setuplegend(point, env, dat)
