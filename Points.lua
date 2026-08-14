@@ -88,16 +88,20 @@ function TWMPoints_OnMapChange(frame)
     TWMPoints_OnMove(frame, unpack(TWMOption.Frames[lm].Location));
 end
 
-function TWMPoints_OnMove(frame, x, y)
+function TWMPoints_OnMove(frame, x, y, forceupdate)
     local lm = frame:GetName();
-    
+
     if(frames[lm] == 0) then
         frames[lm] = 1;
         return TWMPoints_OnMapChange(frame);
     end
 
-    -- if we have run at this x, y coord recently, don't do it again
-    if(frame.yap_lastx == x and frame.yap_lasty == y) then
+    -- if we have run at this x, y coord recently, don't do it again --
+    -- unless forceupdate is set (e.g. a window resize: the map center (x,y)
+    -- doesn't change, but the viewport's own pixel size did, which changes
+    -- which points actually fall inside it -- see TWMPoints_Update's own
+    -- viewport-bounds culling).
+    if(not forceupdate and frame.yap_lastx == x and frame.yap_lasty == y) then
         -- no change
         return;
     end
@@ -442,6 +446,13 @@ function TWMFrameViewFrame_UpdatePointTooltip(self)
 
     if(tp.knownshownlines == 0) then
         self.inpoint = nil;
+    else
+        -- Follow the cursor like a standard tooltip, instead of the fixed
+        -- bottom-right anchor set up in TerrainWorldMap.xml.
+        local scale = UIParent:GetEffectiveScale();
+        local cx, cy = GetCursorPosition();
+        tp:ClearAllPoints();
+        tp:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", cx/scale + 16, cy/scale - 16);
     end
 end
 

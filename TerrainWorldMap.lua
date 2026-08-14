@@ -365,9 +365,11 @@ function TWMFrame_OnLoadExtra()
     TWMFrame:SetBackdropColor(0, 0, 0, 1);
 
     -- Set here (not XML) since a layer region can't forward-reference a
-    -- child Frame declared later in the same XML block.
+    -- child Frame declared later in the same XML block. Anchored to the
+    -- Options button (not the lock button directly) since that button now
+    -- sits between them: Version -- Options -- Lock -- Close.
     TWMFrameVersion:ClearAllPoints();
-    TWMFrameVersion:SetPoint("RIGHT", TWMFrameLockButton, "LEFT", -6, 0);
+    TWMFrameVersion:SetPoint("RIGHT", TWMFrameOptionsButton, "LEFT", -6, 0);
 
     TWMFrame:SetResizable(true);
     -- Width floor keeps the continent/zone dropdowns and the "Goto Player"
@@ -397,11 +399,36 @@ end
 -- own GetWidth()/GetHeight() calls can force a pending layout to resolve
 -- and fire ANOTHER OnSizeChanged while this call is still on the stack,
 -- which without this guard recurses without end ("script ran too long").
-function TWMFrame_OnResizeStop(self)
+-- The POI viewport re-cull (TWMPoints_Update, via SetZoom's points-refresh
+-- path) is much pricier than the tile-grid refresh above it -- it walks
+-- every visible point across every set -- so forcing it on every single
+-- OnSizeChanged tick of a live drag visibly lags the resize. Instead, it
+-- only actually runs once the size has moved by TWM_POINTS_RESIZE_REFRESH_STEP
+-- pixels (in either dimension) since the last time it ran, plus always on
+-- isFinal (the resize button's OnMouseUp) so the very last size is never
+-- left stale. The tile grid still updates live every tick either way.
+local TWM_POINTS_RESIZE_REFRESH_STEP = 40;
+function TWMFrame_OnResizeStop(self, isFinal)
     if(not self.opt or self.inResizeRefresh) then return; end
     self.inResizeRefresh = true;
     self.opt.Width, self.opt.Height = self:GetSize();
-    self:SetZoom(self.opt.Zoom, true);
+
+    -- No `or w`/`or h` fallback here: that would make the very first resize
+    -- of the session (lastPointsRefreshW/H still nil) always compute a 0
+    -- delta against itself and never force a refresh until mouse-up --
+    -- "never refreshed before" must force immediately, same as crossing the
+    -- pixel threshold.
+    local w, h = self.opt.Width, self.opt.Height;
+    local neverRefreshed = self.lastPointsRefreshW == nil;
+    local dw = not neverRefreshed and math.abs(w - self.lastPointsRefreshW) or 0;
+    local dh = not neverRefreshed and math.abs(h - self.lastPointsRefreshH) or 0;
+    local forcePoints = isFinal or neverRefreshed or dw >= TWM_POINTS_RESIZE_REFRESH_STEP or dh >= TWM_POINTS_RESIZE_REFRESH_STEP;
+    if(forcePoints) then
+        self.lastPointsRefreshW = w;
+        self.lastPointsRefreshH = h;
+    end
+
+    self:SetZoom(self.opt.Zoom, true, not forcePoints);
     TWMFrame_LayoutHeader(self);
     self.inResizeRefresh = false;
 end
@@ -816,7 +843,7 @@ function TWMFrameTemplate:GetMap()
     return self.opt.Map;
 end
 
-function TWMFrameTemplate:SetZoom(z, nocenter)
+function TWMFrameTemplate:SetZoom(z, nocenter, skipPointsRefresh)
     local textureno = 1;
     local lm = self:GetName();
     local vf = _G[lm.."ViewFrame"];
@@ -882,7 +909,7 @@ function TWMFrameTemplate:SetZoom(z, nocenter)
     end
 
     if(nocenter or lastzoom == z) then
-        self:AdjustLocation(0,0,true)
+        self:AdjustLocation(0,0,true,not skipPointsRefresh)
     else
         local oldcx, oldcy;
         local newcx, newcy;
@@ -892,7 +919,7 @@ function TWMFrameTemplate:SetZoom(z, nocenter)
         newcy = (vf:GetHeight()/2)/z;
         newcx = (vf:GetWidth()/2)/z;
 
-        self:AdjustLocation(oldcx-newcx,-oldcy+newcy,true)
+        self:AdjustLocation(oldcx-newcx,-oldcy+newcy,true,not skipPointsRefresh)
     end
 end
 
@@ -900,7 +927,7 @@ function TWMFrameTemplate:GetZoom()
     return self.opt and self.opt.Zoom or 256;
 end
 
-function TWMFrameTemplate:SetLocation(x,y,forceupdate)
+function TWMFrameTemplate:SetLocation(x,y,forceupdate,forcePointsUpdate)
     local zx, zy, mymap;
     local framename = self:GetName();
     local vfname = framename.."ViewFrame";
@@ -1193,7 +1220,15 @@ function TWMFrameTemplate:SetLocation(x,y,forceupdate)
     self.opt.Location[1] = x;
     self.opt.Location[2] = y;
 
-    TWMPoints_OnMove(self, x,y);
+    -- forcePointsUpdate defaults to forceupdate when not given explicitly,
+    -- so every other caller keeps its old all-or-nothing behavior -- only
+    -- the resize-drag path (SetZoom's skipPointsRefresh) actually needs to
+    -- force the (cheap) tile refresh without also forcing the (pricier) POI
+    -- re-cull on every intermediate tick.
+    if(forcePointsUpdate == nil) then
+        forcePointsUpdate = forceupdate;
+    end
+    TWMPoints_OnMove(self, x, y, forcePointsUpdate);
 end
 
 function TWMFrameTemplate:GetLocation()
@@ -1203,7 +1238,7 @@ function TWMFrameTemplate:GetLocation()
         self.opt.Location[2];
 end
 
-function TWMFrameTemplate:AdjustLocation(dx,dy,forceupdate)
+function TWMFrameTemplate:AdjustLocation(dx,dy,forceupdate,forcePointsUpdate)
     local fm = self:GetName();
 
     if(self.opt == nil) then
@@ -1214,7 +1249,7 @@ function TWMFrameTemplate:AdjustLocation(dx,dy,forceupdate)
     self:SetLocation(
         self.opt.Location[1] + dx,
         self.opt.Location[2] - dy,
-                        forceupdate);
+                        forceupdate, forcePointsUpdate);
 end
 
 -- Which zone (Twm_mapareas areaID) the view's current center point falls
@@ -1404,7 +1439,11 @@ function TWMTooltipTemplate:GetNext()
     f:SetHeight(16);
     f:SetWidth(16);
     f:SetParent(self);
-    f:EnableMouse(true);
+    -- No EnableMouse -- these rows have no OnEnter/OnClick of their own
+    -- (visibility in the tooltip is driven by MouseIsOver(), which is a
+    -- pure geometry check and doesn't need mouse input enabled). Enabling
+    -- it here only made this row swallow clicks that land on the tooltip
+    -- -- e.g. a map-drag that happens to start on top of the tooltip box.
 
     f.Icon = f:CreateTexture(nil, "OVERLAY");
     f.Icon:SetPoint("TOPLEFT", f);
