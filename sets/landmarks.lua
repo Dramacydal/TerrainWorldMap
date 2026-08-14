@@ -48,7 +48,7 @@ function set.setuppoint(point, env, dat)
     bg:Show();
     bg:SetHeight(iconsize);
     bg:SetWidth(iconsize);
-    bg:SetTexture(bgtextname);
+    bg:SetTexture(bgtextname, nil, nil, "NEAREST");
     bg:SetTexCoord(0, 1, 0, 1);
     bg:SetVertexColor(r, g, b, 1);
 end

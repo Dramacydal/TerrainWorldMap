@@ -24,7 +24,7 @@ function set.setuppoint(point, env, dat)
     bg:Show();
     bg:SetHeight(iconsize);
     bg:SetWidth(iconsize);
-    bg:SetTexture("Interface\\AddOns\\TerrainWorldMap\\images\\Icons\\Icon-Graveyard");
+    bg:SetTexture("Interface\\AddOns\\TerrainWorldMap\\images\\Icons\\Icon-Graveyard", nil, nil, "NEAREST");
     bg:SetTexCoord(0, 1, 0, 1);
     bg:SetVertexColor(1, 1, 1, 1);
 end

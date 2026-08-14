@@ -7,7 +7,7 @@ local addpoint = function(name, unit)
     TWMPoints_AddMobilePoint(nil, name, unit, nil, nil);
 
     TWMPoints_SetupMobilePointF(nil, name, unit, "Icon","SetTexture",
-            "Interface\\AddOns\\TerrainWorldMap\\images\\Icons\\Icon-PartyUnit");
+            "Interface\\AddOns\\TerrainWorldMap\\images\\Icons\\Icon-PartyUnit", nil, nil, "NEAREST");
     if(string.find(unit,"party")) then
         TWMPoints_SetupMobilePointF(nil, name, unit, "Icon","SetVertexColor",1,0.4,0.4,1);
     elseif(string.find(unit,"raid")) then
