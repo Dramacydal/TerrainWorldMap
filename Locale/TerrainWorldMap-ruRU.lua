@@ -41,6 +41,10 @@ TWM_OPTIONS_RESETPOSITION = "Сбросить положение";
 
 TWM_POINTS_SHOWPOINTS_TITLE = "Показывать метки";
 TWM_POINTS_LANDMARKS = "Достопримечательности";
+TWM_POINTS_GRAVEYARDS = "Кладбища";
+
+TWM_OPTIONS_SHOW_LANDMARKS = "Показывать достопримечательности";
+TWM_OPTIONS_SHOW_GRAVEYARDS = "Показывать кладбища";
 
 
 BINDING_NAME_TWM_TOGGLE = "Открыть/закрыть окно TerrainWorldMap";

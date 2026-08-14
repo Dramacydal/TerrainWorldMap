@@ -74,8 +74,11 @@ function TWMPoints_OnMapChange(frame)
         end
     end
 
+    -- Hide mobile points left over on a different map (e.g. a raid member
+    -- who isn't on the map currently being shown) -- comparing against the
+    -- map actually being displayed, not the point's own last-known map.
     for id,mp in pairs(frame.mobilepoints) do
-        if(mp.locMap ~= map or not mp.locMap) then
+        if(mp.locmap ~= TWMOption.Frames[lm].Map) then
             mp:Hide();
         end
     end

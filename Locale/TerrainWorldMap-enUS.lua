@@ -51,6 +51,10 @@ TWM_OPTIONS_RESETPOSITION = "Reset Position";
 
 TWM_POINTS_SHOWPOINTS_TITLE = "Show Points";
 TWM_POINTS_LANDMARKS = "Landmarks";
+TWM_POINTS_GRAVEYARDS = "Graveyards";
+
+TWM_OPTIONS_SHOW_LANDMARKS = "Show Landmarks";
+TWM_OPTIONS_SHOW_GRAVEYARDS = "Show Graveyards";
 
 
 TWM_ZOOMIN =     "+";

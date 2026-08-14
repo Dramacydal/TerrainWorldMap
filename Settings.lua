@@ -108,8 +108,22 @@ trackOnShowButton:SetScript("OnClick", function(self)
     end
 end);
 
+local showLandmarksButton = CreateCheckbox(BrowserPanel, "TWMOptionShowLandmarks", TWM_OPTIONS_SHOW_LANDMARKS);
+showLandmarksButton:SetPoint("TOPLEFT", trackOnShowButton, "BOTTOMLEFT", 0, -12);
+showLandmarksButton:SetScript("OnClick", function(self)
+    TWMOption.Frames["TWMFrame"].PointCfg["landmarks"] = not self:GetChecked();
+    TWMPoints_ForceUpdate(TWMFrame);
+end);
+
+local showGraveyardsButton = CreateCheckbox(BrowserPanel, "TWMOptionShowGraveyards", TWM_OPTIONS_SHOW_GRAVEYARDS);
+showGraveyardsButton:SetPoint("TOPLEFT", showLandmarksButton, "BOTTOMLEFT", 0, -12);
+showGraveyardsButton:SetScript("OnClick", function(self)
+    TWMOption.Frames["TWMFrame"].PointCfg["graveyards"] = not self:GetChecked();
+    TWMPoints_ForceUpdate(TWMFrame);
+end);
+
 local alphaSlider = CreateSlider(BrowserPanel, "TWMOptionAlphaSlider", TWM_OPTIONS_ALPHA, .1, 1, .05);
-alphaSlider:SetPoint("TOPLEFT", trackOnShowButton, "BOTTOMLEFT", 4, -32);
+alphaSlider:SetPoint("TOPLEFT", showGraveyardsButton, "BOTTOMLEFT", 4, -32);
 alphaSlider:SetScript("OnValueChanged", function(self)
     TWMFrame:SetAlpha(self:GetValue());
     TWMOption.Frames["TWMFrame"].Alpha = self:GetValue();
@@ -141,6 +155,8 @@ function BrowserPanel.OnRefresh()
     if(opt) then
         alphaSlider:SetValue(opt.Alpha);
         iconSizeSlider:SetValue(opt.IconSize);
+        showLandmarksButton:SetChecked(not (opt.PointCfg and opt.PointCfg["landmarks"]));
+        showGraveyardsButton:SetChecked(not (opt.PointCfg and opt.PointCfg["graveyards"]));
     end
 end
 

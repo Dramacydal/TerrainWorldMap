@@ -7,7 +7,41 @@
 // i.e. TerrainWorldMap-X = world Y, TerrainWorldMap-Y = world X, no offset/scale.
 
 const fs = require('fs');
+const path = require('path');
 const { parseCsvFile: parseCsv, findCsv } = require('./csv');
+
+// Reads mapdata_zones.lua's own Twm_CapitalAreaIDs table (the single
+// source of truth for which AreaIDs are capitals) instead of keeping a
+// second, driftable copy of the same list in this script.
+function loadCapitalAreaIDs() {
+	const luaPath = path.join(__dirname, '..', 'mapdata_zones.lua');
+	const text = fs.readFileSync(luaPath, 'utf8');
+	const start = text.indexOf('Twm_CapitalAreaIDs = {');
+	if (start === -1)
+		throw new Error(`Twm_CapitalAreaIDs not found in ${luaPath}`);
+	const end = text.indexOf('\n}', start);
+	const block = text.slice(start, end === -1 ? undefined : end);
+
+	const ids = new Set();
+	const re = /\[(\d+)\]\s*=\s*"/g;
+	let m;
+	while ((m = re.exec(block)))
+		ids.add(parseInt(m[1], 10));
+	return ids;
+}
+
+// {uiMapID: areaID} for every UiMapAssignment row whose AreaID is a known
+// capital -- replaces the old per-flavor Twm_CityMapIDs, which used 3
+// different, inconsistent hand/semi-hand methods (see scripts/README.md).
+function findCityMapIDs(assignRows, capitalAreaIDs) {
+	const cityMapIDs = {};
+	for (const r of assignRows) {
+		const areaID = parseInt(r.AreaID, 10);
+		if (capitalAreaIDs.has(areaID))
+			cityMapIDs[r.UiMapID] = areaID;
+	}
+	return cityMapIDs;
+}
 
 // A standalone open-world map: Map.csv row with ParentMapID=-1 (top-level),
 // MapType=1, InstanceType=0 (excludes dungeons/raids/battlegrounds/
@@ -97,10 +131,23 @@ function main() {
 	// uiMap tree parents them under.
 	const uiMapIDIndex = {};
 
+	const cityMapIDs = findCityMapIDs(assignRows, loadCapitalAreaIDs());
+	console.error(`City maps found: ${Object.keys(cityMapIDs).length}`);
+
 	let fullOutput = "-- GENERATED FILE -- do not hand-edit, regenerate with scripts/gen_mapareas.js\n"
 		+ "-- and replace this file wholesale. See scripts/README.md for details.\n"
 		+ "--\n"
-		+ "-- Zone bounding boxes for this client's open-world continents, extracted\n"
+		+ "-- Capital-city uiMapIDs (WorldMapFrame zoom-in sub-maps), derived from\n"
+		+ "-- mapdata_zones.lua's Twm_CapitalAreaIDs via UiMapAssignment's own\n"
+		+ "-- AreaID<->UiMapID join. See WorldMapOverlay.lua's city-map-tiles option.\n"
+		+ "Twm_CityMapIDs = {\n";
+	for (const uiMapID of Object.keys(cityMapIDs).sort((a, b) => parseInt(a, 10) - parseInt(b, 10))) {
+		const name = uiMapName[uiMapID] || '?';
+		fullOutput += `\t[${uiMapID}] = true,    --${name.replace(/[^A-Za-z0-9' ]/g, '')}\n`;
+	}
+	fullOutput += '}\n\n';
+
+	fullOutput += "-- Zone bounding boxes for this client's open-world continents, extracted\n"
 		+ "-- straight from this client's own Map/UiMap/UiMapAssignment DBC data\n"
 		+ "-- (rather than hand-collected). Loads after mapdata_zones.lua, which\n"
 		+ "-- declares Twm_mapareas.\n\n";

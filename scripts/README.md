@@ -61,7 +61,7 @@ WDT/root-ADT/noLiquid-minimap files for every open-world continent.
 Output lands in `<WorkDir>/<Product>/` — pass this path as `<csv-dir>` /
 `--flavor-dir` to the next two scripts.
 
-## Step 2 — `gen_mapareas.js`: zone bounding boxes
+## Step 2 — `gen_mapareas.js`: zone bounding boxes + capital city maps
 
 ```bash
 node gen_mapareas.js <csv-dir> [<out-file.lua>]
@@ -72,6 +72,13 @@ node gen_mapareas.js <csv-dir> [<out-file.lua>]
   from step 1.
 - `<out-file.lua>` — optional. Point it at `Data_<Flavor>/mapdata_continents.lua`
   to overwrite in place. Omit to just print the continent name list.
+
+Also emits `Twm_CityMapIDs` (capital-city `uiMapID`s, used by
+`WorldMapOverlay.lua` to gate the terrain overlay on city sub-maps) by
+reading `mapdata_zones.lua`'s own `Twm_CapitalAreaIDs` (hand-maintained
+`AreaID` list, stable across the whole game's history) directly and
+joining it against `UiMapAssignment`'s `AreaID`↔`UiMapID` mapping — no
+per-flavor hand-collection needed.
 
 **Example:**
 ```bash
@@ -155,6 +162,60 @@ by hand if it bothers you.
 **Example:**
 ```bash
 node gen_poi_areas.js --flavor-dir C:\wow-data\wow_anniversary --mapareas-file Data_TBC/mapdata_continents.lua --out Data_TBC/mapdata_poi_areas.lua Azeroth Kalimdor Expansion01
+```
+
+## Step 5 — `gen_poi_graveyards.js`: graveyard/spirit-healer locations (`Twm_poi_graveyards`)
+
+```bash
+node gen_poi_graveyards.js --wowhead-html <saved Spirit Healer NPC page.html> --mapareas-file <target flavor mapdata_continents.lua> --out <out-file.lua>
+```
+
+No DB2 or ADT source has graveyard locations, so this borrows Wowhead's own
+["Spirit Healer" NPC page](https://www.wowhead.com/mop-classic/npc=6491/spirit-healer)
+instead of hand-collecting the same data. That page embeds a
+`var g_mapperData = {...}` object directly in its HTML (no JS execution
+needed — plain `curl` gets it), shaped like:
+```json
+{"<AreaID>": [{"count": N, "coords": [[x, y], ...], "uiMapId": M, "uiMapName": "..."}]}
+```
+keyed by AreaTable's own **AreaID** (stable across flavors — `uiMapId` is
+only carried along as a label, not used), with `coords` as 0-100
+zone-relative percentages. Because the key is already a stable AreaID, no
+uiMapId join is needed at all — each AreaID is looked up directly against
+every continent in `--mapareas-file`.
+
+Wowhead serves a **separately-scoped snapshot of this same NPC per game
+version domain**, matching each flavor's own zone geometry — fetch the
+domain matching the target flavor, not a mismatched one:
+
+| Flavor | Wowhead domain | Confirmed scope |
+|---|---|---|
+| Vanilla | `wowhead.com/classic/npc=6491/spirit-healer` | 42 zones, 169 spawns — Vanilla content only |
+| TBC | `wowhead.com/tbc/npc=6491/spirit-healer` | 55 zones, 251 spawns — adds Outland |
+| Mists | `wowhead.com/mop-classic/npc=6491/spirit-healer` | 98 zones, 681 spawns — current post-Cataclysm world (Northrend/Pandaria/reshaped Azeroth+Kalimdor included) |
+
+Save each page's HTML (e.g. `curl -A "Mozilla/5.0" <url> -o spirit_<flavor>.html`
+— no login/JS needed) and pass it as `--wowhead-html`.
+
+- **`--wowhead-html`** (required) — path to the saved NPC page HTML for the
+  target flavor's own domain (table above).
+- **`--mapareas-file`** (required) — the target flavor's own
+  `mapdata_continents.lua`. Every continent block in it is scanned (not just
+  one), and each `g_mapperData` AreaID is looked up directly against
+  whichever continent actually declares that AreaID — supplies the zone's
+  own box, in this flavor's own Big-coordinate space, via `Twm_mapareas`.
+- **`--out`** (required) — output path, e.g. `Data_<Flavor>/mapdata_poi_graveyards.lua`
+
+An AreaID from the page with no matching box in `--mapareas-file` (e.g. a
+zone from a later expansion this flavor doesn't have) is silently skipped;
+skip count is printed to stderr. Confirmed 0 skipped for Vanilla/TBC (full
+match); Mists skips ~36 (non-open-world/instance-only zones not part of
+this addon's continent list).
+
+**Example:**
+```bash
+curl -A "Mozilla/5.0" https://www.wowhead.com/classic/npc=6491/spirit-healer -o spirit_vanilla.html
+node gen_poi_graveyards.js --wowhead-html spirit_vanilla.html --mapareas-file Data_Vanilla/mapdata_continents.lua --out Data_Vanilla/mapdata_poi_graveyards.lua
 ```
 
 ## Other scripts

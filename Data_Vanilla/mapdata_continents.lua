@@ -1,6 +1,18 @@
 -- GENERATED FILE -- do not hand-edit, regenerate with scripts/gen_mapareas.js
 -- and replace this file wholesale. See scripts/README.md for details.
 --
+-- Capital-city uiMapIDs (WorldMapFrame zoom-in sub-maps), derived from
+-- mapdata_zones.lua's Twm_CapitalAreaIDs via UiMapAssignment's own
+-- AreaID<->UiMapID join. See WorldMapOverlay.lua's city-map-tiles option.
+Twm_CityMapIDs = {
+	[1453] = true,    --Stormwind City
+	[1454] = true,    --Orgrimmar
+	[1455] = true,    --Ironforge
+	[1456] = true,    --Thunder Bluff
+	[1457] = true,    --Darnassus
+	[1458] = true,    --Undercity
+}
+
 -- Zone bounding boxes for this client's open-world continents, extracted
 -- straight from this client's own Map/UiMap/UiMapAssignment DBC data
 -- (rather than hand-collected). Loads after mapdata_zones.lua, which
