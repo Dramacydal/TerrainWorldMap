@@ -1,6 +1,46 @@
 
 TerrainWorldMap ChangeLog
 ================
+1.1.0 (August 15, 2026)
+----------------------------
+- Added: Landmarks now cover every named sub-area nested under a zone, not
+  just top-level zones -- sourced from AreaTable's own hierarchy plus real
+  terrain data, instead of Blizzard's own POI icons (which turned out to be
+  unreliable across client builds).
+- Added: Graveyard markers (spirit healer locations).
+- Added: Capital city markers (new city icon).
+- Added: Dungeon & Raid entrance markers, covering Vanilla through Mists of
+  Pandaria automatically -- including several dungeons/raids (Molten Core,
+  Naxxramas, Uldaman, Stormwind Stockade in Vanilla) that were missing from
+  the old hand-collected list, and every dungeon/raid wing as its own
+  separate entrance where the real instance has more than one door.
+- Added: a single "Dungeons" toggle covers both dungeon and raid markers;
+  new checkboxes for all four marker types (Landmarks/Graveyards/
+  Capitals/Dungeons) in Settings' "Browser" tab, alongside the existing
+  points menu on the map window itself.
+- Added: Landmarks/Capitals/Dungeons now always display their name in
+  whatever language the game itself is running, regardless of what
+  language the underlying map data was originally generated in.
+- Changed: map marker icons render crisper at larger Icon Size settings
+  instead of blurring.
+- Changed: the "Settings" button moved to the top of the window (next to
+  the lock button) and is more compact.
+- Changed: the map window's bottom margin now matches its left/right
+  margins.
+- Removed: the old hand-collected dungeon/raid entrance list.
+- Fixed: the mouseover tooltip on a map marker now follows the cursor like
+  a normal tooltip, instead of always appearing in the window's
+  bottom-right corner -- and no longer blocks clicks/dragging on the map
+  underneath it.
+- Fixed: map markers (and player/group position icons) no longer briefly
+  disappear when toggling Landmarks/Graveyards/Capitals/Dungeons on or off.
+- Fixed: at larger Icon Size settings, a marker's mouseover area now covers
+  the whole icon instead of just its top-left corner.
+- Fixed: map markers now correctly appear/disappear when resizing the
+  window, not just when panning or zooming.
+- Fixed: the window's resize grip no longer occasionally "jumps" away from
+  the cursor at the start of a resize.
+
 1.0.0 (August 10, 2026)
 ----------------------------
 - Renamed: the addon is now TerrainWorldMap (formerly Yatlas).

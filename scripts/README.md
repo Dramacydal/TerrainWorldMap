@@ -49,8 +49,9 @@ editions, so re-check `.build.info` if a code below stops matching):
 - **`-Force`** (optional) — re-download CASCConsole/listfile/DB2 CSVs even if already present
 
 Downloads the CASCConsole tool + community listfile once per `WorkDir`, then
-per product: 4 DB2 CSVs (`AreaTable`/`Map`/`UiMap`/`UiMapAssignment`) and the
-WDT/root-ADT/noLiquid-minimap files for every open-world continent.
+per product: 5 DB2 CSVs (`AreaTable`/`Map`/`UiMap`/`UiMapAssignment`/
+`AreaTrigger`) and the WDT/root-ADT/noLiquid-minimap files for every
+open-world continent.
 
 **Examples:**
 ```powershell
@@ -286,6 +287,19 @@ really one entrance (cosmetic only, not wrong data).
 ```bash
 node gen_poi_instances.js --flavor-dir C:\wow-data\wow_classic_era --teleport-csv C:\wow-data\wow_classic_era\areatrigger_teleport.csv --mapareas-file Data_Vanilla/mapdata_continents.lua --out Data_Vanilla/mapdata_poi_instances.lua
 ```
+
+## Capitals — no generator, computed live in Lua
+
+Unlike the other POI categories above, capital-city markers (`sets/capitals.lua`,
+`Icon-City`) have **no `gen_poi_*.js` script and no `Data_<Flavor>/mapdata_poi_*.lua`
+file** — a capital's position is just its own zone box's center, which is
+already sitting in `Twm_mapareas` (step 2's output), so there was nothing
+worth precomputing. At runtime, for each AreaID in `mapdata_zones.lua`'s
+`Twm_CapitalAreaIDs`, `sets/capitals.lua` takes `Twm_mapareas[map][areaID]`'s
+box center, falling back to a `Twm_poi_areas` entry with the same AreaID
+(step 4's top-level-zone case) for capitals with no zone box of their own
+(e.g. Northrend's Dalaran). Names resolve live via `Twm_areadb`/
+`C_Map.GetAreaInfo`, same as landmarks — see `.claude-docs/architecture.md`.
 
 ## Other scripts
 
