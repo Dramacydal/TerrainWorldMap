@@ -129,8 +129,15 @@ showCapitalsButton:SetScript("OnClick", function(self)
     TWMPoints_ForceUpdate(TWMFrame);
 end);
 
+local showDungeonsButton = CreateCheckbox(BrowserPanel, "TWMOptionShowDungeons", TWM_OPTIONS_SHOW_DUNGEONS);
+showDungeonsButton:SetPoint("TOPLEFT", showCapitalsButton, "BOTTOMLEFT", 0, -12);
+showDungeonsButton:SetScript("OnClick", function(self)
+    TWMOption.Frames["TWMFrame"].PointCfg["dungeons"] = not self:GetChecked();
+    TWMPoints_ForceUpdate(TWMFrame);
+end);
+
 local alphaSlider = CreateSlider(BrowserPanel, "TWMOptionAlphaSlider", TWM_OPTIONS_ALPHA, .1, 1, .05);
-alphaSlider:SetPoint("TOPLEFT", showCapitalsButton, "BOTTOMLEFT", 4, -32);
+alphaSlider:SetPoint("TOPLEFT", showDungeonsButton, "BOTTOMLEFT", 4, -32);
 alphaSlider:SetScript("OnValueChanged", function(self)
     TWMFrame:SetAlpha(self:GetValue());
     TWMOption.Frames["TWMFrame"].Alpha = self:GetValue();
@@ -165,6 +172,7 @@ function BrowserPanel.OnRefresh()
         showLandmarksButton:SetChecked(not (opt.PointCfg and opt.PointCfg["landmarks"]));
         showGraveyardsButton:SetChecked(not (opt.PointCfg and opt.PointCfg["graveyards"]));
         showCapitalsButton:SetChecked(not (opt.PointCfg and opt.PointCfg["capitals"]));
+        showDungeonsButton:SetChecked(not (opt.PointCfg and opt.PointCfg["dungeons"]));
     end
 end
 

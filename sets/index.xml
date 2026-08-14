@@ -5,5 +5,6 @@
 	<Script file="landmarks.lua"/>
 	<Script file="graveyards.lua"/>
 	<Script file="capitals.lua"/>
+	<Script file="dungeons.lua"/>
 	<Script file="players.lua"/>
 </Ui>

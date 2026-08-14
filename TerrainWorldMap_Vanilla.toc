@@ -16,6 +16,7 @@ Data_Vanilla\mapdata_continents.lua
 Data_Vanilla\mapdata_poi.lua
 Data_Vanilla\mapdata_poi_areas.lua
 Data_Vanilla\mapdata_poi_graveyards.lua
+Data_Vanilla\mapdata_poi_instances.lua
 Data_Vanilla\mapdata_tiles.lua
 Points.lua
 TerrainWorldMap.lua

@@ -1,8 +1,9 @@
 #Requires -Version 7.0
 <#
 .SYNOPSIS
-	Prepares a WORKDIR with everything gen_mapareas.js / parse_wdt.js need for one WoW product:
-	DB2 CSVs (AreaTable/Map/UiMap/UiMapAssignment) + extracted WDT/root-ADT/noLiquid-minimap files.
+	Prepares a WORKDIR with everything gen_mapareas.js / parse_wdt.js / gen_poi_instances.js need
+	for one WoW product: DB2 CSVs (AreaTable/Map/UiMap/UiMapAssignment/AreaTrigger) + extracted
+	WDT/root-ADT/noLiquid-minimap files.
 
 .PARAMETER Product
 	TACT product code, e.g. wow_classic_era, wow_anniversary, wow_classic (see .build.info).
@@ -64,7 +65,7 @@ if ($Online -and $Storage) {
 
 $CASCCONSOLE_URL = 'https://github.com/Dramacydal/CASCExplorer/releases/download/build-latest/CASCConsole.zip'
 $LISTFILE_URL = 'https://github.com/wowdev/wow-listfile/releases/latest/download/community-listfile.csv'
-$DB2_TABLES = @('AreaTable', 'Map', 'UiMap', 'UiMapAssignment')
+$DB2_TABLES = @('AreaTable', 'Map', 'UiMap', 'UiMapAssignment', 'AreaTrigger')
 
 $scriptsDir = $PSScriptRoot
 $cascDir = Join-Path $WorkDir 'CASCConsole'
@@ -119,7 +120,7 @@ Step "Community listfile" {
 	Invoke-Curl @('-o', $listfilePath, $LISTFILE_URL)
 }
 
-Step "DB2 CSVs (AreaTable/Map/UiMap/UiMapAssignment)" {
+Step "DB2 CSVs (AreaTable/Map/UiMap/UiMapAssignment/AreaTrigger)" {
 	$haveAll = -not $Force -and ($DB2_TABLES | ForEach-Object {
 		Get-ChildItem -Path $productDir -Filter "$_*.csv" -ErrorAction SilentlyContinue
 	} | Measure-Object).Count -ge $DB2_TABLES.Count

@@ -33,7 +33,10 @@ end
 function set.getpoints(name, map)
     -- Hardcoded capital-city AreaIDs (see mapdata_zones.lua's
     -- Twm_CapitalAreaIDs) positioned via their own Twm_mapareas box, or via
-    -- Twm_poi_areas as a fallback.
+    -- Twm_poi_areas as a fallback. Twm_CapitalAreaIDs' own name is only a
+    -- fallback -- Twm_areadb resolves the real label live via
+    -- C_Map.GetAreaInfo, so it always matches the client's own current
+    -- locale.
     for areaID, capitalName in pairs(Twm_CapitalAreaIDs) do
         local bigX, bigY = findByBox(map, areaID);
         if(bigX == nil) then
@@ -43,7 +46,7 @@ function set.getpoints(name, map)
         if(bigX ~= nil) then
             local x,y = TWM_Big2Mini_Coord(bigX, bigY);
 
-            TWMPoints_AddPoint(nil, "capitals", capitalName, x, y, nil, nil);
+            TWMPoints_AddPoint(nil, "capitals", Twm_areadb[areaID] or capitalName, x, y, nil, nil);
         end
     end
 end

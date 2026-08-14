@@ -43,34 +43,3 @@ TWM_MAPS = {
     [C_Map.GetMapInfo(Twm_ContinentMapID["TolBarad"]).name] = {"TolBarad"},
     [C_Map.GetMapInfo(Twm_ContinentMapID["MoguIslandDailyArea"]).name] = {"MoguIslandDailyArea"},
 };
-
--- Instances (entrances) -- only the pre-TBC Kalimdor/Azeroth dungeons are
--- filled in (reused verbatim from Data_TBC, same world-space coordinates).
--- TODO: no Northrend/Outland/Pandaria dungeon entrances hand-collected yet.
-Twm_instances = {
-    ["Kalimdor"] = {
-        {"Ahn'Qiraj",           1526, -8132},
-        {"Blackfathom Deeps",   888, 4138},
-        {"Dire Maul",           1341, -4367},
-        {"Maraudon",            2932, -1415},
-        {"Onyxia's Lair",       -3730, -4712},
-        {"Ragefire Chasm",      -4416.2, 1818.4},
-        {"Razorfen Downs",      -2336, -4721},
-        {"Razorfen Kraul",      -1606, -4455},
-        {"Wailing Caverns",     -2027, -796},
-        {"Zul'Farrak",          -2904, -6665},
-    },
-    ["Azeroth"] = {
-        {"Blackrock Depths",    -919, -7179},
-        {"Blackrock Spire",     -1223, -7529},
-        {"Gnomeregan",          933, -5161},
-        {"Scarlet Monestary",   -867, 2916},
-        {"Scholomance",         -2567, 1275},
-        {"Shadowfang Keep",     1585, -229},
-        {"Stratholme",          -3375, 3381},
-        {"Stratholme (Service Entrance)", -4033, 3187},
-        {"The Deadmines",       1512, -11081},
-        {"The Temple of Atal'Hakkar", -3826, -10414},
-        {"Zul'Gurub",           -1250, -11915},
-    }
-};

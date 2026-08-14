@@ -43,10 +43,12 @@ TWM_POINTS_SHOWPOINTS_TITLE = "Показывать метки";
 TWM_POINTS_LANDMARKS = "Достопримечательности";
 TWM_POINTS_GRAVEYARDS = "Кладбища";
 TWM_POINTS_CAPITALS = "Столицы";
+TWM_POINTS_DUNGEONS = "Подземелья";
 
 TWM_OPTIONS_SHOW_LANDMARKS = "Показывать достопримечательности";
 TWM_OPTIONS_SHOW_GRAVEYARDS = "Показывать кладбища";
 TWM_OPTIONS_SHOW_CAPITALS = "Показывать столицы";
+TWM_OPTIONS_SHOW_DUNGEONS = "Показывать подземелья";
 
 
 BINDING_NAME_TWM_TOGGLE = "Открыть/закрыть окно TerrainWorldMap";

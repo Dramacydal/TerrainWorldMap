@@ -6,7 +6,8 @@ addon (`.js`/`.ps1` files are ignored by the WoW addon loader).
 
 Pipeline: `init_workdir.ps1` (fetch client data) → `gen_mapareas.js` (zone
 boxes) → `parse_wdt.js` (tile validity + AreaIDs) → `gen_poi_areas.js`
-(sub-area/POI labels).
+(sub-area/POI labels) → `gen_poi_graveyards.js` (graveyards) →
+`gen_poi_instances.js` (dungeon/raid entrances).
 
 ## Setup
 
@@ -228,6 +229,62 @@ this addon's continent list).
 ```bash
 curl -A "Mozilla/5.0" https://www.wowhead.com/classic/npc=6491/spirit-healer -o spirit_vanilla.html
 node gen_poi_graveyards.js --wowhead-html spirit_vanilla.html --mapareas-file Data_Vanilla/mapdata_continents.lua --out Data_Vanilla/mapdata_poi_graveyards.lua
+```
+
+## Step 6 — `gen_poi_instances.js`: dungeon/raid entrance markers (`Twm_instances`)
+
+```bash
+node gen_poi_instances.js --flavor-dir <dir with AreaTrigger.*.csv and Map.*.csv> --teleport-csv <id-to-target-map reference CSV> --mapareas-file <target flavor mapdata_continents.lua> --out <out-file.lua>
+```
+
+No official client DB2 table encodes which map an `AreaTrigger` teleports
+you to — that link isn't part of what the client ever receives (confirmed
+by exhaustively checking every `AreaTrigger`-related DB2 table:
+`AreaTriggerActionSet` has no map reference, `AreaTriggerAction` doesn't
+exist for these clients, and cross-referencing a trigger's outdoor position
+against `Twm_poi_areas` mostly returns the wrong name — e.g. Deadmines'
+entrance resolves to "Demont's Place", an unrelated nearby landmark). So
+this needs a separate `id -> target_map` reference table (`--teleport-csv`,
+columns: `id, target_map` at minimum — extra columns are ignored) from
+outside the normal CASC/DB2 pipeline, one per flavor.
+
+Algorithm:
+1. Every `AreaTrigger` row whose `ContinentID` is a `Map.csv` row matching a
+   continent actually declared in `--mapareas-file`'s `Twm_mapareas` (an
+   open-world map, not some other random MapID).
+2. ...that also has a matching row in `--teleport-csv` — i.e. it's an
+   actually-functional teleport trigger, not some other kind of
+   `AreaTrigger` (ambience, quest zones, PvP flags, etc.).
+3. ...whose `target_map` is itself a dungeon or raid (`Map.InstanceType` 1
+   or 2) — excludes battlegrounds/scenarios/whatever else teleports exist
+   for (both are entered through their own queue systems, not a walk-through
+   trigger, so they never have a `--teleport-csv` row to begin with).
+4. `Map.MapName_lang` is written too, but only as a fallback — `sets/dungeons.lua`
+   resolves the live, locale-correct name at render time via
+   `GetRealZoneText(MapID)`, which accepts this same `target_map`/`Map.ID`
+   value directly (confirmed: `GetRealZoneText(530)` returns `"Outland"`,
+   and `530` is `Map.ID` for `Expansion01`). Type is `"Dungeon"` or `"Raid"`
+   (from `InstanceType`), which doubles as the icon name this addon draws
+   for it (`Icon-Dungeon` / `Icon-Raid` — see `sets/dungeons.lua`).
+
+Each output entry is `{"Type", MapID, "Name", x, y}`.
+
+Multiple trigger boxes for the same physical door (confirmed: Stratholme's
+main gate and Karazhan's entrance each have 2 adjacent trigger boxes) are
+merged by centroid if they're within `DEDUP_DISTANCE` (15 yards) of another
+point with the exact same resolved name — distinct entrances to the same
+dungeon (Dire Maul's 3 wings, Maraudon's 2 mouths, Scarlet Monastery's 4
+wings) are far enough apart to survive as separate points, and two
+different dungeons/raids are never merged into each other even if their
+entrances happen to be close together. The distance threshold is a
+compromise, not exact — some legitimately-separate doors on the same
+building can be closer together than some duplicate boxes on one door, so a
+dungeon can occasionally end up with 2 near-overlapping markers for what's
+really one entrance (cosmetic only, not wrong data).
+
+**Example:**
+```bash
+node gen_poi_instances.js --flavor-dir C:\wow-data\wow_classic_era --teleport-csv C:\wow-data\wow_classic_era\areatrigger_teleport.csv --mapareas-file Data_Vanilla/mapdata_continents.lua --out Data_Vanilla/mapdata_poi_instances.lua
 ```
 
 ## Other scripts

@@ -1,26 +1,20 @@
 
-local landmarkaltinstance = {nil,nil,nil,nil,-1};
-local landmarkalthamlet   = {nil,nil,nil,nil,-4};
+local landmarkalthamlet = {nil,nil,nil,nil,-4};
 
 local set = {name="landmarks"};
 
 function set.getpoints(name, map)
-    -- Dungeon/raid entrances -- hand-collected, see Data_<Flavor>/mapdata_poi.lua.
-    if(type(Twm_instances[map]) == "table") then
-        for h,v in ipairs(Twm_instances[map]) do
-            local x,y = TWM_Big2Mini_Coord(v[2],v[3]);
-
-            TWMPoints_AddPoint(nil, "landmarks", v[1], x, y, nil, landmarkaltinstance);
-        end
-    end
-
     -- Sub-area/POI labels, generated from AreaTable's own zone hierarchy
-    -- (see scripts/gen_poi_areas.js). Entries are {AreaID, Name, x, y}.
+    -- (see scripts/gen_poi_areas.js). Entries are {AreaID, Name, x, y} --
+    -- Name is only a fallback for a build where the AreaID no longer
+    -- resolves; Twm_areadb (mapdata_zones.lua) resolves it live via
+    -- C_Map.GetAreaInfo so the label always matches the client's own
+    -- current locale instead of whatever locale this data was generated in.
     if(type(Twm_poi_areas[map]) == "table") then
         for h,v in ipairs(Twm_poi_areas[map]) do
             local x,y = TWM_Big2Mini_Coord(v[3],v[4]);
 
-            TWMPoints_AddPoint(nil, "landmarks", v[2], x, y, nil, landmarkalthamlet);
+            TWMPoints_AddPoint(nil, "landmarks", Twm_areadb[v[1]] or v[2], x, y, nil, landmarkalthamlet);
         end
     end
 end
@@ -33,10 +27,7 @@ function set.setuppoint(point, env, dat)
     local r, g, b = 0.2, 0.6, 1;
     local bgtextname = "Interface\\AddOns\\TerrainWorldMap\\images\\Icons\\Icon-Circle";
 
-    if(kind == -1) then
-        r, g, b = 0.9, 0.1, 0.9;
-        bgtextname = "Interface\\AddOns\\TerrainWorldMap\\images\\Icons\\Icon-Cave";
-    elseif(kind == -4) then
+    if(kind == -4) then
         r, g, b = 0.3, 0.8, 1;
         bgtextname = "Interface\\AddOns\\TerrainWorldMap\\images\\Icons\\Icon-Exclaim";
     end
