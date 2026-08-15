@@ -5,6 +5,10 @@ an movable/resizable minimap-style map window.
 
 Single addon for any version - Vanilla (classic_era), TBC (anniversary), MoP Classic (classic)
 
+Lightweight by design — it reuses the terrain images already present in
+your game client instead of shipping its own map art, so it adds almost
+nothing to your addon folder's size or your loading screens.
+
 ## Features
 
 - **Terrain overlay on the World Map** — real minimap tiles instead of

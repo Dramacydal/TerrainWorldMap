@@ -1,6 +1,23 @@
 
 TerrainWorldMap ChangeLog
 ================
+1.1.1 (August 15, 2026)
+----------------------------
+- Added: a "Tile Filtering" option (Smooth/Smooth+Mipmaps/Sharp) in Settings,
+  controlling how terrain tiles are scaled -- applies to both the World Map
+  overlay and the standalone map window.
+- Added: tooltips explaining every option in Settings.
+- Changed: terrain tiles render sharper by default (no blending) instead of
+  the game's default blurred scaling.
+- Changed: the continent dropdown in the standalone map window is now
+  sorted alphabetically (the zone dropdown already was).
+- Changed: Settings reorganized -- "Show underwater terrain" and the new
+  tile filter moved to the main TerrainWorldMap tab; the "World Map" and
+  "Browser" tabs each got their own title header.
+- Fixed: the Draenei and Blood Elf starting zones ("Draw child-map tiles")
+  now also show up when zoomed out to the combined "Azeroth" world view,
+  not just when Kalimdor or Eastern Kingdoms is viewed directly.
+
 1.1.0 (August 15, 2026)
 ----------------------------
 - Added: Landmarks now cover every named sub-area nested under a zone, not

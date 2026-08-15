@@ -4,6 +4,8 @@ TerrainWorldMap overlays the game's own minimap terrain tiles onto the World Map
 
 Currently supports **Classic Era (Vanilla)**, **Classic Anniversary (TBC)**, and **Mists of Pandaria Classic** — all in one addon.
 
+**Lightweight** — it draws the terrain from the minimap images already stored in your game client instead of bundling its own map art, so it adds almost nothing to your addon folder's size or your loading screens.
+
 ## Features
 
 - **Real terrain overlay on the World Map**.

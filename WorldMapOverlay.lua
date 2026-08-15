@@ -57,6 +57,14 @@ local function ReleaseTexturesFrom(fromIndex)
     end
 end
 
+-- See TWM_SetTileFilter below for why this needs to run as its own pass,
+-- separate from (and before) the rebuild that follows it.
+local function ClearOverlayTileTextures()
+    for i = 1, #texturePool do
+        texturePool[i]:SetTexture(nil);
+    end
+end
+
 local function ShowExplorationPins()
     for pin in WorldMapFrame:EnumeratePinsByTemplate("MapExplorationPinTemplate") do
         pin:Show();
@@ -167,7 +175,7 @@ local function DrawTiles(continent, bx1, bx2, by1, by2, targetX1, targetY1, targ
                     tex:SetPoint("TOPLEFT", overlay, "TOPLEFT", ix1, -iy1);
                     tex:SetWidth(ix2-ix1);
                     tex:SetHeight(iy2-iy1);
-                    tex:SetTexture(pre..continent.."\\"..TWM_GetTileFileName(continent, col, row));
+                    TWM_SetTileTexture(tex, pre..continent.."\\"..TWM_GetTileFileName(continent, col, row), TWM_GetTileFilter());
                     tex:SetTexCoord((ix1-tx1)/(tx2-tx1), (ix2-tx1)/(tx2-tx1), (iy1-ty1)/(ty2-ty1), (iy2-ty1)/(ty2-ty1));
                     tex:Show();
                 end
@@ -175,6 +183,58 @@ local function DrawTiles(continent, bx1, bx2, by1, by2, targetX1, targetY1, targ
         end
     end
 
+    return idx;
+end
+
+-- Draws any "orphan" zones that C_Map's own hierarchy nominally parents
+-- under `parentMapID`, but whose real terrain (per Twm_UiMapID2Zone) lives
+-- on a different continent than `continent` -- e.g. Eversong Woods/
+-- Ghostlands/Isle of Quel'Danas under Eastern Kingdoms, Azuremyst/Bloodmyst
+-- Isle under Kalimdor. Parameterized by target rect (in overlay pixels) so
+-- it works both for a continent shown at full-frame (the single-continent
+-- view) and for a continent shown inside its own sub-rect of a "world" view
+-- (the "Azeroth" map showing Kalimdor + Eastern Kingdoms side by side) --
+-- without this, those starting zones only ever showed up when a continent
+-- was viewed directly, never from the combined world view one level out.
+--
+-- Grouped by foreign continent, with ONE shared transform per group (union
+-- of the zones' real boxes -> union of Blizzard's own inset rects for
+-- them), not one transform per zone: Blizzard picks each zone's inset box
+-- independently for its own little map icon, so fitting them independently
+-- would drift neighbouring zones (e.g. Eversong Woods and Isle of
+-- Quel'Danas) apart even though their real coordinates are adjacent.
+local function DrawOrphanChildren(continent, parentMapID, targetX1, targetY1, targetX2, targetY2, idx)
+    local groups = {};
+    for _, childInfo in ipairs(C_Map.GetMapChildrenInfo(parentMapID) or {}) do
+        local known = Twm_UiMapID2Zone[childInfo.mapID];
+        if(known and known[1] ~= continent) then
+            local left, right, top, bottom = C_Map.GetMapRectOnMap(childInfo.mapID, parentMapID);
+            local box = left and Twm_mapareas[known[1]][known[2]];
+            if(box) then
+                local g = groups[known[1]];
+                if(not g) then
+                    groups[known[1]] = { bx1=box[1], bx2=box[2], by1=box[3], by2=box[4],
+                        left=left, right=right, top=top, bottom=bottom };
+                else
+                    g.bx1 = math.max(g.bx1, box[1]);
+                    g.bx2 = math.min(g.bx2, box[2]);
+                    g.by1 = math.max(g.by1, box[3]);
+                    g.by2 = math.min(g.by2, box[4]);
+                    g.left = math.min(g.left, left);
+                    g.right = math.max(g.right, right);
+                    g.top = math.min(g.top, top);
+                    g.bottom = math.max(g.bottom, bottom);
+                end
+            end
+        end
+    end
+
+    local targetW, targetH = targetX2-targetX1, targetY2-targetY1;
+    for foreignContinent, g in pairs(groups) do
+        idx = DrawTiles(foreignContinent, g.bx1, g.bx2, g.by1, g.by2,
+            targetX1 + g.left*targetW, targetY1 + g.top*targetH,
+            targetX1 + g.right*targetW, targetY1 + g.bottom*targetH, idx, 1);
+    end
     return idx;
 end
 
@@ -229,49 +289,10 @@ local function RefreshOverlay()
 
         idx = DrawTiles(continent, bx1, bx2, by1, by2, 0, 0, frameW, frameH, idx);
 
-        -- Continent-level view: also draw any "orphan" zones that C_Map's
-        -- own hierarchy nominally parents here, but whose real terrain (per
-        -- Twm_UiMapID2Zone) lives on a *different* continent -- e.g.
-        -- Eversong Woods/Ghostlands/Isle of Quel'Danas under Eastern
-        -- Kingdoms, Azuremyst/Bloodmyst Isle under Kalimdor.
-        --
-        -- Grouped by foreign continent, with ONE shared transform per group
-        -- (union of the zones' real boxes -> union of Blizzard's own inset
-        -- rects for them), not one transform per zone: Blizzard picks each
-        -- zone's inset box independently for its own little map icon, so
-        -- fitting them independently would drift neighbouring zones (e.g.
-        -- Eversong Woods and Isle of Quel'Danas) apart even though their
-        -- real coordinates are adjacent.
+        -- Continent-level view: also draw any orphan starting zones parented
+        -- here (see DrawOrphanChildren).
         if(TWMOption.WorldMapOverlayChildMaps and mapID == Twm_ContinentMapID[continent]) then
-            local groups = {};
-            for _, childInfo in ipairs(C_Map.GetMapChildrenInfo(mapID) or {}) do
-                local known = Twm_UiMapID2Zone[childInfo.mapID];
-                if(known and known[1] ~= continent) then
-                    local left, right, top, bottom = C_Map.GetMapRectOnMap(childInfo.mapID, mapID);
-                    local box = left and Twm_mapareas[known[1]][known[2]];
-                    if(box) then
-                        local g = groups[known[1]];
-                        if(not g) then
-                            groups[known[1]] = { bx1=box[1], bx2=box[2], by1=box[3], by2=box[4],
-                                left=left, right=right, top=top, bottom=bottom };
-                        else
-                            g.bx1 = math.max(g.bx1, box[1]);
-                            g.bx2 = math.min(g.bx2, box[2]);
-                            g.by1 = math.max(g.by1, box[3]);
-                            g.by2 = math.min(g.by2, box[4]);
-                            g.left = math.min(g.left, left);
-                            g.right = math.max(g.right, right);
-                            g.top = math.min(g.top, top);
-                            g.bottom = math.max(g.bottom, bottom);
-                        end
-                    end
-                end
-            end
-
-            for foreignContinent, g in pairs(groups) do
-                idx = DrawTiles(foreignContinent, g.bx1, g.bx2, g.by1, g.by2,
-                    g.left*frameW, g.top*frameH, g.right*frameW, g.bottom*frameH, idx, 1);
-            end
+            idx = DrawOrphanChildren(continent, mapID, 0, 0, frameW, frameH, idx);
         end
     else
         -- "World" view grouping whole continents together (e.g. the
@@ -292,6 +313,17 @@ local function RefreshOverlay()
                             local box = Twm_mapareas[childContinent][0];
                             idx = DrawTiles(childContinent, box[1], box[2], box[3], box[4],
                                 left*frameW, top*frameH, right*frameW, bottom*frameH, idx, 0);
+
+                            -- Same orphan-zone pass as the single-continent
+                            -- view (DrawOrphanChildren), just nested inside
+                            -- this continent's own sub-rect of the world
+                            -- view instead of the full frame -- without
+                            -- this, Draenei/Blood Elf starting isles never
+                            -- showed up when zoomed out to "Azeroth".
+                            if(TWMOption.WorldMapOverlayChildMaps) then
+                                idx = DrawOrphanChildren(childContinent, childContinentMapID,
+                                    left*frameW, top*frameH, right*frameW, bottom*frameH, idx);
+                            end
                         end
                     end
                 end
@@ -383,6 +415,32 @@ end
 
 function TWM_IsDrawUnderwaterEnabled()
     return TWMOption.DrawUnderwater;
+end
+
+-- Texture filterMode used for every terrain tile, both here and in
+-- TerrainWorldMap.lua's own tile grid. "NEAREST" (no blending) is the
+-- default -- matches the crisper look already used for point icons -- but
+-- some tiles look better blended, so it's user-configurable (Settings.lua).
+--
+-- Explicitly clears every currently-allocated tile texture to unbound
+-- FIRST, as its own separate pass, before rebuilding -- a filterMode-only
+-- change (map not actually moving) reuses the exact same texture widgets
+-- with the exact same file paths, and re-setting path+filter on a texture
+-- that already has that same path bound doesn't reliably resample on the
+-- next frame. Clearing to nil first (and only afterwards asking
+-- RefreshOverlay/TWM_RefreshFrameTiles to rebuild) forces every tile to be
+-- freshly (re)bound from scratch, same as a real pan/zoom does when it
+-- swaps in different tiles.
+function TWM_SetTileFilter(filterMode)
+    TWMOption.TileFilter = filterMode;
+    ClearOverlayTileTextures();
+    TWM_ClearFrameTileTextures();
+    RefreshOverlay();
+    TWM_RefreshFrameTiles();
+end
+
+function TWM_GetTileFilter()
+    return TWMOption.TileFilter or "NEAREST";
 end
 
 -- Icon on the stock WorldMapFrame (see WorldMapButton.xml): left-click

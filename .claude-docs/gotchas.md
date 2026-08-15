@@ -83,6 +83,41 @@ an earlier, wrong hypothesis — that `StartSizing` needed the frame's anchor
 pre-normalized like `StartMoving` does — was tried and removed; it didn't
 address the actual cause.)
 
+## Changing only `filterMode` on an already-bound `Texture:SetTexture` can silently not apply for a frame
+
+Calling `tex:SetTexture(path, wrapH, wrapV, filterMode)` with the *same*
+`path` as what's already bound, but a different `filterMode`, doesn't
+reliably take effect on the very next render -- confirmed with the "Tile
+Filtering" Settings option: switching it while stationary didn't visibly
+change anything until the map was panned/zoomed afterward, even though the
+exact same `SetTexture(...)` call (with the new `filterMode`) runs
+immediately either way (`TWM_RefreshFrameTiles`/`RefreshOverlay` force a
+full tile-grid rebuild synchronously, same code path a real pan/zoom uses).
+
+Attempts that did NOT reliably fix it: (1) `SetTexture(nil)` immediately
+before the real per-tile `SetTexture(...)` call, interleaved tile-by-tile in
+the same draw loop (flashed black); (2) toggling through a different
+`filterMode` on the same path before the real one, still interleaved
+per-tile; (3) a deferred second rebuild via `C_Timer.After(0, ...)` on top
+of the normal immediate one.
+
+Current attempt (`TWM_SetTileFilter`, `WorldMapOverlay.lua`): clear ALL
+currently-allocated tile textures to nil first, as a separate, complete pass
+over both texture pools (`TWM_ClearFrameTileTextures` in
+`TerrainWorldMap.lua`, `ClearOverlayTileTextures` in `WorldMapOverlay.lua`)
+-- fully unbinding everything -- and only afterwards call
+`RefreshOverlay`/`TWM_RefreshFrameTiles` to rebind them all with the new
+filter. Unconfirmed whether this actually resolves it; if not, the
+asynchronous-BLP-load theory itself may be wrong and the real cause is still
+unidentified.
+
+## `UIDropDownMenu` entries need `tooltipOnButton = true` to show a tooltip on hover
+
+Setting `info.tooltipTitle`/`info.tooltipText` on a dropdown button (e.g.
+`Settings.lua`'s tile-filter dropdown) is not enough by itself — without
+`info.tooltipOnButton = true`, the tooltip only shows for a disabled entry
+(`tooltipWhileDisabled`), not on a normal hover.
+
 ## The custom tooltip's row buttons must not call `EnableMouse(true)`
 
 `TWMTooltipTemplate:GetNext()` (`TerrainWorldMap.lua`) used to create each

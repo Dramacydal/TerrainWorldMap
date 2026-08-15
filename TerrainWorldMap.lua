@@ -26,6 +26,13 @@ end
 -- automatic swapping. If the option is on and this tile has a noLiquid
 -- variant, that's what gets drawn, everywhere, regardless of where the
 -- player actually is.
+-- Sets a tile texture with the current "Tile Filtering" option applied. See
+-- TWM_SetTileFilter (WorldMapOverlay.lua) for why a filterMode-only change
+-- needs a deferred second rebuild on top of calling this.
+function TWM_SetTileTexture(tex, path, filter)
+    tex:SetTexture(path, nil, nil, filter);
+end
+
 function TWM_GetTileFileName(continent, col, row)
     if(TWM_IsDrawUnderwaterEnabled()
             and Twm_NoLiquidTiles and Twm_NoLiquidTiles[continent]
@@ -44,6 +51,20 @@ end
 function TWM_RefreshFrameTiles()
     if(TWMFrame and TWMFrame.opt) then
         TWMFrame:SetLocation(TWMFrame.opt.Location[1], TWMFrame.opt.Location[2], true);
+    end
+end
+
+-- Clears every currently-allocated tile texture in TWMFrame's own grid back
+-- to unbound, without setting anything new -- see TWM_SetTileFilter
+-- (WorldMapOverlay.lua) for why this needs to happen as its own pass,
+-- separate from (and before) the rebuild that follows it.
+function TWM_ClearFrameTileTextures()
+    if(TWMFrame and TWMFrame.texturelayout) then
+        for hw = 1, #TWMFrame.texturelayout do
+            for hh = 1, #TWMFrame.texturelayout[hw] do
+                TWMFrame.texturelayout[hw][hh]:SetTexture(nil);
+            end
+        end
     end
 end
 
@@ -434,6 +455,10 @@ function TWMFrameTemplate:OnEvent(event, ...)
             TWMOption.DrawUnderwater = true;
         end
 
+        if(TWMOption.TileFilter == nil) then
+            TWMOption.TileFilter = "NEAREST";
+        end
+
         -- Stale saved data from before BigTWMFrame was removed.
         if(TWMOption.Frames) then
             TWMOption.Frames["BigTWMFrame"] = nil;
@@ -525,29 +550,32 @@ function TWMFrameDropDown_OnEvent(self, event)
     end
 end
 
+function TWM_GetSortedMapNames()
+    local names = {};
+    for h in pairs(TWM_MAPS) do
+        tinsert(names, h);
+    end
+    table.sort(names);
+    return names;
+end
+
 function TWMFrameDropDown_Initialize()
-    local i = 1;
     local info;
-    for h,v in pairs(TWM_MAPS) do
+    for i,h in ipairs(TWM_GetSortedMapNames()) do
             info = {
                     text = h;
                     func = TWMFrameDropDownButton_OnClick;
                     --value = _G[UIDROPDOWNMENU_INIT_MENU]:GetParent();
             };
             UIDropDownMenu_AddButton(info);
-            i = i + 1;
     end
 end
 
 function TWMFrameDropDownButton_OnClick(self)
-        local d = 1;
-	i = self:GetID();
-        for h,v in pairs(TWM_MAPS) do
-            if(d == i) then
-                --print(tostring(self.value).." "..tostring(v[1]))
-                return _G["TWMFrame"]:SetMap(v[1]);
-            end
-            d = d + 1;
+        local i = self:GetID();
+        local h = TWM_GetSortedMapNames()[i];
+        if(h) then
+            return _G["TWMFrame"]:SetMap(TWM_MAPS[h][1]);
         end
 end
 
@@ -583,13 +611,11 @@ function TWMFrameTemplate:SetMap(mapname)
     
     local mapdropdown = _G[lm.."DropDown"];
     if(mapdropdown) then
-        local i = 1;
-        for h,v in pairs(TWM_MAPS) do
-            if(v[1] == mapname) then
+        for i,h in ipairs(TWM_GetSortedMapNames()) do
+            if(TWM_MAPS[h][1] == mapname) then
                 UIDropDownMenu_SetSelectedID(mapdropdown, i);
                 UIDropDownMenu_SetText(mapdropdown,h);
             end
-            i = i + 1;
         end
     end
 
@@ -921,7 +947,7 @@ function TWMFrameTemplate:SetLocation(x,y,forceupdate,forcePointsUpdate)
 
                 -- set textures
                 if(v[hx][hy]) then
-		    tex:SetTexture(pre..mymap.."\\"..v[hx][hy][1]);
+                    TWM_SetTileTexture(tex, pre..mymap.."\\"..v[hx][hy][1], TWM_GetTileFilter());
                     tex:SetVertexColor(1,1,1,1);
                 else
                     tex:SetTexture("Interface\\Buttons\\WHITE8X8");
