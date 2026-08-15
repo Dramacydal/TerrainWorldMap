@@ -50,9 +50,9 @@ editions, so re-check `.build.info` if a code below stops matching):
 - **`-Force`** (optional) — re-download CASCConsole/listfile/DB2 CSVs even if already present
 
 Downloads the CASCConsole tool + community listfile once per `WorkDir`, then
-per product: 7 DB2 CSVs (`AreaTable`/`Map`/`UiMap`/`UiMapAssignment`/
-`AreaTrigger`/`TaxiNodes`/`TaxiPath`) and the WDT/root-ADT/noLiquid-minimap
-files for every open-world continent.
+per product: 8 DB2 CSVs (`AreaTable`/`Map`/`UiMap`/`UiMapAssignment`/
+`AreaTrigger`/`TaxiNodes`/`TaxiPath`/`TaxiPathNode`) and the WDT/root-ADT/
+noLiquid-minimap files for every open-world continent.
 
 **Examples:**
 ```powershell
@@ -289,10 +289,10 @@ really one entrance (cosmetic only, not wrong data).
 node gen_poi_instances.js --flavor-dir C:\wow-data\wow_classic_era --teleport-csv C:\wow-data\wow_classic_era\areatrigger_teleport.csv --mapareas-file Data_Vanilla/mapdata_continents.lua --out Data_Vanilla/mapdata_poi_instances.lua
 ```
 
-## Step 7 — `gen_poi_flightmasters.js`: flight master markers + routes (`Twm_flightmasters`, `Twm_taxipaths`)
+## Step 7 — `gen_poi_flightmasters.js`: flight master markers + routes (`Twm_flightmasters`, `Twm_taxipaths`, `Twm_taxipathnodes`)
 
 ```bash
-node gen_poi_flightmasters.js --flavor-dir <dir with TaxiNodes.*.csv, TaxiPath.*.csv and Map.*.csv> --mapareas-file <target flavor mapdata_continents.lua> --out <out-file.lua>
+node gen_poi_flightmasters.js --flavor-dir <dir with TaxiNodes.*.csv, TaxiPath.*.csv, TaxiPathNode.*.csv and Map.*.csv> --mapareas-file <target flavor mapdata_continents.lua> --out <out-file.lua>
 ```
 
 - **`--flavor-dir`** (required) — `<WorkDir>/<Product>` from step 1
@@ -328,9 +328,18 @@ and **not** grouped/restricted by continent — `TaxiRoutes.lua` builds both a
 per-node neighbor list (hover-preview lines) and a deduped, same-continent-only
 route list (the "always show" toggle) from this raw data at load time,
 since the dedup depends on which pairs resolve to the same continent, which
-is runtime-only information. Also deliberately does **not** use
-`TaxiPathNode.db2`'s curved spline points — `TaxiNodes` already gives each
-endpoint's real position, which is all a straight-line route overlay needs.
+is runtime-only information.
+
+`Twm_taxipathnodes[pathID]` holds `TaxiPathNode.db2`'s actual spline
+points (`{x, y}`, ordered by `NodeIndex`), only for `PathID`s that survived
+into `Twm_taxipaths` above (junk/filtered routes don't drag their spline
+data along). `FlightPaths.lua` draws the straight endpoint-to-endpoint line
+by default and only walks this curved spline while **Shift is held** — the
+default stays cheap (one segment per route) and the curved view is opt-in
+per-glance, not something drawn continuously (drawing hundreds/thousands of
+spline segments at once is measurably more expensive to keep positioned
+during a live pan/zoom than the straight-line default — see
+`.claude-docs/gotchas.md`).
 
 **Example:**
 ```bash

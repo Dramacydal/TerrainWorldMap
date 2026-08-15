@@ -97,6 +97,12 @@
 				if(self.inpoint) then
 					TWMFrameViewFrame_UpdatePointTooltip(self);
 				end
+				-- See FlightPaths.lua: polls whether Shift is held so
+				-- flight-path lines can switch between straight and curved
+				-- without waiting for a pan/zoom/hover event.
+				if(TWM_FlightPaths_PollShiftKey) then
+					TWM_FlightPaths_PollShiftKey();
+				end
 			</OnUpdate>
 			<OnMouseWheel>
 				self:GetParent():SetZoom(self:GetParent():GetZoom()+delta*24);

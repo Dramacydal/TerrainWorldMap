@@ -17,9 +17,15 @@ nothing to your addon folder's size or your loading screens.
   zone or to your own position. Transparency and icon size are both
   adjustable.
 - **Map markers**, each independently toggleable — shown by default:
-  Landmarks (named points of interest), Graveyards, Capitals, and
-  Dungeons & Raids (one toggle for both). All show up correctly in
-  whatever language the game itself is running.
+  Landmarks (named points of interest), Graveyards, Capitals, Dungeons &
+  Raids (one toggle for both), and Flight Masters (color-coded by
+  faction). All show up correctly in whatever language the game itself is
+  running.
+- **Flight path lines** between flight masters — hover over one to see
+  its own routes, or show every known route on the continent at once;
+  hold Shift to see the real curved flight path instead of a straight
+  line (showing every route at once can be laggy on continents with a lot
+  of routes, especially with Shift held).
 - **Player/party/raid tracking** on the map.
 - **Minimap button** and a **World Map button**, both with a right-click menu.
 - **Native settings panel** (Esc → Options → AddOns → TerrainWorldMap).

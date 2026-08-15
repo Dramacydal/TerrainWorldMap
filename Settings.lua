@@ -231,8 +231,15 @@ showFlightPathsButton:SetScript("OnClick", function(self)
 end);
 SetTooltip(showFlightPathsButton, TWM_OPTIONS_TOGGLE_FLIGHTPATHS, TWM_TOOLTIP_OPT_TOGGLEFLIGHTPATHS);
 
+local flightPathThicknessSlider = CreateSlider(BrowserPanel, "TWMOptionFlightPathThicknessSlider", TWM_OPTIONS_FLIGHTPATH_THICKNESS, 1, 4, 0.5);
+flightPathThicknessSlider:SetPoint("TOPLEFT", showFlightPathsButton, "BOTTOMLEFT", 4, -32);
+flightPathThicknessSlider:SetScript("OnValueChanged", function(self)
+    if(TWM_SetFlightPathThickness) then TWM_SetFlightPathThickness(self:GetValue()); end
+end);
+SetTooltip(flightPathThicknessSlider, TWM_OPTIONS_FLIGHTPATH_THICKNESS, TWM_TOOLTIP_OPT_FLIGHTPATHTHICKNESS);
+
 local alphaSlider = CreateSlider(BrowserPanel, "TWMOptionAlphaSlider", TWM_OPTIONS_ALPHA, .1, 1, .05);
-alphaSlider:SetPoint("TOPLEFT", showFlightPathsButton, "BOTTOMLEFT", 4, -32);
+alphaSlider:SetPoint("TOPLEFT", flightPathThicknessSlider, "BOTTOMLEFT", 0, -32);
 alphaSlider:SetScript("OnValueChanged", function(self)
     TWMFrame:SetAlpha(self:GetValue());
     TWMOption.Frames["TWMFrame"].Alpha = self:GetValue();
@@ -256,6 +263,22 @@ resetPositionButton:SetPoint("TOPLEFT", iconSizeSlider, "BOTTOMLEFT", -4, -32);
 resetPositionButton:SetText(TWM_OPTIONS_RESETPOSITION);
 resetPositionButton:SetScript("OnClick", function()
     TWM_ResetFramePosition();
+
+    local opt = TWMOption.Frames["TWMFrame"];
+    if(opt) then
+        opt.trackonshow = nil;
+        opt.PointCfg = {};
+        opt.Alpha = TWM_FRAME_OPTION_DEFAULTS.Alpha;
+        opt.IconSize = TWM_FRAME_OPTION_DEFAULTS.IconSize;
+        TWMFrame:SetAlpha(opt.Alpha);
+    end
+
+    TWMOption.ShowEnemyFlightmasters = false;
+    TWMOption.ShowFlightPaths = false;
+    if(TWM_SetFlightPathThickness) then TWM_SetFlightPathThickness(nil); end
+
+    TWMPoints_ForceUpdate(TWMFrame);
+    BrowserPanel.OnRefresh();
 end);
 SetTooltip(resetPositionButton, TWM_OPTIONS_RESETPOSITION, TWM_TOOLTIP_OPT_RESETPOSITION);
 
@@ -275,6 +298,9 @@ function BrowserPanel.OnRefresh()
     end
     showEnemyFlightmastersButton:SetChecked(TWMOption.ShowEnemyFlightmasters);
     showFlightPathsButton:SetChecked(TWMOption.ShowFlightPaths);
+    if(TWM_GetFlightPathThickness) then
+        flightPathThicknessSlider:SetValue(TWM_GetFlightPathThickness());
+    end
 end
 
 --

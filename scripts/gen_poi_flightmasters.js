@@ -1,6 +1,7 @@
 // Regenerates Data_<Flavor>/mapdata_poi_flightmasters.lua's Twm_flightmasters
-// (marker positions + faction) and Twm_flightpaths (straight-line routes
-// between them) from TaxiNodes.db2 joined against TaxiPath.db2.
+// (marker positions + faction), Twm_taxipaths (raw route graph), and
+// Twm_taxipathnodes (real curved route shapes) from TaxiNodes.db2 joined
+// against TaxiPath.db2 and TaxiPathNode.db2.
 //
 // Faction (Twm_flightmasters' first field, "Alliance"/"Horde"/"Neutral"):
 // TaxiNodes.Flags is a bitmask, bit 0x1 = usable by Alliance, bit 0x2 =
@@ -38,9 +39,15 @@
 // deduped per-continent route list (for the "always show" toggle) --
 // dedup has to happen after the join since it depends on which pairs
 // actually resolve to the same continent, which is runtime-only info.
-// Deliberately does NOT use TaxiPathNode.db2's spline points -- TaxiNodes
-// already gives each endpoint's real position, which is all a straight-line
-// route overlay needs.
+//
+// Twm_taxipathnodes holds TaxiPathNode.db2's actual spline points, keyed by
+// TaxiPath.ID and ordered by NodeIndex -- only for PathIDs that survived
+// into Twm_taxipaths above, so junk/filtered routes don't drag their spline
+// data along. FlightPaths.lua draws the straight endpoint-to-endpoint line
+// by default and only walks this curved spline while Shift is held (holding
+// Shift is the toggle for "show the real flight path shape" -- see
+// sets/flightmasters.lua's tooltip and FlightPaths.lua for the rendering
+// side).
 
 const fs = require('fs');
 const { parseCsvFile, findCsv } = require('./csv');
@@ -96,7 +103,7 @@ function parseArgs(argv) {
 }
 
 function printUsage() {
-	console.error('Usage: node gen_poi_flightmasters.js --flavor-dir <dir with TaxiNodes.*.csv, TaxiPath.*.csv and Map.*.csv> --mapareas-file <target flavor mapdata_continents.lua> --out <out-file.lua>');
+	console.error('Usage: node gen_poi_flightmasters.js --flavor-dir <dir with TaxiNodes.*.csv, TaxiPath.*.csv, TaxiPathNode.*.csv and Map.*.csv> --mapareas-file <target flavor mapdata_continents.lua> --out <out-file.lua>');
 }
 
 function main() {
@@ -116,6 +123,7 @@ function main() {
 
 	const taxiNodeRows = parseCsvFile(findCsv(opts.flavorDir, 'TaxiNodes.'));
 	const taxiPathRows = parseCsvFile(findCsv(opts.flavorDir, 'TaxiPath.'));
+	const taxiPathNodeRows = parseCsvFile(findCsv(opts.flavorDir, 'TaxiPathNode.'));
 	const mapRows = parseCsvFile(findCsv(opts.flavorDir, 'Map.'));
 	const continentNames = extractContinentNames(fs.readFileSync(opts.mapareasFile, 'utf8'));
 
@@ -173,6 +181,26 @@ function main() {
 
 	console.error(`${pathsKept} flight paths kept (${pathsMissingNode} referenced a filtered-out node)`);
 
+	// Spline points, grouped by PathID and ordered by NodeIndex -- only for
+	// PathIDs that survived into `paths` above.
+	const keptPathIDs = new Set(paths.map(p => p.id));
+	const nodesByPath = {};
+	let splineNodesKept = 0, splineNodesSkipped = 0;
+
+	for (const n of taxiPathNodeRows) {
+		if (!keptPathIDs.has(n.PathID)) {
+			splineNodesSkipped++;
+			continue;
+		}
+		(nodesByPath[n.PathID] = nodesByPath[n.PathID] || []).push(n);
+		splineNodesKept++;
+	}
+	for (const pid in nodesByPath) {
+		nodesByPath[pid].sort((a, b) => parseInt(a.NodeIndex, 10) - parseInt(b.NodeIndex, 10));
+	}
+
+	console.error(`${splineNodesKept} spline points kept across ${Object.keys(nodesByPath).length} paths (${splineNodesSkipped} belonged to a filtered-out path)`);
+
 	let fullOutput = "-- GENERATED FILE -- do not hand-edit, regenerate with scripts/gen_poi_flightmasters.js\n"
 		+ "-- and replace this file wholesale. See scripts/README.md for details.\n"
 		+ "--\n"
@@ -201,6 +229,22 @@ function main() {
 		+ "Twm_taxipaths = {\n";
 	for (const e of paths) {
 		fullOutput += `    {${e.id}, ${e.from}, ${e.to}},\n`;
+	}
+	fullOutput += '}\n\n';
+
+	fullOutput += "-- TaxiPathNode.db2's real spline points per TaxiPath.ID, ordered by\n"
+		+ "-- NodeIndex -- {x, y} in Big coords, same convention as everything else in\n"
+		+ "-- this file. Only used for the curved-route display (hold Shift -- see\n"
+		+ "-- FlightPaths.lua); the straight-line default only needs each route's two\n"
+		+ "-- endpoints, already in Twm_flightmasters above.\n\n"
+		+ "Twm_taxipathnodes = {\n";
+	for (const pid of Object.keys(nodesByPath).sort((a, b) => parseInt(a, 10) - parseInt(b, 10))) {
+		fullOutput += `    [${pid}] = {\n`;
+		for (const n of nodesByPath[pid]) {
+			const x = parseFloat(n.Loc_1).toFixed(2), y = parseFloat(n.Loc_0).toFixed(2);
+			fullOutput += `        {${x}, ${y}},\n`;
+		}
+		fullOutput += '    },\n';
 	}
 	fullOutput += '}\n';
 

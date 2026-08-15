@@ -38,7 +38,7 @@ TWM_OPTIONS_ENABLEBUTTON = "Aktiviere Minimap-Icon";
 TWM_OPTIONS_TRACKONSHOW = "Beim \195\150ffnen zum Spieler zoomen";
 TWM_OPTIONS_ALPHA = "Transparenz";
 TWM_OPTIONS_ICONSIZE = "Icon Gr\195\182\195\159e";
-TWM_OPTIONS_RESETPOSITION = "Position zur\195\188cksetzen";
+TWM_OPTIONS_RESETPOSITION = "Auf Standard zur\195\188cksetzen";
 
 TWM_OPTIONS_TILEFILTER = "Kachelfilterung";
 TWM_OPTIONS_TILEFILTER_LINEAR = "Weich (Linear)";
@@ -60,10 +60,11 @@ TWM_TOOLTIP_OPT_SHOWCAPITALS = "Zeigt Hauptstadt-Markierungen auf der Karte.";
 TWM_TOOLTIP_OPT_SHOWDUNGEONS = "Zeigt Markierungen f\195\188r Dungeon- und Schlachtzugseing\195\164nge auf der Karte.";
 TWM_TOOLTIP_OPT_ALPHA = "Legt die Transparenz des TerrainWorldMap-Fensters fest.";
 TWM_TOOLTIP_OPT_ICONSIZE = "Skaliert die Gr\195\182\195\159e aller Markierungen auf der Karte.";
-TWM_TOOLTIP_OPT_RESETPOSITION = "Setzt das TerrainWorldMap-Fenster auf Standardposition und -gr\195\182\195\159e zur\195\188ck. N\195\188tzlich, wenn mit dem Fenster etwas schiefgelaufen ist.";
+TWM_TOOLTIP_OPT_RESETPOSITION = "Setzt Position und Gr\195\182\195\159e des TerrainWorldMap-Fensters sowie alle Kontrollk\195\164stchen und Schieberegler auf dieser Registerkarte auf ihre Standardwerte zur\195\188ck. N\195\188tzlich, wenn mit dem Fenster etwas schiefgelaufen ist.";
 TWM_TOOLTIP_OPT_SHOWFLIGHTMASTERS = "Zeigt Flugmeister-Markierungen auf der Karte, farblich nach Fraktion sortiert, mit einem eigenen Symbol f\195\188r neutrale.";
 TWM_TOOLTIP_OPT_SHOWENEMYFLIGHTMASTERS = "Zeigt auch Flugmeister der gegnerischen Fraktion. Standardm\195\164\195\159ig deaktiviert - ohne diese Option werden nur die Flugmeister der eigenen Fraktion und neutrale angezeigt, genau wie auf der echten Flugkarte im Spiel.";
-TWM_TOOLTIP_OPT_TOGGLEFLIGHTPATHS = "Zeichnet immer alle bekannten Flugrouten auf der Karte. Wenn deaktiviert, werden beim \195\156berfahren eines Flugmeisters stattdessen nur die von dort abgehenden Routen angezeigt.";
+TWM_TOOLTIP_OPT_TOGGLEFLIGHTPATHS = "Zeichnet immer alle bekannten Flugrouten auf der Karte. Wenn deaktiviert, werden beim \195\156berfahren eines Flugmeisters stattdessen nur die von dort abgehenden Routen angezeigt. Halte in beiden F\195\164llen die Umschalttaste (Shift) gedr\195\188ckt, um den echten, gekr\195\188mmten Flugverlauf statt einer geraden Linie zu sehen. Kann auf Kontinenten mit vielen Routen zu Rucklern f\195\188hren, besonders bei gedr\195\188ckter Umschalttaste.";
+TWM_TOOLTIP_OPT_FLIGHTPATHTHICKNESS = "Legt fest, wie dick die Flugroutenlinien gezeichnet werden, in Bildschirmpixeln.";
 
 TWM_POINTS_SHOWPOINTS_TITLE = "Zeige Punkte";
 -- Landmarks would tranlsate to "Landmarken", "wichtige Orte" would be translated to English: "important places"
@@ -81,6 +82,7 @@ TWM_OPTIONS_SHOW_DUNGEONS = "Zeige Dungeons";
 TWM_OPTIONS_SHOW_FLIGHTMASTERS = "Zeige Flugmeister";
 TWM_OPTIONS_SHOW_ENEMY_FLIGHTMASTERS = "Zeige gegnerische Flugmeister";
 TWM_OPTIONS_TOGGLE_FLIGHTPATHS = "Flugrouten anzeigen";
+TWM_OPTIONS_FLIGHTPATH_THICKNESS = "Flugroutendicke";
 
 
 

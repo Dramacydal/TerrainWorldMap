@@ -1,6 +1,23 @@
 
 TerrainWorldMap ChangeLog
 ================
+1.1.2 (August 16, 2026)
+----------------------------
+- Added: Flight Master markers, color-coded by faction (with a separate
+  icon for neutral ones) -- always drawn above every other marker type.
+- Added: flight path lines between flight masters -- hover over a flight
+  master to see its own routes, or turn on "Toggle Flight Paths" in
+  Settings to always show every known route on the current continent.
+  Hold Shift to see a route's real curved flight path instead of a
+  straight line.
+- Added: "Show enemy faction Flight Masters" option (off by default --
+  only your own faction's and neutral flight masters show otherwise, same
+  as the real in-game flight map).
+- Added: a "Flight Path Thickness" slider in Settings' Browser tab.
+- Changed: "Reset Position" (Browser tab) renamed to "Reset to Defaults"
+  and now also resets every checkbox and slider on that tab, not just the
+  window's position and size.
+
 1.1.1 (August 15, 2026)
 ----------------------------
 - Added: a "Tile Filtering" option (Smooth/Smooth+Mipmaps/Sharp) in Settings,

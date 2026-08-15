@@ -1,6 +1,6 @@
 ## Interface: 20506
 ## Title: TerrainWorldMap
-## Version: 1.1.1
+## Version: 1.1.2
 ## Author: Dramacydal, Boo Diddly (Yatlas)
 ## X-Website: https://github.com/Dramacydal/TerrainWorldMap
 ## Notes: Overlays real terrain tiles onto the World Map

@@ -164,6 +164,49 @@ Setting `info.tooltipTitle`/`info.tooltipText` on a dropdown button (e.g.
 `info.tooltipOnButton = true`, the tooltip only shows for a disabled entry
 (`tooltipWhileDisabled`), not on a normal hover.
 
+## A frame's `SetPoint` offsets are in ITS OWN (already-scaled) units, not its parent's
+
+`FlightPaths.lua`'s "world frame" trick (see architecture.md) repositions
+one shared frame per tick instead of every line individually:
+`wf:SetScale(z); wf:SetPoint("TOPLEFT", viewframe, "TOPLEFT", offsetX, offsetY)`.
+First attempt passed `offsetX = -x*z` (mirroring the old per-line pixel-math
+formula) — this silently flung `wf` thousands of pixels off-screen (every
+line invisible, in every mode, no Lua error). Cause: the `x, y` offsets
+passed to `SetPoint` are interpreted using the *calling frame's own*
+effective scale — since `wf:SetScale(z)` already applies that
+multiplication, passing an already-`z`-multiplied offset doubles it.
+Fix: pass the raw, unscaled `-x` (no `*z`) and let `wf`'s own scale apply
+the multiplication once. The same rule is why each line's own local anchor
+inside `wf` (`BigToWorldOffset`) is expressed in pre-scale units too — it's
+relative to `wf`, so `wf`'s scale (not the line's own, which doesn't exist
+for a plain region) does that multiplication for it.
+
+## Repositioning a frame with many children costs the engine per child, even with an unchanged Lua-side cost
+
+`FlightPaths.lua`'s per-tick `wf:SetPoint()`/`wf:SetScale()` call is O(1) on
+the Lua side regardless of how many lines are anchored to `wf` — but
+dragging the map with Shift held (switching every route to its full curved
+`TaxiPathNode` spline, which can be dozens of segments per route instead of
+one straight line) visibly lags anyway, even though the `lastSignature`/
+`lastZoom` dirty-checks correctly skip all of *this addon's own* redraw
+work during a pure pan. Cause: whenever a parent frame's transform changes,
+the client itself (not this addon's Lua) has to resolve the final on-screen
+position of every descendant anchored to it, every rendered frame — that
+cost is real and scales with child count, and no amount of caching in Lua
+can skip work the engine does beneath a moved/rescaled parent. Mitigation:
+keep the common case (straight lines) cheap by making the expensive one
+(full spline, many more `Line` children) opt-in per-glance (hold Shift)
+rather than a persistent display mode.
+
+Related: a `Hide()`-d region is skipped from this per-frame position
+resolution entirely (nothing to compute for something that won't render) —
+but a `Show()`-n region that's merely clipped out of view by
+`SetClipsChildren` still costs the same per-frame resolution as a fully
+visible one; clipping only skips the final rasterization step, not the
+position math. `FlightPaths.lua`'s `ReleaseLinesFrom` relies on this:
+everything beyond `activeLineCount` is genuinely `Hide()`-d, not just
+positioned off-screen, specifically so unused pool slots stay cheap.
+
 ## The custom tooltip's row buttons must not call `EnableMouse(true)`
 
 `TWMTooltipTemplate:GetNext()` (`TerrainWorldMap.lua`) used to create each

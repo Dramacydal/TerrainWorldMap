@@ -437,6 +437,14 @@ function TWMP_Clear(point)
     point.Icon:SetTexture(nil);
     point.Icon:SetTexCoord(0, 1, 0, 1);
     point.Foreground:SetText("");
+
+    -- Resets back to the same baseline TWMPoints_GetPoint/TWMPoints_AllocMobilePoint
+    -- set at creation -- pooled icon frames are reused across different
+    -- point types redraw to redraw, so a set that bumps this higher (e.g.
+    -- sets/flightmasters.lua, to always draw above every other marker type)
+    -- must not leave that raised level stuck on the frame the next time
+    -- it's recycled for some other, non-elevated point type.
+    point:SetFrameLevel(point:GetParent():GetFrameLevel() + 4);
 end
 
 function TWMP_SetOffset(point, x, y) 

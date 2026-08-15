@@ -21,6 +21,12 @@ Twm_TaxiNodeInfo = {};
 Twm_TaxiNeighbors = {};
 Twm_TaxiRoutesByContinent = {};
 
+-- pathID for an exact directed (fromID, toID) pair -- lets FlightPaths.lua
+-- draw a route as its real TaxiPathNode polyline
+-- (Twm_taxipathnodes[pathID]) while Shift is held, instead of the default
+-- straight line.
+Twm_TaxiPathIDByPair = {};
+
 local function TWM_BuildTaxiRouteTables()
     wipe(Twm_TaxiNodeInfo);
     for continent, list in pairs(Twm_flightmasters) do
@@ -31,10 +37,12 @@ local function TWM_BuildTaxiRouteTables()
 
     wipe(Twm_TaxiNeighbors);
     wipe(Twm_TaxiRoutesByContinent);
+    wipe(Twm_TaxiPathIDByPair);
     local seenRoutePairs = {};
 
     for _, p in ipairs(Twm_taxipaths) do
         local fromID, toID = p[2], p[3];
+        Twm_TaxiPathIDByPair[fromID .. "->" .. toID] = p[1];
         local fromInfo, toInfo = Twm_TaxiNodeInfo[fromID], Twm_TaxiNodeInfo[toID];
         if(fromInfo and toInfo) then
             Twm_TaxiNeighbors[fromID] = Twm_TaxiNeighbors[fromID] or {};

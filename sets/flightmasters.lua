@@ -28,6 +28,15 @@ function set.setuppoint(point, env, dat)
     point:SetOffset(dat.x, dat.y);
     text:SetText("");
 
+    -- Always draw above every other marker type -- pooled icon frames
+    -- otherwise all share the same baseline level (TWMPoints_GetPoint/
+    -- TWMPoints_AllocMobilePoint), so which type ends up "on top" is
+    -- otherwise just whatever order Lua happened to iterate the sets in.
+    -- TWMP_Clear (Points.lua) resets this back to that baseline before a
+    -- recycled frame is handed to any other set, so this doesn't stick once
+    -- the frame stops being a flight master.
+    point:SetFrameLevel(point:GetParent():GetFrameLevel() + 8);
+
     bg:Show();
     bg:SetHeight(iconsize);
     bg:SetWidth(iconsize);
