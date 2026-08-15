@@ -34,3 +34,8 @@ Single addon for any version - Vanilla (classic_era), TBC (anniversary), MoP Cla
 
 See `scripts/README.md` for the developer tools that regenerate map data
 from this client's own DBC/WDT files.
+
+## Credits
+
+TerrainWorldMap was greatly inspired by, and started life as, **Yatlas** —
+Yatlas was the original starting point for this addon's development.

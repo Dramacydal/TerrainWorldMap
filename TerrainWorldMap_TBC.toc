@@ -2,6 +2,7 @@
 ## Title: TerrainWorldMap
 ## Version: 1.1.0
 ## Author: Boo Diddly, Dramacydal
+## X-Website: https://github.com/Dramacydal/TerrainWorldMap
 ## Notes: Overlays real terrain tiles onto the World Map
 ## IconTexture: Interface\AddOns\TerrainWorldMap\images\Button
 ## DefaultState: Enabled

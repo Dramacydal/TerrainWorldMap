@@ -26,3 +26,8 @@ Currently supports **Classic Era (Vanilla)**, **Classic Anniversary (TBC)**, and
 - **Classic Era** (Vanilla)
 - **Anniversary** (TBC)
 - **Mists of Pandaria Classic**
+
+## Credits
+
+TerrainWorldMap was greatly inspired by, and started life as, **Yatlas** —
+Yatlas was the original starting point for this addon's development.
