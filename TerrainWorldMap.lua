@@ -1398,7 +1398,7 @@ function TWMTooltipTemplate:GetNext()
     f.Foreground:SetPoint("TOPLEFT", f);
 
     f:SetFrameLevel(f:GetFrameLevel() + 4);
-    f.Clear = YP_Clear;
+    f.Clear = TWMP_Clear;
     f.SetOffset = nilfunc;
 
     f.Text = f:CreateFontString(nil, "ARTWORK");

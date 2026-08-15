@@ -256,7 +256,7 @@
 		</Anchors>
 	</Frame>
 
-	<Button name="YFOO" parent="TWMFrameViewFrame"> <!-- call me YFOO -->
+	<Button name="TWMFOO" parent="TWMFrameViewFrame"> <!-- call me TWMFOO -->
 		<Size>
 			<AbsDimension x="24" y="24"/>
 		</Size>
@@ -278,7 +278,7 @@
 				</Anchors>
 				<Scripts>
 					<OnLoad>
-						YFOO_Init(self);
+						TWMFOO_Init(self);
 					</OnLoad>
 				</Scripts>
 			</Frame>
@@ -288,7 +288,7 @@
 				self:SetFrameLevel(self:GetFrameLevel() + 4);
 			</OnLoad>
 			<OnClick>
-				YFOO_OnClick(self);
+				TWMFOO_OnClick(self);
 			</OnClick>
 		</Scripts>
 		<NormalTexture file="Interface\Buttons\UI-SpellbookIcon-NextPage-Up"/>

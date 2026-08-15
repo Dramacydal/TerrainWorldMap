@@ -40,7 +40,7 @@ function set.configmenu(name, lm)
     if(UIDROPDOWNMENU_MENU_LEVEL == 1) then
         local info = {};
         info.text = TWM_POINTS_GRAVEYARDS;
-        info.func = YFOODropDown_do_toggle_normal;
+        info.func = TWMFOODropDown_do_toggle_normal;
         info.checked = TWMOption.Frames[lm].PointCfg and not TWMOption.Frames[lm].PointCfg[name];
         info.value = name;
         info.keepShownOnClick = 1;

@@ -270,10 +270,10 @@ function TWMPoints_GetPoint(frame, id)
     f.Foreground:SetPoint("TOPLEFT", f);
 
     f:SetFrameLevel(f:GetFrameLevel() + 4);
-    f.Clear = YP_Clear;
-    f.SetOffset = YP_SetOffset;
+    f.Clear = TWMP_Clear;
+    f.SetOffset = TWMP_SetOffset;
 
-    f:SetScript("OnEnter", YP_OnEnter);
+    f:SetScript("OnEnter", TWMP_OnEnter);
 
     frame.pointframes[id] = f;
     return f;
@@ -309,11 +309,11 @@ function TWMPoints_AllocMobilePoint(frame, id)
     f.Foreground:SetPoint("TOPLEFT", f);
 
     f:SetFrameLevel(f:GetFrameLevel() + 4);
-    f.Clear = YP_Clear;
-    f.SetOffset = YP_SetOffset;
-    f.Update = YMP_Update;
+    f.Clear = TWMP_Clear;
+    f.SetOffset = TWMP_SetOffset;
+    f.Update = TWMMP_Update;
 
-    f:SetScript("OnEnter", YP_OnEnter);
+    f:SetScript("OnEnter", TWMP_OnEnter);
 
     frame.mobilepointframes[id] = f;
     return f;
@@ -387,7 +387,7 @@ end
 --- point OO implementation
 ---
 
-function YP_Clear(point)
+function TWMP_Clear(point)
     point:Hide();
     point:ClearAllPoints();
     point:SetPoint("TOPLEFT", point:GetParent());
@@ -396,7 +396,7 @@ function YP_Clear(point)
     point.Foreground:SetText("");
 end
 
-function YP_SetOffset(point, x, y) 
+function TWMP_SetOffset(point, x, y) 
     local z = current_frame:GetZoom();
     local lm = current_frame:GetName();
     local iconsz = TWM_GetIconSize(lm);
@@ -407,7 +407,7 @@ function YP_SetOffset(point, x, y)
            (current_locy_xact - y)*z + iconsz/2);
 end
 
-function YP_OnEnter(self)
+function TWMP_OnEnter(self)
     local vf = self:GetParent(); 
     local f = vf:GetParent();
     local tp = _G[f.hoverTooltip];
@@ -567,7 +567,7 @@ function TWMPoints_HideMobile(setname, name)
     end
 end
 
-function YMP_Update(point, frame)
+function TWMMP_Update(point, frame)
     local zoom = frame:GetZoom();
     local vf = _G[frame:GetName().."ViewFrame"]
     local map = frame:GetMap();
@@ -593,21 +593,21 @@ end
 
 
 ---
---- YFOO: pulldown to control what points are shown.  name has some 
+--- TWMFOO: pulldown to control what points are shown.  name has some 
 ---       historical significance
 ---
 
-function YFOO_Init(self, frame)
+function TWMFOO_Init(self, frame)
     if(not frame) then
         frame = self;
     end
 
-    UIDropDownMenu_Initialize(frame, YFOODropDown_Initialize, "MENU");
+    UIDropDownMenu_Initialize(frame, TWMFOODropDown_Initialize, "MENU");
     UIDropDownMenu_SetButtonWidth(frame,50);
     UIDropDownMenu_SetWidth(frame,50);
 end
 
-function YFOODropDown_Initialize()
+function TWMFOODropDown_Initialize()
     local func;
 
     if(current_frame == nil) then
@@ -635,7 +635,7 @@ function YFOODropDown_Initialize()
     end
 end
 
-function YFOO_OnClick(self)
+function TWMFOO_OnClick(self)
     current_frame = self;
     while(current_frame and not current_frame.SetLocation) do
         current_frame = current_frame:GetParent()
@@ -644,7 +644,7 @@ function YFOO_OnClick(self)
     ToggleDropDownMenu(1, nil, _G[self:GetName().."DropDown"], self:GetName(), 0, 0);
 end
 
-function YFOODropDown_do_toggle_normal(self)
+function TWMFOODropDown_do_toggle_normal(self)
     -- PointCfg[name] means "hidden"; the checkbox means "shown", so invert.
     TWMOption.Frames[current_frame:GetName()].PointCfg[self.value] = not UIDropDownMenuButton_GetChecked(self)
     TWMPoints_ForceUpdate(current_frame)
