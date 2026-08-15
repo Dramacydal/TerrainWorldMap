@@ -111,6 +111,35 @@ filter. Unconfirmed whether this actually resolves it; if not, the
 asynchronous-BLP-load theory itself may be wrong and the real cause is still
 unidentified.
 
+## Point icons sit above the ViewFrame, so a drag starting on one never reaches it
+
+`TWMPoints_GetPoint`/`TWMPoints_AllocMobilePoint` (`Points.lua`) create each
+marker as a mouse-enabled `Button` (needed for `TWMP_OnEnter`'s hover
+tooltip) parented to the ViewFrame at a higher frame level. WoW only
+delivers a mouse event to the topmost mouse-enabled frame under the cursor,
+so starting a click-drag with the cursor over a marker never reached the
+ViewFrame's own `OnDragStart` (`TWMFrameViewTemplate` in `Templates.xml`,
+which sets `self.dragme = true` to start map panning) — the map silently
+failed to pan whenever a drag happened to start on an icon.
+
+First fix attempt: give the icon its own `RegisterForDrag` +
+`OnDragStart`/`OnDragStop`, mirroring the ViewFrame's own template script.
+This looked right but broke differently — one pixel of pan, then nothing
+for the rest of the hold. Root cause: point icons are pooled and get
+recycled (`TWMP_Clear`, which calls `:Hide()`) for a different point
+mid-pan as the view moves, and WoW silently cancels an in-progress drag
+gesture the instant the frame that started it gets hidden — so the very
+pan the drag caused could recycle the icon out from under its own still-held
+gesture.
+
+Working fix: don't tie the drag's lifetime to the icon at all.
+`TWMP_EnableDragThrough` only sets `viewframe.dragme = true` on the icon's
+plain `OnMouseDown` (no `RegisterForDrag`/`OnDragStart`) — and
+`TWMFrameViewFrame_OnDrag` (`TerrainWorldMap.lua`) polls
+`IsMouseButtonDown` itself every tick to detect release and clear
+`dragme`, instead of relying on an `OnDragStop` tied to a specific frame
+that might not survive the whole gesture.
+
 ## `UIDropDownMenu` entries need `tooltipOnButton = true` to show a tooltip on hover
 
 Setting `info.tooltipTitle`/`info.tooltipText` on a dropdown button (e.g.

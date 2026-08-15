@@ -1309,6 +1309,20 @@ end
 
 twm_lastdragx, twm_lastdragy = nil, nil;
 function TWMFrameViewFrame_OnDrag(self)
+    -- A drag started from a point icon (see TWMP_EnableDragThrough,
+    -- Points.lua) has no OnDragStop of its own to clear self.dragme -- that
+    -- icon frame may get recycled for a different point mid-pan, and its
+    -- events can't be relied on to still fire. Polling the real mouse
+    -- button state here instead makes stopping the drag independent of
+    -- which frame (if any) originally started it.
+    if(not (IsMouseButtonDown("LeftButton") or IsMouseButtonDown("RightButton"))) then
+        if(self.dragme) then
+            self.dragme = false;
+            self:GetParent():UpdateDropDown2();
+        end
+        return;
+    end
+
     local x,y = GetCursorPosition();
     local fx, fy;
     local zoom = self:GetParent().opt.Zoom;

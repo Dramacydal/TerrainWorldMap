@@ -259,10 +259,11 @@ function TWMPoints_GetPoint(frame, id)
     f:SetWidth(16);
     f:SetParent(viewframe);
     f:EnableMouse(true);
+    TWMP_EnableDragThrough(f, viewframe);
 
     f.Icon = f:CreateTexture(nil, "OVERLAY");
     f.Icon:SetPoint("TOPLEFT", f);
-    
+
     f.Foreground = f:CreateFontString(nil, "ARTWORK");
     f.Foreground:SetFontObject(GameFontHighlight);
     f.Foreground:SetTextColor(0, 0, 0);
@@ -298,10 +299,11 @@ function TWMPoints_AllocMobilePoint(frame, id)
     f:SetWidth(16);
     f:SetParent(viewframe);
     f:EnableMouse(true);
+    TWMP_EnableDragThrough(f, viewframe);
 
     f.Icon = f:CreateTexture(nil, "OVERLAY");
     f.Icon:SetPoint("TOPLEFT", f);
-    
+
     f.Foreground = f:CreateFontString(nil, "ARTWORK");
     f.Foreground:SetFontObject(GameFontHighlight);
     f.Foreground:SetTextColor(0, 0, 0);
@@ -386,6 +388,34 @@ end
 ---
 --- point OO implementation
 ---
+
+-- Point icons are mouse-enabled Buttons (needed for TWMP_OnEnter's hover
+-- tooltip) sitting on top of the ViewFrame at a higher frame level -- so a
+-- drag that starts with the cursor over an icon never reaches the
+-- ViewFrame's own OnDragStart (TWMFrameViewTemplate in Templates.xml),
+-- meaning the map silently failed to pan whenever a click-drag happened to
+-- start on a marker.
+--
+-- Deliberately does NOT use RegisterForDrag/OnDragStart/OnDragStop on the
+-- icon itself: point icons are pooled and get recycled (TWMP_Clear, which
+-- calls :Hide()) for a different point mid-pan as the view moves -- and WoW
+-- silently cancels an in-progress drag gesture the moment the frame that
+-- started it gets hidden. That produced exactly the observed bug: one
+-- pixel of movement (the first OnUpdate tick), then nothing for the rest of
+-- the hold, because the icon got recycled out from under the still-held
+-- gesture. Starting on plain OnMouseDown instead, with the stop condition
+-- polled from the ViewFrame's own OnUpdate (see TWMFrameViewFrame_OnDrag)
+-- rather than an OnDragStop tied to this specific icon, makes the drag's
+-- lifetime independent of whether this icon frame still exists.
+function TWMP_EnableDragThrough(point, viewframe)
+    point:SetScript("OnMouseDown", function(self, button)
+        if(button == "LeftButton" or button == "RightButton") then
+            viewframe.dragme = true;
+            twm_lastdragx = nil;
+            twm_lastdragy = nil;
+        end
+    end);
+end
 
 function TWMP_Clear(point)
     point:Hide();
