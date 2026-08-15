@@ -18,8 +18,11 @@ Data_Mists\mapdata_poi.lua
 Data_Mists\mapdata_poi_areas.lua
 Data_Mists\mapdata_poi_graveyards.lua
 Data_Mists\mapdata_poi_instances.lua
+Data_Mists\mapdata_poi_flightmasters.lua
 Data_Mists\mapdata_tiles.lua
 Points.lua
+TaxiRoutes.lua
+FlightPaths.lua
 TerrainWorldMap.lua
 WorldMapOverlay.lua
 WorldMapButton.xml

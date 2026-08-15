@@ -61,6 +61,9 @@ TWM_TOOLTIP_OPT_SHOWDUNGEONS = "Zeigt Markierungen f\195\188r Dungeon- und Schla
 TWM_TOOLTIP_OPT_ALPHA = "Legt die Transparenz des TerrainWorldMap-Fensters fest.";
 TWM_TOOLTIP_OPT_ICONSIZE = "Skaliert die Gr\195\182\195\159e aller Markierungen auf der Karte.";
 TWM_TOOLTIP_OPT_RESETPOSITION = "Setzt das TerrainWorldMap-Fenster auf Standardposition und -gr\195\182\195\159e zur\195\188ck. N\195\188tzlich, wenn mit dem Fenster etwas schiefgelaufen ist.";
+TWM_TOOLTIP_OPT_SHOWFLIGHTMASTERS = "Zeigt Flugmeister-Markierungen auf der Karte, farblich nach Fraktion sortiert, mit einem eigenen Symbol f\195\188r neutrale.";
+TWM_TOOLTIP_OPT_SHOWENEMYFLIGHTMASTERS = "Zeigt auch Flugmeister der gegnerischen Fraktion. Standardm\195\164\195\159ig deaktiviert - ohne diese Option werden nur die Flugmeister der eigenen Fraktion und neutrale angezeigt, genau wie auf der echten Flugkarte im Spiel.";
+TWM_TOOLTIP_OPT_TOGGLEFLIGHTPATHS = "Zeichnet immer alle bekannten Flugrouten auf der Karte. Wenn deaktiviert, werden beim \195\156berfahren eines Flugmeisters stattdessen nur die von dort abgehenden Routen angezeigt.";
 
 TWM_POINTS_SHOWPOINTS_TITLE = "Zeige Punkte";
 -- Landmarks would tranlsate to "Landmarken", "wichtige Orte" would be translated to English: "important places"
@@ -69,11 +72,15 @@ TWM_POINTS_LANDMARKS = "wichtige Orte";
 TWM_POINTS_GRAVEYARDS = "Friedh\195\182fe";
 TWM_POINTS_CAPITALS = "Hauptst\195\164dte";
 TWM_POINTS_DUNGEONS = "Dungeons";
+TWM_POINTS_FLIGHTMASTERS = "Flugmeister";
 
 TWM_OPTIONS_SHOW_LANDMARKS = "Zeige wichtige Orte";
 TWM_OPTIONS_SHOW_GRAVEYARDS = "Zeige Friedh\195\182fe";
 TWM_OPTIONS_SHOW_CAPITALS = "Zeige Hauptst\195\164dte";
 TWM_OPTIONS_SHOW_DUNGEONS = "Zeige Dungeons";
+TWM_OPTIONS_SHOW_FLIGHTMASTERS = "Zeige Flugmeister";
+TWM_OPTIONS_SHOW_ENEMY_FLIGHTMASTERS = "Zeige gegnerische Flugmeister";
+TWM_OPTIONS_TOGGLE_FLIGHTPATHS = "Flugrouten anzeigen";
 
 
 

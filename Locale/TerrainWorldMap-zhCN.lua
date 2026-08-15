@@ -56,17 +56,24 @@ TWM_TOOLTIP_OPT_SHOWDUNGEONS = "在地图上显示地下城与团队副本入口
 TWM_TOOLTIP_OPT_ALPHA = "设置地形世界地图窗口的透明度。";
 TWM_TOOLTIP_OPT_ICONSIZE = "缩放地图上所有标记点的大小。";
 TWM_TOOLTIP_OPT_RESETPOSITION = "将地形世界地图窗口恢复到默认的位置和大小。当窗口出现问题时很有用。";
+TWM_TOOLTIP_OPT_SHOWFLIGHTMASTERS = "在地图上显示飞行管理员标记，按阵营区分颜色，中立飞行管理员使用单独的图标。";
+TWM_TOOLTIP_OPT_SHOWENEMYFLIGHTMASTERS = "同时显示敌对阵营的飞行管理员。默认关闭——关闭时只显示本阵营和中立的飞行管理员，与游戏内真实的飞行地图一致。";
+TWM_TOOLTIP_OPT_TOGGLEFLIGHTPATHS = "始终在地图上绘制所有已知的飞行航线。关闭时，鼠标悬停在某个飞行管理员上才会显示从该处出发的航线。";
 
 TWM_POINTS_SHOWPOINTS_TITLE = "显示标记";
 TWM_POINTS_LANDMARKS = "地名";
 TWM_POINTS_GRAVEYARDS = "墓地";
 TWM_POINTS_CAPITALS = "首都";
 TWM_POINTS_DUNGEONS = "地下城";
+TWM_POINTS_FLIGHTMASTERS = "飞行管理员";
 
 TWM_OPTIONS_SHOW_LANDMARKS = "显示地名";
 TWM_OPTIONS_SHOW_GRAVEYARDS = "显示墓地";
 TWM_OPTIONS_SHOW_CAPITALS = "显示首都";
 TWM_OPTIONS_SHOW_DUNGEONS = "显示地下城";
+TWM_OPTIONS_SHOW_FLIGHTMASTERS = "显示飞行管理员";
+TWM_OPTIONS_SHOW_ENEMY_FLIGHTMASTERS = "显示敌对阵营飞行管理员";
+TWM_OPTIONS_TOGGLE_FLIGHTPATHS = "显示飞行航线";
 
 
 TWM_ZOOMIN =     "+";

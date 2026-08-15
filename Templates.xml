@@ -58,6 +58,15 @@
 			<OnLoad>
 				self.lastoux = 0;
 				self.lastouy = 0;
+				-- Clips every child (tiles, flight-path lines, ...) to
+				-- this frame's own rect at the GPU level -- tiles
+				-- already clip themselves manually (see
+				-- WorldMapOverlay.lua's DrawTiles), but FlightPaths.lua
+				-- relies on this so a line to an off-screen flight
+				-- master doesn't render past this view's own edges.
+				if(self.SetClipsChildren) then
+					self:SetClipsChildren(true);
+				end
 			</OnLoad>
 			<OnEnter>
 				self.inme = true;

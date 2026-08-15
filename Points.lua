@@ -238,6 +238,19 @@ function TWMPoints_Update(frame, x, y)
             hpoint = hpoint + 1;
         end
     end
+
+    -- Optional hook (FlightPaths.lua) -- not every build/config has it, so
+    -- only call if it's actually loaded.
+    if(TWM_FlightPaths_OnPointsUpdate) then
+        TWM_FlightPaths_OnPointsUpdate(frame, x, y);
+    end
+end
+
+-- Exposes TWMPoints_Update's last-known (frame, viewport-topleft-x,
+-- viewport-topleft-y) so FlightPaths.lua can redraw just the flight-path
+-- lines (e.g. on hover start/stop) without forcing a full point recompute.
+function TWMPoints_GetCurrentView()
+    return current_frame, current_locx_xact, current_locy_xact;
 end
 
 function TWMPoints_GetPoint(frame, id)
@@ -458,9 +471,24 @@ function TWMFrameViewFrame_UpdatePointTooltip(self)
         if(v.intooltip and not MouseIsOver(v)) then
             TWMPoints_UpdateTooltip(f, tp, v, "remove");
             tp.knownshownlines = tp.knownshownlines - 1;
+
+            -- Hovering off a flight master's icon stops the hover-preview
+            -- flight-path lines (see FlightPaths.lua) it was showing.
+            if(v.dat and v.dat.setname == "flightmasters" and TWM_HoveredTaxiNodeID == v.dat.userdat[1]) then
+                TWM_HoveredTaxiNodeID = nil;
+                if(TWM_FlightPaths_Refresh) then TWM_FlightPaths_Refresh(); end
+            end
         elseif(not v.intooltip and MouseIsOver(v)) then
             TWMPoints_UpdateTooltip(f, tp, v, "add");
             tp.knownshownlines = tp.knownshownlines + 1;
+
+            -- Hovering a flight master's icon starts the hover-preview
+            -- flight-path lines to its known neighbors (see FlightPaths.lua;
+            -- no-op when "Toggle Flight Paths" already shows everything).
+            if(v.dat and v.dat.setname == "flightmasters") then
+                TWM_HoveredTaxiNodeID = v.dat.userdat[1];
+                if(TWM_FlightPaths_Refresh) then TWM_FlightPaths_Refresh(); end
+            end
         end
     end
 

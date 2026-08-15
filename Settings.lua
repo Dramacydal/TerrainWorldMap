@@ -207,8 +207,32 @@ showDungeonsButton:SetScript("OnClick", function(self)
 end);
 SetTooltip(showDungeonsButton, TWM_OPTIONS_SHOW_DUNGEONS, TWM_TOOLTIP_OPT_SHOWDUNGEONS);
 
+local showFlightmastersButton = CreateCheckbox(BrowserPanel, "TWMOptionShowFlightmasters", TWM_OPTIONS_SHOW_FLIGHTMASTERS);
+showFlightmastersButton:SetPoint("TOPLEFT", showDungeonsButton, "BOTTOMLEFT", 0, -12);
+showFlightmastersButton:SetScript("OnClick", function(self)
+    TWMOption.Frames["TWMFrame"].PointCfg["flightmasters"] = not self:GetChecked();
+    TWMPoints_ForceUpdate(TWMFrame);
+end);
+SetTooltip(showFlightmastersButton, TWM_OPTIONS_SHOW_FLIGHTMASTERS, TWM_TOOLTIP_OPT_SHOWFLIGHTMASTERS);
+
+local showEnemyFlightmastersButton = CreateCheckbox(BrowserPanel, "TWMOptionShowEnemyFlightmasters", TWM_OPTIONS_SHOW_ENEMY_FLIGHTMASTERS);
+showEnemyFlightmastersButton:SetPoint("TOPLEFT", showFlightmastersButton, "BOTTOMLEFT", 16, -12);
+showEnemyFlightmastersButton:SetScript("OnClick", function(self)
+    TWMOption.ShowEnemyFlightmasters = self:GetChecked() and true or false;
+    TWMPoints_ForceUpdate(TWMFrame);
+end);
+SetTooltip(showEnemyFlightmastersButton, TWM_OPTIONS_SHOW_ENEMY_FLIGHTMASTERS, TWM_TOOLTIP_OPT_SHOWENEMYFLIGHTMASTERS);
+
+local showFlightPathsButton = CreateCheckbox(BrowserPanel, "TWMOptionShowFlightPaths", TWM_OPTIONS_TOGGLE_FLIGHTPATHS);
+showFlightPathsButton:SetPoint("TOPLEFT", showEnemyFlightmastersButton, "BOTTOMLEFT", -16, -12);
+showFlightPathsButton:SetScript("OnClick", function(self)
+    TWMOption.ShowFlightPaths = self:GetChecked() and true or false;
+    if(TWM_FlightPaths_Refresh) then TWM_FlightPaths_Refresh(); end
+end);
+SetTooltip(showFlightPathsButton, TWM_OPTIONS_TOGGLE_FLIGHTPATHS, TWM_TOOLTIP_OPT_TOGGLEFLIGHTPATHS);
+
 local alphaSlider = CreateSlider(BrowserPanel, "TWMOptionAlphaSlider", TWM_OPTIONS_ALPHA, .1, 1, .05);
-alphaSlider:SetPoint("TOPLEFT", showDungeonsButton, "BOTTOMLEFT", 4, -32);
+alphaSlider:SetPoint("TOPLEFT", showFlightPathsButton, "BOTTOMLEFT", 4, -32);
 alphaSlider:SetScript("OnValueChanged", function(self)
     TWMFrame:SetAlpha(self:GetValue());
     TWMOption.Frames["TWMFrame"].Alpha = self:GetValue();
@@ -247,7 +271,10 @@ function BrowserPanel.OnRefresh()
         showGraveyardsButton:SetChecked(not (opt.PointCfg and opt.PointCfg["graveyards"]));
         showCapitalsButton:SetChecked(not (opt.PointCfg and opt.PointCfg["capitals"]));
         showDungeonsButton:SetChecked(not (opt.PointCfg and opt.PointCfg["dungeons"]));
+        showFlightmastersButton:SetChecked(not (opt.PointCfg and opt.PointCfg["flightmasters"]));
     end
+    showEnemyFlightmastersButton:SetChecked(TWMOption.ShowEnemyFlightmasters);
+    showFlightPathsButton:SetChecked(TWMOption.ShowFlightPaths);
 end
 
 --

@@ -52,17 +52,24 @@ TWM_TOOLTIP_OPT_SHOWDUNGEONS = "Отображение меток входов �
 TWM_TOOLTIP_OPT_ALPHA = "Задаёт прозрачность окна TerrainWorldMap.";
 TWM_TOOLTIP_OPT_ICONSIZE = "Изменяет размер всех меток точек интереса на карте.";
 TWM_TOOLTIP_OPT_RESETPOSITION = "Возвращает окно TerrainWorldMap в положение и размер по умолчанию. Полезно, если с окном что-то пошло не так.";
+TWM_TOOLTIP_OPT_SHOWFLIGHTMASTERS = "Отображение меток лётных мастеров на карте, с раскраской по фракции и отдельной иконкой для нейтральных.";
+TWM_TOOLTIP_OPT_SHOWENEMYFLIGHTMASTERS = "Также показывать лётных мастеров вражеской фракции. По умолчанию выключено - без этой опции показываются только мастера вашей фракции и нейтральные, как на обычной карте полётов в игре.";
+TWM_TOOLTIP_OPT_TOGGLEFLIGHTPATHS = "Всегда отображать все известные маршруты полётов на карте. Если выключено, при наведении на лётного мастера показываются только маршруты, отправляющиеся из этой точки.";
 
 TWM_POINTS_SHOWPOINTS_TITLE = "Показывать метки";
 TWM_POINTS_LANDMARKS = "Достопримечательности";
 TWM_POINTS_GRAVEYARDS = "Кладбища";
 TWM_POINTS_CAPITALS = "Столицы";
 TWM_POINTS_DUNGEONS = "Подземелья";
+TWM_POINTS_FLIGHTMASTERS = "Лётные мастера";
 
 TWM_OPTIONS_SHOW_LANDMARKS = "Показывать достопримечательности";
 TWM_OPTIONS_SHOW_GRAVEYARDS = "Показывать кладбища";
 TWM_OPTIONS_SHOW_CAPITALS = "Показывать столицы";
 TWM_OPTIONS_SHOW_DUNGEONS = "Показывать подземелья";
+TWM_OPTIONS_SHOW_FLIGHTMASTERS = "Показывать лётных мастеров";
+TWM_OPTIONS_SHOW_ENEMY_FLIGHTMASTERS = "Показывать лётных мастеров вражеской фракции";
+TWM_OPTIONS_TOGGLE_FLIGHTPATHS = "Показывать маршруты полётов";
 
 
 BINDING_NAME_TWM_TOGGLE = "Открыть/закрыть окно TerrainWorldMap";

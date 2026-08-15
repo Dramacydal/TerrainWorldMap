@@ -7,7 +7,8 @@ addon (`.js`/`.ps1` files are ignored by the WoW addon loader).
 Pipeline: `init_workdir.ps1` (fetch client data) → `gen_mapareas.js` (zone
 boxes) → `parse_wdt.js` (tile validity + AreaIDs) → `gen_poi_areas.js`
 (sub-area/POI labels) → `gen_poi_graveyards.js` (graveyards) →
-`gen_poi_instances.js` (dungeon/raid entrances).
+`gen_poi_instances.js` (dungeon/raid entrances) → `gen_poi_flightmasters.js`
+(flight masters + routes).
 
 ## Setup
 
@@ -49,9 +50,9 @@ editions, so re-check `.build.info` if a code below stops matching):
 - **`-Force`** (optional) — re-download CASCConsole/listfile/DB2 CSVs even if already present
 
 Downloads the CASCConsole tool + community listfile once per `WorkDir`, then
-per product: 5 DB2 CSVs (`AreaTable`/`Map`/`UiMap`/`UiMapAssignment`/
-`AreaTrigger`) and the WDT/root-ADT/noLiquid-minimap files for every
-open-world continent.
+per product: 7 DB2 CSVs (`AreaTable`/`Map`/`UiMap`/`UiMapAssignment`/
+`AreaTrigger`/`TaxiNodes`/`TaxiPath`) and the WDT/root-ADT/noLiquid-minimap
+files for every open-world continent.
 
 **Examples:**
 ```powershell
@@ -286,6 +287,54 @@ really one entrance (cosmetic only, not wrong data).
 **Example:**
 ```bash
 node gen_poi_instances.js --flavor-dir C:\wow-data\wow_classic_era --teleport-csv C:\wow-data\wow_classic_era\areatrigger_teleport.csv --mapareas-file Data_Vanilla/mapdata_continents.lua --out Data_Vanilla/mapdata_poi_instances.lua
+```
+
+## Step 7 — `gen_poi_flightmasters.js`: flight master markers + routes (`Twm_flightmasters`, `Twm_taxipaths`)
+
+```bash
+node gen_poi_flightmasters.js --flavor-dir <dir with TaxiNodes.*.csv, TaxiPath.*.csv and Map.*.csv> --mapareas-file <target flavor mapdata_continents.lua> --out <out-file.lua>
+```
+
+- **`--flavor-dir`** (required) — `<WorkDir>/<Product>` from step 1
+- **`--mapareas-file`** (required) — the flavor's own `Data_<Flavor>/mapdata_continents.lua` (step 2's output)
+- **`--out`** (required) — output path, e.g. `Data_<Flavor>/mapdata_poi_flightmasters.lua`
+
+Faction (`Twm_flightmasters`' second field) is derived from `TaxiNodes.Flags`,
+a bitmask: bit `0x1` = Alliance, bit `0x2` = Horde (confirmed against
+known-faction hubs, e.g. Stormwind/Ironforge = 1, Undercity/Tarren Mill = 2).
+Neither bit set or both set both mean "usable by both factions" (confirmed
+against Booty Bay/Gadgetzan — genuinely neutral — and the Eastern
+Plaguelands faction-war towers — explicitly both-usable) — mapped to
+`"Neutral"` either way, there's no behavioral difference between them here.
+
+`TaxiNodes.db2` also carries rows that aren't real, player-choosable flight
+points — boat/zeppelin dock waypoints (`"Transport, ..."`), one-off scripted
+quest flights (`"Quest Path ...: ..."`), a dev-only island
+(`"Programmer Isle"`), and generic scripted targets (`"Generic, ..."`) —
+filtered out by a name-prefix heuristic (`JUNK_NAME_RE` in the script).
+Confirmed against every row in Vanilla's ~87-row table with no known false
+positives, but it's a heuristic, not something DB2 structure backs up —
+sanity-check the "N junk rows skipped" count if this ever runs against a
+very different client build.
+
+`Twm_flightmasters[continent]` entries are `{TaxiNodeID, "Faction", Name, x, y}`
+— the TaxiNode ID is kept (AreaID-first convention, same as `Twm_poi_areas`)
+so `TaxiRoutes.lua` can join it against `Twm_taxipaths` at load time.
+`Twm_taxipaths` is the **raw** `TaxiPath.db2` table — `{ID, FromTaxiNode, ToTaxiNode}`
+— filtered only to rows where both endpoints survived the junk/continent
+filter above. Deliberately **not** deduped (`TaxiPath.db2` rows are
+directional — both an A→B and a B→A row can exist for the same real route)
+and **not** grouped/restricted by continent — `TaxiRoutes.lua` builds both a
+per-node neighbor list (hover-preview lines) and a deduped, same-continent-only
+route list (the "always show" toggle) from this raw data at load time,
+since the dedup depends on which pairs resolve to the same continent, which
+is runtime-only information. Also deliberately does **not** use
+`TaxiPathNode.db2`'s curved spline points — `TaxiNodes` already gives each
+endpoint's real position, which is all a straight-line route overlay needs.
+
+**Example:**
+```bash
+node gen_poi_flightmasters.js --flavor-dir C:\wow-data\wow_classic_era --mapareas-file Data_Vanilla/mapdata_continents.lua --out Data_Vanilla/mapdata_poi_flightmasters.lua
 ```
 
 ## Capitals — no generator, computed live in Lua

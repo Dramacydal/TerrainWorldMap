@@ -12,7 +12,7 @@ separate, standalone Node.js/PowerShell pipeline you run by hand (or in CI)
 to regenerate the `Data_<Flavor>/mapdata_*.lua` files, which are the actual
 runtime data the addon loads. See `scripts/README.md` for the full pipeline
 (fetch client data → zone boxes → tile validity → POI areas → graveyards →
-dungeon/raid entrances).
+dungeon/raid entrances → flight masters + routes).
 
 ## Coordinate systems
 
@@ -33,7 +33,7 @@ dungeon/raid entrances).
 ## The point-set system (`Points.lua` + `sets/*.lua`)
 
 Every category of map marker (landmarks/sub-areas, graveyards, capitals,
-dungeons/raids, live players) is a **"set"**: a small Lua table registered
+dungeons/raids, flight masters, live players) is a **"set"**: a small Lua table registered
 via `TWMPoints_RegisterSet(set)`, loaded via `sets/index.xml`. A set
 implements some subset of:
 
@@ -89,6 +89,54 @@ This means Landmarks/Capitals/Dungeons all display in whatever locale the
 *player's own client* is running, regardless of what locale the data was
 generated in. Graveyards have no per-point name at all (just the generic
 localized `TWM_POINTS_GRAVEYARDS` string), so there's nothing to resolve.
+
+## Flight paths (`FlightPaths.lua`, `TaxiRoutes.lua`) — the one thing that isn't a point icon
+
+Flight master markers themselves are a normal set (`sets/flightmasters.lua`,
+icon `Icon-Taxi-<Faction>`), but the routes *between* them are line
+segments, not icons — `TWMPoints_AddPoint` only ever places a single
+fixed-size icon at one `(x,y)`, so this needed its own small rendering
+primitive instead of fitting into the point-set system:
+
+- **`TaxiRoutes.lua`** runs once at load time, joining the generated raw
+  `Twm_flightmasters`/`Twm_taxipaths` (see `scripts/README.md`'s step 7 —
+  deliberately undeduped/uncategorized at generation time) into three lookup
+  tables: `Twm_TaxiNodeInfo[nodeID]` (position/faction/continent),
+  `Twm_TaxiNeighbors[nodeID]` (deduped adjacency list, for hover-preview),
+  and `Twm_TaxiRoutesByContinent[continent]` (deduped straight-line segments
+  for the "always show" mode).
+- **`FlightPaths.lua`** draws those segments as rotated, stretched
+  `Texture`s (`Texture:SetRotation`) from its own small texture pool —
+  same acquire/hide-unused pooling pattern as `WorldMapOverlay.lua`'s tile
+  textures, just for lines instead of tiles. `TWM_FlightPaths_OnPointsUpdate`
+  is called from the tail end of `Points.lua`'s `TWMPoints_Update` (an
+  optional hook, only invoked if this file happens to be loaded), so lines
+  redraw on the exact same pan/zoom/force-update cadence as every point icon,
+  using the same Big→Mini→pixel-offset math as `TWMP_SetOffset`.
+- Two mutually-exclusive display modes, both reading `TWMOption.ShowFlightPaths`:
+  **on** draws every same-continent route in `Twm_TaxiRoutesByContinent`
+  unconditionally; **off** (default) draws only `Twm_TaxiNeighbors` of
+  whichever flight master is currently hovered (`TWM_HoveredTaxiNodeID`).
+  That global is set/cleared from `Points.lua`'s
+  `TWMFrameViewFrame_UpdatePointTooltip` — the same per-tick `MouseIsOver`
+  loop that already drives the custom tooltip — right where it detects a
+  `"flightmasters"` point entering/leaving hover, then calls
+  `TWM_FlightPaths_Refresh()` (redraws just the lines, using
+  `TWMPoints_GetCurrentView()`'s last-known view state, without forcing a
+  full point recompute).
+- `TWM_IsFlightmasterVisible(faction)` (`FlightPaths.lua`) is the single
+  source of truth for "should this faction's flight masters be shown right
+  now" (Neutral, or matches the player's own faction, or `TWMOption.ShowEnemyFlightmasters`
+  is on) — both `sets/flightmasters.lua` (whether to place the marker at
+  all) and `FlightPaths.lua` (whether to draw a route to/from that marker,
+  in both display modes) call it. A line was originally only checked
+  against `TWMOption.ShowFlightPaths`, not faction visibility, so a hovered
+  or "always show" route could point at a marker that wasn't actually drawn
+  — fixed by having `Twm_TaxiRoutesByContinent` carry each segment's two
+  endpoint node IDs (not just their coordinates) specifically so
+  `FlightPaths.lua` can re-check both endpoints' visibility at draw time,
+  since `ShowEnemyFlightmasters` can change at runtime after `TaxiRoutes.lua`
+  already built that table.
 
 ## The custom tooltip (`TWMTooltip`)
 

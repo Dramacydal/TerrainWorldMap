@@ -4,6 +4,23 @@ tags: [memory/repo, gotcha]
 
 # Gotchas
 
+## `Frame:SetClipsChildren(true)` clips children to the frame's rect for free
+
+The tile grid (`TerrainWorldMap.lua`'s own grid, `WorldMapOverlay.lua`'s
+`DrawTiles`) clips every tile manually via intersection-rect math against
+the target draw area — that's necessary there because tiles are drawn into
+an arbitrary sub-rect of a shared texture pool (e.g. an inset zone on the
+World Map), not because WoW frames clip children by default. When
+`FlightPaths.lua` first drew flight routes, a line to an off-screen flight
+master rendered straight through past `TWMFrameViewFrame`'s own edges —
+fixed not by replicating that manual clipping math, but by calling
+`viewframe:SetClipsChildren(true)` once (`Templates.xml`'s
+`TWMFrameViewTemplate` `OnLoad`) — every child texture (tiles, lines, points)
+now gets clipped to the ViewFrame's rect at the GPU level automatically.
+Guarded with `if(self.SetClipsChildren) then ... end` since it's a
+comparatively modern API, even though it's expected to exist on all 3
+flavors (they run on the same modern client engine as retail).
+
 ## Battleground entrances have no `areatrigger_teleport` row at all
 
 `scripts/gen_poi_instances.js` finds dungeon/raid entrances by joining
