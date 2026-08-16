@@ -10,7 +10,7 @@ Currently supports **Classic Era (Vanilla)**, **Classic Anniversary (TBC)**, and
 
 - **Real terrain overlay on the World Map**.
 - **Standalone browser window** — a movable, resizable, zoomable minimap-style view, with adjustable transparency and icon size.
-- **Underwater terrain toggle** (Mists of Pandaria) — shows the submerged version of coastal tiles (Vashj'ir, Pandaria's coastline) instead of the dry-land art left over from before the zone was flooded.
+- **Underwater terrain toggle** (Mists of Pandaria) — shows the underwater terrain where possible, by default. Useful for Vashj'ir, but some zones at Pandaria's coastline also have this data (that seems to be erroneous).
 - **Player, party and raid tracking** on the map.
 - **Map markers**, each independently toggleable: Landmarks (points of interest), Graveyards, Capitals, Dungeons & Raids, and Flight Masters (color-coded by faction) — all shown with mouseover tooltips, and all displayed in whatever language you're playing in.
 - **Flight path lines** between flight masters — hover over one to see its own routes, or show every known route on the continent at once; hold Shift to see the real curved flight path instead of a straight line (showing every route at once can be laggy on continents with a lot of routes, especially with Shift held).
