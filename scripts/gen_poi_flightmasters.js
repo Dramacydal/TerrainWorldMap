@@ -1,9 +1,20 @@
 // Regenerates Data_<Flavor>/mapdata_poi_flightmasters.lua's Twm_flightmasters
-// (marker positions + faction), Twm_taxipaths (raw route graph), and
-// Twm_taxipathnodes (real curved route shapes) from TaxiNodes.db2 joined
-// against TaxiPath.db2 and TaxiPathNode.db2.
+// (marker positions + faction + per-locale names), Twm_taxipaths (raw route
+// graph), and Twm_taxipathnodes (real curved route shapes) from TaxiNodes.db2
+// joined against TaxiPath.db2 and TaxiPathNode.db2.
 //
-// Faction (Twm_flightmasters' first field, "Alliance"/"Horde"/"Neutral"):
+// Each Twm_flightmasters entry is a table with named fields --
+// {id, faction, name = {enUS = ..., deDE = ..., ...}, x, y} -- rather than
+// the positional {field1, field2, ...} arrays every other Twm_poi_* table
+// uses, specifically to fit the per-locale name table in cleanly. name is
+// keyed by client locale because, unlike Landmarks/Capitals/Dungeons (see
+// architecture.md's live-name-resolution section), a flight master has no
+// AreaID/MapID of its own to resolve a live, locale-correct name from at
+// render time -- every locale's name has to be baked in here instead, from
+// TaxiNodes.db2 fetched once per locale (wago.tools:
+// /db2/TaxiNodes/csv?product=<product>&locale=<locale>, see --locales-dir).
+//
+// Faction ("Alliance"/"Horde"/"Neutral"):
 // TaxiNodes.Flags is a bitmask, bit 0x1 = usable by Alliance, bit 0x2 =
 // usable by Horde (confirmed empirically against known-faction hubs, e.g.
 // Stormwind/Ironforge = 1, Undercity/Tarren Mill = 2). Both bits set (3)
@@ -27,8 +38,8 @@
 // Positions use the same {bigX, bigY} = {Pos_1, Pos_0} convention as
 // AreaTrigger in gen_poi_instances.js (raw world coords ARE Big coords,
 // just axis-swapped, no zone-box percentage math needed here). Each
-// marker's TaxiNode ID is kept as the first field (AreaID-first convention,
-// same as Twm_poi_areas) so Lua can join it back against Twm_taxipaths.
+// marker's TaxiNode ID is kept (the `id` field) so Lua can join it back
+// against Twm_taxipaths.
 //
 // Twm_taxipaths is the raw TaxiPath.db2 table (id, from, to), filtered only
 // to rows where BOTH endpoints survived the junk/continent filter above --
@@ -51,6 +62,16 @@
 
 const fs = require('fs');
 const { parseCsvFile, findCsv } = require('./csv');
+
+// Client locales TaxiNodes.Name_lang is fetched for (wago.tools:
+// /db2/TaxiNodes/csv?product=<product>&locale=<locale>) -- flight masters
+// have no live-resolvable name API (unlike Landmarks/Capitals/Dungeons,
+// see architecture.md's live-name-resolution section), so every locale's
+// name has to be baked in at generation time instead. enUS is also the
+// structural source of truth (Flags/CharacterBitNumber/Pos/ContinentID are
+// identical across locale exports -- only Name_lang differs), so it's
+// required; the rest are optional per-locale name overlays.
+const LOCALES = ['enUS', 'deDE', 'esES', 'esMX', 'frFR', 'itIT', 'koKR', 'ptBR', 'ruRU', 'zhCN', 'zhTW'];
 
 const JUNK_NAME_RE = /^(Transport,|Quest Path\b|Generic\b|Programmer Isle)/i;
 
@@ -91,10 +112,11 @@ function factionFor(flagsStr) {
 }
 
 function parseArgs(argv) {
-	const opts = { flavorDir: null, mapareasFile: null, out: null };
+	const opts = { flavorDir: null, localesDir: null, mapareasFile: null, out: null };
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i];
 		if (a === '--flavor-dir') opts.flavorDir = argv[++i];
+		else if (a === '--locales-dir') opts.localesDir = argv[++i];
 		else if (a === '--mapareas-file') opts.mapareasFile = argv[++i];
 		else if (a === '--out') opts.out = argv[++i];
 		else throw new Error(`Unknown option: ${a}`);
@@ -103,7 +125,7 @@ function parseArgs(argv) {
 }
 
 function printUsage() {
-	console.error('Usage: node gen_poi_flightmasters.js --flavor-dir <dir with TaxiNodes.*.csv, TaxiPath.*.csv, TaxiPathNode.*.csv and Map.*.csv> --mapareas-file <target flavor mapdata_continents.lua> --out <out-file.lua>');
+	console.error('Usage: node gen_poi_flightmasters.js --flavor-dir <dir with TaxiPath.*.csv, TaxiPathNode.*.csv and Map.*.csv> --locales-dir <dir with TaxiNodes.<locale>.csv for each of ' + LOCALES.join('/') + '> --mapareas-file <target flavor mapdata_continents.lua> --out <out-file.lua>');
 }
 
 function main() {
@@ -116,16 +138,38 @@ function main() {
 		process.exit(1);
 	}
 
-	if (!opts.flavorDir || !opts.mapareasFile || !opts.out) {
+	if (!opts.flavorDir || !opts.localesDir || !opts.mapareasFile || !opts.out) {
 		printUsage();
 		process.exit(1);
 	}
 
-	const taxiNodeRows = parseCsvFile(findCsv(opts.flavorDir, 'TaxiNodes.'));
+	// enUS is both a name locale AND the structural source of truth --
+	// Flags/CharacterBitNumber/Pos/ContinentID are identical across every
+	// locale's export of the same DB2 row, only Name_lang differs.
+	const taxiNodeRows = parseCsvFile(findCsv(opts.localesDir, 'TaxiNodes.enUS.'));
 	const taxiPathRows = parseCsvFile(findCsv(opts.flavorDir, 'TaxiPath.'));
 	const taxiPathNodeRows = parseCsvFile(findCsv(opts.flavorDir, 'TaxiPathNode.'));
 	const mapRows = parseCsvFile(findCsv(opts.flavorDir, 'Map.'));
 	const continentNames = extractContinentNames(fs.readFileSync(opts.mapareasFile, 'utf8'));
+
+	// Name_lang for every other locale, keyed by TaxiNode ID -- missing
+	// locale files are skipped with a warning rather than a hard failure,
+	// so a partial locale set still produces usable (just less-translated)
+	// output instead of nothing.
+	const namesByLocale = {};
+	for (const locale of LOCALES) {
+		if (locale === 'enUS') continue;
+		let rows;
+		try {
+			rows = parseCsvFile(findCsv(opts.localesDir, `TaxiNodes.${locale}.`));
+		} catch (e) {
+			console.error(`Skipping ${locale}: ${e.message}`);
+			continue;
+		}
+		const byID = {};
+		for (const r of rows) byID[r.ID] = r.Name_lang;
+		namesByLocale[locale] = byID;
+	}
 
 	const mapByID = {};
 	for (const r of mapRows) mapByID[r.ID] = r;
@@ -156,7 +200,12 @@ function main() {
 		}
 
 		const x = parseFloat(n.Pos_1), y = parseFloat(n.Pos_0);
-		const entry = { id: n.ID, continent: contName, faction: factionFor(n.Flags), name: n.Name_lang, x, y };
+		const names = { enUS: n.Name_lang };
+		for (const locale of Object.keys(namesByLocale)) {
+			const localized = namesByLocale[locale][n.ID];
+			if (localized) names[locale] = localized;
+		}
+		const entry = { id: n.ID, continent: contName, faction: factionFor(n.Flags), names, x, y };
 		nodeByID[n.ID] = entry;
 		(byContinent[contName] = byContinent[contName] || []).push(entry);
 		kept++;
@@ -206,17 +255,34 @@ function main() {
 		+ "--\n"
 		+ "-- Flight master markers, derived from TaxiNodes.db2. Faction is baked in\n"
 		+ "-- (\"Alliance\"/\"Horde\"/\"Neutral\") since flight masters have no live-\n"
-		+ "-- resolvable API of their own to re-derive it from at render time. First\n"
-		+ "-- field is the TaxiNode ID, so TaxiRoutes.lua can join it against\n"
-		+ "-- Twm_taxipaths below.\n\n"
+		+ "-- resolvable API of their own to re-derive it from at render time. name is\n"
+		+ "-- keyed by client locale (enUS/deDE/esES/esMX/frFR/itIT/koKR/ptBR/ruRU/\n"
+		+ "-- zhCN/zhTW) for the same reason -- unlike Landmarks/Capitals/Dungeons\n"
+		+ "-- (see architecture.md's live-name-resolution section), a flight master has\n"
+		+ "-- no AreaID/MapID of its own to resolve a live name from, so every locale's\n"
+		+ "-- name has to be baked in here instead; TaxiRoutes.lua picks the current\n"
+		+ "-- client's own locale at load time, falling back to enUS if that locale is\n"
+		+ "-- missing (e.g. enGB/ptPT clients, which aren't fetched separately -- see\n"
+		+ "-- LOCALE_ALIASES there).\n\n"
 		+ "Twm_flightmasters = {\n";
 
 	for (const contName of Object.keys(byContinent).sort()) {
-		const list = byContinent[contName].slice().sort((a, b) => a.name.localeCompare(b.name));
+		const list = byContinent[contName].slice().sort((a, b) => a.names.enUS.localeCompare(b.names.enUS));
 		fullOutput += `    ["${contName}"] = {\n`;
 		for (const e of list) {
-			const name = e.name.replace(/"/g, '\\"');
-			fullOutput += `        {${e.id}, "${e.faction}", "${name}", ${e.x.toFixed(2)}, ${e.y.toFixed(2)}},\n`;
+			fullOutput += `        {\n`;
+			fullOutput += `            id = ${e.id},\n`;
+			fullOutput += `            faction = "${e.faction}",\n`;
+			fullOutput += `            name = {\n`;
+			for (const locale of LOCALES) {
+				if (!e.names[locale]) continue;
+				const name = e.names[locale].replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+				fullOutput += `                ${locale} = "${name}",\n`;
+			}
+			fullOutput += `            },\n`;
+			fullOutput += `            x = ${e.x.toFixed(2)},\n`;
+			fullOutput += `            y = ${e.y.toFixed(2)},\n`;
+			fullOutput += `        },\n`;
 		}
 		fullOutput += '    },\n';
 	}

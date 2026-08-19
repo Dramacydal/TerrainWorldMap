@@ -3,7 +3,10 @@
 -- once, at load time -- see scripts/gen_poi_flightmasters.js's header for why
 -- dedup/continent-matching happens here instead of at generation time.
 --
--- Twm_TaxiNodeInfo[nodeID]      = {faction, name, x, y, continent}
+-- Twm_TaxiNodeInfo[nodeID]      = {faction, name, x, y, continent} -- name
+--                                 is already resolved to the client's own
+--                                 locale here (see TWM_ResolveFlightMasterName
+--                                 below), not the raw per-locale name table.
 -- Twm_TaxiNeighbors[nodeID]     = { otherNodeID, ... } -- for the hover-preview
 --                                 line display (sets/flightmasters.lua),
 --                                 deduped so an A->B and B->A row pair
@@ -27,11 +30,27 @@ Twm_TaxiRoutesByContinent = {};
 -- straight line.
 Twm_TaxiPathIDByPair = {};
 
+-- Flight masters have no AreaID/MapID of their own to resolve a live name
+-- from (unlike Landmarks/Capitals/Dungeons -- see architecture.md's live-
+-- name-resolution section), so scripts/gen_poi_flightmasters.js bakes in
+-- every locale's name instead (Twm_flightmasters[continent][n].name, keyed
+-- by client locale). This just picks the current client's own locale out of
+-- that table once, at load time. enGB/ptPT clients aren't fetched as their
+-- own locale (wago.tools doesn't export them separately from enUS/ptBR),
+-- hence the aliasing.
+local LOCALE_ALIASES = { enGB = "enUS", ptPT = "ptBR" };
+
+function TWM_ResolveFlightMasterName(nameTable)
+    local loc = GetLocale();
+    loc = LOCALE_ALIASES[loc] or loc;
+    return nameTable[loc] or nameTable.enUS;
+end
+
 local function TWM_BuildTaxiRouteTables()
     wipe(Twm_TaxiNodeInfo);
     for continent, list in pairs(Twm_flightmasters) do
         for _, v in ipairs(list) do
-            Twm_TaxiNodeInfo[v[1]] = { faction = v[2], name = v[3], x = v[4], y = v[5], continent = continent };
+            Twm_TaxiNodeInfo[v.id] = { faction = v.faction, name = TWM_ResolveFlightMasterName(v.name), x = v.x, y = v.y, continent = continent };
         end
     end
 

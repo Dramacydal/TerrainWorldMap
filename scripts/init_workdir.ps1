@@ -3,8 +3,9 @@
 .SYNOPSIS
 	Prepares a WORKDIR with everything gen_mapareas.js / parse_wdt.js / gen_poi_instances.js /
 	gen_poi_flightmasters.js need for one WoW product: DB2 CSVs (AreaTable/Map/UiMap/
-	UiMapAssignment/AreaTrigger/TaxiNodes/TaxiPath/TaxiPathNode) + extracted WDT/root-ADT/
-	noLiquid-minimap files.
+	UiMapAssignment/AreaTrigger/TaxiPath/TaxiPathNode), TaxiNodes fetched once per client
+	locale into <productDir>/locales/ (flight masters bake in every locale's name -- see
+	gen_poi_flightmasters.js), and extracted WDT/root-ADT/noLiquid-minimap files.
 
 .PARAMETER Product
 	TACT product code, e.g. wow_classic_era, wow_anniversary, wow_classic (see .build.info).
@@ -66,7 +67,16 @@ if ($Online -and $Storage) {
 
 $CASCCONSOLE_URL = 'https://github.com/Dramacydal/CASCExplorer/releases/download/build-latest/CASCConsole.zip'
 $LISTFILE_URL = 'https://github.com/wowdev/wow-listfile/releases/latest/download/community-listfile.csv'
-$DB2_TABLES = @('AreaTable', 'Map', 'UiMap', 'UiMapAssignment', 'AreaTrigger', 'TaxiNodes', 'TaxiPath', 'TaxiPathNode')
+# TaxiNodes is deliberately NOT in this list -- gen_poi_flightmasters.js needs
+# it fetched once per client locale instead (see the "Localized TaxiNodes"
+# step below), since flight masters bake in every locale's name rather than
+# resolving one live at render time (they have no AreaID/MapID of their own
+# to resolve a name from -- see .claude-docs/architecture.md).
+$DB2_TABLES = @('AreaTable', 'Map', 'UiMap', 'UiMapAssignment', 'AreaTrigger', 'TaxiPath', 'TaxiPathNode')
+# wago.tools locales gen_poi_flightmasters.js's --locales-dir expects one
+# TaxiNodes.<locale>.csv for -- enGB/ptPT aren't fetched separately since
+# wago.tools doesn't export them distinct from enUS/ptBR.
+$TAXINODES_LOCALES = @('enUS', 'deDE', 'esES', 'esMX', 'frFR', 'itIT', 'koKR', 'ptBR', 'ruRU', 'zhCN', 'zhTW')
 
 $scriptsDir = $PSScriptRoot
 $cascDir = Join-Path $WorkDir 'CASCConsole'
@@ -121,7 +131,7 @@ Step "Community listfile" {
 	Invoke-Curl @('-o', $listfilePath, $LISTFILE_URL)
 }
 
-Step "DB2 CSVs (AreaTable/Map/UiMap/UiMapAssignment/AreaTrigger/TaxiNodes/TaxiPath/TaxiPathNode)" {
+Step "DB2 CSVs (AreaTable/Map/UiMap/UiMapAssignment/AreaTrigger/TaxiPath/TaxiPathNode)" {
 	$haveAll = -not $Force -and ($DB2_TABLES | ForEach-Object {
 		Get-ChildItem -Path $productDir -Filter "$_*.csv" -ErrorAction SilentlyContinue
 	} | Measure-Object).Count -ge $DB2_TABLES.Count
@@ -132,6 +142,24 @@ Step "DB2 CSVs (AreaTable/Map/UiMap/UiMapAssignment/AreaTrigger/TaxiNodes/TaxiPa
 	foreach ($table in $DB2_TABLES) {
 		$url = "https://wago.tools/db2/$table/csv?product=$Product"
 		Invoke-Curl @('-J', '-O', '--output-dir', $productDir, $url)
+	}
+}
+
+Step "Localized TaxiNodes CSVs ($($TAXINODES_LOCALES -join '/'))" {
+	$localesDir = Join-Path $productDir 'locales'
+	New-Item -ItemType Directory -Force -Path $localesDir | Out-Null
+
+	$haveAll = -not $Force -and ($TAXINODES_LOCALES | ForEach-Object {
+		Test-Path (Join-Path $localesDir "TaxiNodes.$_.csv")
+	} | Where-Object { $_ } | Measure-Object).Count -ge $TAXINODES_LOCALES.Count
+	if ($haveAll) {
+		Write-Host "    already present, skipping (use -Force to re-download)"
+		return
+	}
+	foreach ($locale in $TAXINODES_LOCALES) {
+		$outPath = Join-Path $localesDir "TaxiNodes.$locale.csv"
+		$url = "https://wago.tools/db2/TaxiNodes/csv?product=$Product&locale=$locale"
+		Invoke-Curl @('-o', $outPath, $url)
 	}
 }
 
@@ -176,3 +204,4 @@ $extractedCount = (Get-ChildItem -Path (Join-Path $productDir 'world') -Recurse 
 Write-Host ""
 Write-Host "Done. $extractedCount files extracted into $productDir" -ForegroundColor Green
 Write-Host "Pass '$productDir' as --flavor-dir to parse_wdt.js and as the <csv-dir> argument to gen_mapareas.js."
+Write-Host "Pass '$productDir' as --flavor-dir and '$(Join-Path $productDir 'locales')' as --locales-dir to gen_poi_flightmasters.js."

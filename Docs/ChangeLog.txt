@@ -1,6 +1,10 @@
 
 TerrainWorldMap ChangeLog
 ================
+1.1.3 (August 19, 2026)
+----------------------------
+- Added: Flight Master names are now localized to your client's locale.
+
 1.1.2 (August 16, 2026)
 ----------------------------
 - Added: Flight Master markers, color-coded by faction (with a separate

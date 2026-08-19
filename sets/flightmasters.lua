@@ -3,18 +3,20 @@ local set = {name="flightmasters"};
 
 -- Flight master markers, generated (see scripts/gen_poi_flightmasters.js)
 -- into Data_<Flavor>/mapdata_poi_flightmasters.lua. Entries are
--- {TaxiNodeID, "Alliance"|"Horde"|"Neutral", Name, x, y}. Enemy-faction
--- markers are skipped entirely here (not just hidden) unless "Show enemy
--- faction Flight masters" is on, same neutral-is-always-shown rule as the
--- real in-game flight map.
+-- {id, faction, name = {enUS = ..., deDE = ..., ...}, x, y} -- name is
+-- resolved to the client's own locale via TWM_ResolveFlightMasterName
+-- (TaxiRoutes.lua), since a flight master has no AreaID/MapID of its own to
+-- resolve a live name from at render time the way Landmarks/Capitals/
+-- Dungeons do. Enemy-faction markers are skipped entirely here (not just
+-- hidden) unless "Show enemy faction Flight masters" is on, same
+-- neutral-is-always-shown rule as the real in-game flight map.
 function set.getpoints(name, map)
     if(type(Twm_flightmasters[map]) ~= "table") then return; end
 
     for h,v in ipairs(Twm_flightmasters[map]) do
-        local nodeID, faction = v[1], v[2];
-        if(TWM_IsFlightmasterVisible(faction)) then
-            local x,y = TWM_Big2Mini_Coord(v[4], v[5]);
-            TWMPoints_AddPoint(nil, "flightmasters", v[3], x, y, nil, {nodeID, faction});
+        if(TWM_IsFlightmasterVisible(v.faction)) then
+            local x,y = TWM_Big2Mini_Coord(v.x, v.y);
+            TWMPoints_AddPoint(nil, "flightmasters", TWM_ResolveFlightMasterName(v.name), x, y, nil, {v.id, v.faction});
         end
     end
 end

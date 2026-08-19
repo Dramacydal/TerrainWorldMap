@@ -50,9 +50,13 @@ editions, so re-check `.build.info` if a code below stops matching):
 - **`-Force`** (optional) — re-download CASCConsole/listfile/DB2 CSVs even if already present
 
 Downloads the CASCConsole tool + community listfile once per `WorkDir`, then
-per product: 8 DB2 CSVs (`AreaTable`/`Map`/`UiMap`/`UiMapAssignment`/
-`AreaTrigger`/`TaxiNodes`/`TaxiPath`/`TaxiPathNode`) and the WDT/root-ADT/
-noLiquid-minimap files for every open-world continent.
+per product: 7 DB2 CSVs (`AreaTable`/`Map`/`UiMap`/`UiMapAssignment`/
+`AreaTrigger`/`TaxiPath`/`TaxiPathNode`), `TaxiNodes` fetched once per client
+locale into `<productDir>/locales/TaxiNodes.<locale>.csv` (`enUS`/`deDE`/
+`esES`/`esMX`/`frFR`/`itIT`/`koKR`/`ptBR`/`ruRU`/`zhCN`/`zhTW` — flight
+masters bake in every locale's name rather than resolving one live, see step
+7), and the WDT/root-ADT/noLiquid-minimap files for every open-world
+continent.
 
 **Examples:**
 ```powershell
@@ -292,12 +296,22 @@ node gen_poi_instances.js --flavor-dir C:\wow-data\wow_classic_era --teleport-cs
 ## Step 7 — `gen_poi_flightmasters.js`: flight master markers + routes (`Twm_flightmasters`, `Twm_taxipaths`, `Twm_taxipathnodes`)
 
 ```bash
-node gen_poi_flightmasters.js --flavor-dir <dir with TaxiNodes.*.csv, TaxiPath.*.csv, TaxiPathNode.*.csv and Map.*.csv> --mapareas-file <target flavor mapdata_continents.lua> --out <out-file.lua>
+node gen_poi_flightmasters.js --flavor-dir <dir with TaxiPath.*.csv, TaxiPathNode.*.csv and Map.*.csv> --locales-dir <dir with TaxiNodes.<locale>.csv per locale> --mapareas-file <target flavor mapdata_continents.lua> --out <out-file.lua>
 ```
 
 - **`--flavor-dir`** (required) — `<WorkDir>/<Product>` from step 1
+- **`--locales-dir`** (required) — `<WorkDir>/<Product>/locales` from step 1 (one `TaxiNodes.<locale>.csv` per supported locale: `enUS`/`deDE`/`esES`/`esMX`/`frFR`/`itIT`/`koKR`/`ptBR`/`ruRU`/`zhCN`/`zhTW`). `enUS` is required — it's also the structural source of truth for every non-name field (`Flags`/`CharacterBitNumber`/`Pos`/`ContinentID` are identical across every locale's export of the same row, only `Name_lang` differs); the rest are optional per-locale name overlays, skipped with a warning (not a hard failure) if missing.
 - **`--mapareas-file`** (required) — the flavor's own `Data_<Flavor>/mapdata_continents.lua` (step 2's output)
 - **`--out`** (required) — output path, e.g. `Data_<Flavor>/mapdata_poi_flightmasters.lua`
+
+Flight masters have no AreaID/MapID of their own to resolve a live,
+locale-correct name from at render time the way Landmarks/Capitals/Dungeons
+do (see `.claude-docs/architecture.md`'s live-name-resolution section) — so
+every locale's name is baked in at generation time instead, one column per
+locale, and `TaxiRoutes.lua` (`TWM_ResolveFlightMasterName`) picks the
+client's own locale out of that table at load time (falling back to `enUS`
+if that locale's file was missing, or for `enGB`/`ptPT` clients, which
+wago.tools doesn't export separately from `enUS`/`ptBR`).
 
 Faction (`Twm_flightmasters`' second field) is derived from `TaxiNodes.Flags`,
 a bitmask: bit `0x1` = Alliance, bit `0x2` = Horde (confirmed against
@@ -317,9 +331,11 @@ positives, but it's a heuristic, not something DB2 structure backs up —
 sanity-check the "N junk rows skipped" count if this ever runs against a
 very different client build.
 
-`Twm_flightmasters[continent]` entries are `{TaxiNodeID, "Faction", Name, x, y}`
-— the TaxiNode ID is kept (AreaID-first convention, same as `Twm_poi_areas`)
-so `TaxiRoutes.lua` can join it against `Twm_taxipaths` at load time.
+`Twm_flightmasters[continent]` entries are
+`{id, faction, name = {enUS = ..., deDE = ..., ...}, x, y}` — named fields
+(unlike every other `Twm_poi_*` table's positional arrays) specifically to
+fit the per-locale `name` table in cleanly. `id` is the TaxiNode ID, kept so
+`TaxiRoutes.lua` can join it against `Twm_taxipaths` at load time.
 `Twm_taxipaths` is the **raw** `TaxiPath.db2` table — `{ID, FromTaxiNode, ToTaxiNode}`
 — filtered only to rows where both endpoints survived the junk/continent
 filter above. Deliberately **not** deduped (`TaxiPath.db2` rows are
@@ -343,7 +359,7 @@ during a live pan/zoom than the straight-line default — see
 
 **Example:**
 ```bash
-node gen_poi_flightmasters.js --flavor-dir C:\wow-data\wow_classic_era --mapareas-file Data_Vanilla/mapdata_continents.lua --out Data_Vanilla/mapdata_poi_flightmasters.lua
+node gen_poi_flightmasters.js --flavor-dir C:\wow-data\wow_classic_era --locales-dir C:\wow-data\wow_classic_era\locales --mapareas-file Data_Vanilla/mapdata_continents.lua --out Data_Vanilla/mapdata_poi_flightmasters.lua
 ```
 
 ## Capitals — no generator, computed live in Lua

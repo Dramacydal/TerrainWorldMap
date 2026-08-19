@@ -90,6 +90,17 @@ This means Landmarks/Capitals/Dungeons all display in whatever locale the
 generated in. Graveyards have no per-point name at all (just the generic
 localized `TWM_POINTS_GRAVEYARDS` string), so there's nothing to resolve.
 
+**Flight masters are the one exception** — a flight master has no
+AreaID/MapID of its own for anything like `Twm_areadb`/`GetRealZoneText` to
+resolve, so `scripts/gen_poi_flightmasters.js` bakes in every supported
+client locale's name at generation time instead (`Twm_flightmasters[continent][n].name`,
+keyed by locale — fetched once per locale from `TaxiNodes.db2`, see
+`scripts/README.md`'s step 7). `TaxiRoutes.lua`'s `TWM_ResolveFlightMasterName`
+picks the current client's own locale out of that table once, at load time,
+falling back to `enUS` if that locale's data is missing (or for
+`enGB`/`ptPT` clients, aliased to `enUS`/`ptBR` since wago.tools doesn't
+export those separately).
+
 ## Flight paths (`FlightPaths.lua`, `TaxiRoutes.lua`) — the one thing that isn't a point icon
 
 Flight master markers themselves are a normal set (`sets/flightmasters.lua`,
