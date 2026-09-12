@@ -812,6 +812,23 @@ function TWMFrameTemplate:GetMap()
     return self.opt.Map;
 end
 
+-- Every MapTexture region is created here, lazily, the first time
+-- SetZoom's allocation loop needs it -- Templates.xml no longer
+-- pre-declares any $parentMapTextureN regions at all. Same create-once-
+-- and-reuse pattern as Points.lua's icon pool and FlightPaths.lua's line
+-- pool: once created, a texture is never destroyed, only Hidden when the
+-- current zoom doesn't need it (see the loop right below SetZoom's
+-- allocation loop). No ceiling on how far you can zoom out as a result --
+-- only the ~32px hard floor a couple lines down.
+local function EnsureMapTexture(self, lm, index)
+    local name = lm.."MapTexture"..index;
+    local tex = _G[name];
+    if(not tex) then
+        tex = self:CreateTexture(name, "ARTWORK", "TWMMapTextureTemplate");
+    end
+    return tex;
+end
+
 function TWMFrameTemplate:SetZoom(z, nocenter, skipPointsRefresh)
     local textureno = 1;
     local lm = self:GetName();
@@ -835,9 +852,7 @@ function TWMFrameTemplate:SetZoom(z, nocenter, skipPointsRefresh)
     self.wzoom_real = math.ceil(vfw/z)+1;
     self.hzoom_real = math.ceil(vfh/z)+1;
 
-    if(_G[lm.."MapTexture"..(self.wzoom_real*self.hzoom_real)] == nil) then
-        return self:SetZoom(z+4);
-    elseif(z > 32 and (z > vfh or z > vfw)) then
+    if(z > 32 and (z > vfh or z > vfw)) then
         return self:SetZoom(z-4);
     end
     local lastzoom = self.opt.Zoom;
@@ -848,7 +863,7 @@ function TWMFrameTemplate:SetZoom(z, nocenter, skipPointsRefresh)
     for hw = 1,self.wzoom_real do
         self.texturelayout[hw] = {};
         for hh = 1,self.hzoom_real do
-            self.texturelayout[hw][hh] = _G[lm.."MapTexture"..textureno];
+            self.texturelayout[hw][hh] = EnsureMapTexture(self, lm, textureno);
             self.texturelayout[hw][hh].hx = hw;
             self.texturelayout[hw][hh].hy = hh;
             -- tiled adjacent map textures show a seam under the client's

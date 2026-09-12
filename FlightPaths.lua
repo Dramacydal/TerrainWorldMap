@@ -118,11 +118,14 @@ end
 
 -- How many extra Catmull-Rom points (Spline.lua) to add per original
 -- Twm_taxipathnodes segment when Shift-curving the hover-preview routes --
--- 0 (default) means the raw polyline is drawn as-is, same as before this
--- feature existed. Only ever applied to the hover-preview branch of
+-- default 5 was picked after in-game testing showed it's already plenty
+-- smooth; 0 draws the raw polyline as-is, same as before this feature
+-- existed. Only ever applied to the hover-preview branch of
 -- TWM_FlightPaths_OnPointsUpdate, never "always show" -- see DrawRoute.
+local DEFAULT_FLIGHTPATH_INTERPOLATION = 5;
+
 function TWM_GetFlightPathInterpolation()
-    return TWMOption.FlightPathInterpolation or 0;
+    return TWMOption.FlightPathInterpolation or DEFAULT_FLIGHTPATH_INTERPOLATION;
 end
 
 -- Settings.lua's slider calls this on every value change.
@@ -145,7 +148,17 @@ local function DrawSegment(wf, idx, bigX1, bigY1, bigX2, bigY2)
     local lx1, ly1 = BigToWorldOffset(bigX1, bigY1);
     local lx2, ly2 = BigToWorldOffset(bigX2, bigY2);
     local dx, dy = lx2 - lx1, ly2 - ly1;
-    if(dx*dx + dy*dy < 0.0001) then return idx; end
+    -- Only meant to skip a truly duplicate pair of points (e.g. adjacent
+    -- identical coordinates in raw data) -- NOT a legitimately short
+    -- segment. These units are Big/533.3333 (see BigToWorldOffset), so the
+    -- old 0.0001 threshold was actually skipping anything under ~5.3 yards
+    -- apart; harmless for raw undivided segments (routes are normally
+    -- hundreds of yards long), but TWM_CatmullRomInterpolate (Spline.lua)
+    -- can chop a short original segment into several pieces each well
+    -- under that -- at high "Flight Path Curve Smoothing" values those
+    -- pieces were silently dropped, leaving a visible gap where a short
+    -- stretch of the path should be.
+    if(dx*dx + dy*dy < 0.00000001) then return idx; end
 
     idx = idx + 1;
     local outline, line = AcquireLinePair(wf, idx);

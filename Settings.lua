@@ -252,7 +252,7 @@ flightPathThicknessSlider:SetScript("OnValueChanged", function(self)
 end);
 SetTooltip(flightPathThicknessSlider, TWM_OPTIONS_FLIGHTPATH_THICKNESS, TWM_TOOLTIP_OPT_FLIGHTPATHTHICKNESS);
 
-local flightPathInterpolationSlider = CreateSlider(BrowserPanel, "TWMOptionFlightPathInterpolationSlider", TWM_OPTIONS_FLIGHTPATH_INTERPOLATION, 0, 20, 1);
+local flightPathInterpolationSlider = CreateSlider(BrowserPanel, "TWMOptionFlightPathInterpolationSlider", TWM_OPTIONS_FLIGHTPATH_INTERPOLATION, 0, 10, 1);
 flightPathInterpolationSlider:SetPoint("TOPLEFT", flightPathThicknessSlider, "BOTTOMLEFT", 0, -32);
 flightPathInterpolationSlider:SetScript("OnValueChanged", function(self)
     local v = Round(self:GetValue());
