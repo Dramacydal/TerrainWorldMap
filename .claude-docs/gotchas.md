@@ -4,6 +4,17 @@ tags: [memory/repo, gotcha]
 
 # Gotchas
 
+## `Slider:SetValueStep` doesn't stop mouse-dragging from giving fractional values
+
+`Settings.lua`'s `CreateSlider` calls `slider:SetValueStep(step)`, which
+looks like it should be enough to keep e.g. the Flight Path Curve Smoothing
+slider (step 1) landing on whole numbers. It isn't: `SetValueStep` only
+snaps keyboard arrow-key nudges. Dragging the thumb with the mouse ignores
+it entirely and reports whatever exact pixel-derived fraction the mouse
+position maps to, unless `slider:SetObeyStepOnDrag(true)` is also set. Now
+set once in `CreateSlider` itself so every slider in this addon gets it,
+not just the one where it happened to be noticed.
+
 ## `Frame:SetClipsChildren(true)` clips children to the frame's rect for free
 
 The tile grid (`TerrainWorldMap.lua`'s own grid, `WorldMapOverlay.lua`'s

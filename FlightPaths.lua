@@ -116,6 +116,21 @@ function TWM_SetFlightPathThickness(px)
     TWM_FlightPaths_Refresh();
 end
 
+-- How many extra Catmull-Rom points (Spline.lua) to add per original
+-- Twm_taxipathnodes segment when Shift-curving the hover-preview routes --
+-- 0 (default) means the raw polyline is drawn as-is, same as before this
+-- feature existed. Only ever applied to the hover-preview branch of
+-- TWM_FlightPaths_OnPointsUpdate, never "always show" -- see DrawRoute.
+function TWM_GetFlightPathInterpolation()
+    return TWMOption.FlightPathInterpolation or 0;
+end
+
+-- Settings.lua's slider calls this on every value change.
+function TWM_SetFlightPathInterpolation(extra)
+    TWMOption.FlightPathInterpolation = extra;
+    TWM_FlightPaths_Refresh();
+end
+
 -- (bigX, bigY) -> the world frame's own local anchor units. Big->Mini is
 -- the usual conversion; Mini's Y needs negating because WoW's SetPoint
 -- offsets treat +Y as up, while Mini's Y (like screen row/column) increases
@@ -166,11 +181,21 @@ end
 -- client proportionally more the more children it has (see
 -- .claude-docs/gotchas.md) -- noticeably laggy dragging with Shift held
 -- during "always show", fine as an on-demand glance instead.
-local function DrawRoute(wf, idx, fromID, toID, fromBigX, fromBigY, toBigX, toBigY)
+--
+-- allowInterpolation additionally runs the raw spline through
+-- TWM_CatmullRomInterpolate (Spline.lua, TWMOption.FlightPathInterpolation
+-- slider) to smooth out the polyline -- only ever passed true for the
+-- hover-preview branch below (a handful of routes at most), never for
+-- "always show" (which can be hundreds of routes at once and would turn
+-- the Shift-lag problem above from bad to worse).
+local function DrawRoute(wf, idx, fromID, toID, fromBigX, fromBigY, toBigX, toBigY, allowInterpolation)
     if(IsShiftKeyDown()) then
         local pathID = Twm_TaxiPathIDByPair and Twm_TaxiPathIDByPair[fromID .. "->" .. toID];
         local spline = pathID and Twm_taxipathnodes and Twm_taxipathnodes[pathID];
         if(spline and #spline >= 2) then
+            if(allowInterpolation and TWM_GetFlightPathInterpolation() > 0) then
+                spline = TWM_CatmullRomInterpolate(spline, TWM_GetFlightPathInterpolation());
+            end
             for i = 1, #spline - 1 do
                 idx = DrawSegment(wf, idx, spline[i][1], spline[i][2], spline[i+1][1], spline[i+1][2]);
             end
@@ -241,7 +266,8 @@ function TWM_FlightPaths_OnPointsUpdate(frame, x, y)
 
     local signature = map .. "|" .. tostring(TWMOption.ShowFlightPaths) .. "|"
         .. tostring(TWMOption.ShowEnemyFlightmasters) .. "|" .. tostring(TWM_HoveredTaxiNodeID)
-        .. "|" .. tostring(IsShiftKeyDown()); -- straight vs. curved (DrawRoute)
+        .. "|" .. tostring(IsShiftKeyDown()) -- straight vs. curved (DrawRoute)
+        .. "|" .. tostring(TWMOption.FlightPathInterpolation); -- hover-only smoothing (DrawRoute)
     if(signature == lastSignature) then return; end
     lastSignature = signature;
 
@@ -253,7 +279,7 @@ function TWM_FlightPaths_OnPointsUpdate(frame, x, y)
             for _, r in ipairs(routes) do
                 local fromInfo, toInfo = Twm_TaxiNodeInfo[r[5]], Twm_TaxiNodeInfo[r[6]];
                 if(fromInfo and toInfo and TWM_IsFlightmasterVisible(fromInfo.faction) and TWM_IsFlightmasterVisible(toInfo.faction)) then
-                    idx = DrawRoute(wf, idx, r[5], r[6], r[1], r[2], r[3], r[4]);
+                    idx = DrawRoute(wf, idx, r[5], r[6], r[1], r[2], r[3], r[4], false);
                 end
             end
         end
@@ -267,7 +293,7 @@ function TWM_FlightPaths_OnPointsUpdate(frame, x, y)
             for _, otherID in ipairs(neighbors) do
                 local other = Twm_TaxiNodeInfo[otherID];
                 if(other and other.continent == map and TWM_IsFlightmasterVisible(other.faction)) then
-                    idx = DrawRoute(wf, idx, TWM_HoveredTaxiNodeID, otherID, hovered.x, hovered.y, other.x, other.y);
+                    idx = DrawRoute(wf, idx, TWM_HoveredTaxiNodeID, otherID, hovered.x, hovered.y, other.x, other.y, true);
                 end
             end
         end

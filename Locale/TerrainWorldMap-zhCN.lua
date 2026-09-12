@@ -60,6 +60,7 @@ TWM_TOOLTIP_OPT_SHOWFLIGHTMASTERS = "在地图上显示飞行管理员标记，�
 TWM_TOOLTIP_OPT_SHOWENEMYFLIGHTMASTERS = "同时显示敌对阵营的飞行管理员。默认关闭——关闭时只显示本阵营和中立的飞行管理员，与游戏内真实的飞行地图一致。";
 TWM_TOOLTIP_OPT_TOGGLEFLIGHTPATHS = "始终在地图上绘制所有已知的飞行航线。关闭时，鼠标悬停在某个飞行管理员上才会显示从该处出发的航线。无论哪种模式，按住Shift键都可以查看航线真实的弯曲路径，而不是直线。在航线较多的大陆上可能会造成卡顿，按住Shift键时尤其明显。";
 TWM_TOOLTIP_OPT_FLIGHTPATHTHICKNESS = "设置飞行航线的绘制粗细（以屏幕像素为单位）。";
+TWM_TOOLTIP_OPT_FLIGHTPATHINTERPOLATION = "在按住Shift显示真实弯曲航线时，通过在原始点之间添加额外计算的点来平滑航线，而不是显示明显的折线。0表示禁用。仅对当前鼠标悬停的飞行管理员生效，不会应用于\"显示飞行航线\"的整个大陆视图，以免造成卡顿。";
 
 TWM_POINTS_SHOWPOINTS_TITLE = "显示标记";
 TWM_POINTS_LANDMARKS = "地名";
@@ -76,6 +77,7 @@ TWM_OPTIONS_SHOW_FLIGHTMASTERS = "显示飞行管理员";
 TWM_OPTIONS_SHOW_ENEMY_FLIGHTMASTERS = "显示敌对阵营飞行管理员";
 TWM_OPTIONS_TOGGLE_FLIGHTPATHS = "显示飞行航线";
 TWM_OPTIONS_FLIGHTPATH_THICKNESS = "飞行航线粗细";
+TWM_OPTIONS_FLIGHTPATH_INTERPOLATION = "飞行航线平滑度";
 
 
 TWM_ZOOMIN =     "+";

@@ -61,6 +61,7 @@ TWM_TOOLTIP_OPT_SHOWFLIGHTMASTERS = "Toggles flight master markers on the map, c
 TWM_TOOLTIP_OPT_SHOWENEMYFLIGHTMASTERS = "Also shows flight masters belonging to the opposing faction. Off by default - without this, only your own faction's flight masters and neutral ones are shown, same as the real in-game flight map.";
 TWM_TOOLTIP_OPT_TOGGLEFLIGHTPATHS = "Always draws every known flight route on the map. When off, hovering over a flight master instead shows only the routes leaving from that one. Either way, hold Shift to see a route's real curved flight path instead of a straight line. Can be laggy on continents with a lot of routes, especially while Shift is held.";
 TWM_TOOLTIP_OPT_FLIGHTPATHTHICKNESS = "Sets how thick flight path lines are drawn, in screen pixels.";
+TWM_TOOLTIP_OPT_FLIGHTPATHINTERPOLATION = "Smooths a route's real curved flight path (Shift held) by adding extra calculated points between its original ones, instead of a visibly jagged polyline. 0 disables it. Only applied to whichever flight master you're currently hovering over, never to \"Toggle Flight Paths\"' full continent view, to keep it from getting laggy.";
 
 TWM_POINTS_SHOWPOINTS_TITLE = "Show Points";
 TWM_POINTS_LANDMARKS = "Landmarks";
@@ -77,6 +78,7 @@ TWM_OPTIONS_SHOW_FLIGHTMASTERS = "Show Flight Masters";
 TWM_OPTIONS_SHOW_ENEMY_FLIGHTMASTERS = "Show enemy faction Flight Masters";
 TWM_OPTIONS_TOGGLE_FLIGHTPATHS = "Toggle Flight Paths";
 TWM_OPTIONS_FLIGHTPATH_THICKNESS = "Flight Path Thickness";
+TWM_OPTIONS_FLIGHTPATH_INTERPOLATION = "Flight Path Curve Smoothing";
 
 
 TWM_ZOOMIN =     "+";

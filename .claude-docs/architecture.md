@@ -142,6 +142,26 @@ alive at once; that pooling approach doesn't fit the "reposition one
 parent" trick, since a pooled object's *identity* (which point/tile it
 represents) changes every pan.
 
+**Curve smoothing** (`Spline.lua`): the WoW UI API has no native curve/spline
+primitive at all -- `Frame:CreateLine` only draws straight segments (same as
+Blizzard's own talent-tree connectors), and there's no known community
+library for this either. `TWM_CatmullRomInterpolate(points, maxExtraPerSegment)`
+is this addon's own tiny Catmull-Rom implementation, adding extra calculated
+points between each pair of `Twm_taxipathnodes` points before `DrawRoute`
+turns them into `Line` segments -- purely cosmetic smoothing on top of the
+already-real curved data, not a replacement for it. How many extra points a
+given segment gets scales with that segment's own length relative to the
+longest segment in the same path (`TWMOption.FlightPathInterpolation`,
+Settings.lua slider, only caps the longest one), so a long open-world leg
+gets proportionally more subdivision than a short hop near a hub instead of
+both getting the same flat count. **Deliberately hover-preview-only** --
+`DrawRoute`'s `allowInterpolation` parameter is `true` only for the
+currently-hovered flight master's own routes (at most a handful), and
+always `false` for "Toggle Flight Paths"' full-continent view (which can
+already be hundreds of routes) -- since more points per route means more
+`Line` children on the shared world frame, and that's precisely the cost
+that already makes Shift-curved "always show" laggy (see below).
+
 Two costs that don't come for free with this trick:
 - `SetThickness` is also in the world frame's local units, so it'd get
   scaled by the same `SetScale` and render thicker/thinner with zoom —

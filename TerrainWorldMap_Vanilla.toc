@@ -22,6 +22,7 @@ Data_Vanilla\mapdata_poi_flightmasters.lua
 Data_Vanilla\mapdata_tiles.lua
 Points.lua
 TaxiRoutes.lua
+Spline.lua
 FlightPaths.lua
 TerrainWorldMap.lua
 WorldMapOverlay.lua

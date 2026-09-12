@@ -25,7 +25,8 @@ nothing to your addon folder's size or your loading screens.
   its own routes, or show every known route on the continent at once;
   hold Shift to see the real curved flight path instead of a straight
   line (showing every route at once can be laggy on continents with a lot
-  of routes, especially with Shift held).
+  of routes, especially with Shift held). An adjustable smoothing slider
+  can further curve a hovered flight master's own routes.
 - **Player/party/raid tracking** on the map.
 - **Minimap button** and a **World Map button**, both with a right-click menu.
 - **Native settings panel** (Esc → Options → AddOns → TerrainWorldMap).

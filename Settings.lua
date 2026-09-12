@@ -26,6 +26,14 @@ local function CreateCheckbox(parent, globalName, labelText)
     return button;
 end
 
+-- Keeps each slider's own label showing its live value, e.g.
+-- "Icon Size (1.2)" -- decimals should match that slider's own step (0 for
+-- a step of 1, 1 for 0.5/0.1, 2 for 0.05, etc.) so the label never shows
+-- more precision than the slider can actually land on.
+local function UpdateSliderLabel(globalName, labelText, v, decimals)
+    _G[globalName.."Text"]:SetText(labelText .. " (" .. string.format("%." .. decimals .. "f", v) .. ")");
+end
+
 local function CreateSlider(parent, globalName, labelText, minVal, maxVal, step)
     local slider = CreateFrame("Slider", globalName, parent, "OptionsSliderTemplate");
     slider:SetSize(180, 16);
@@ -34,6 +42,10 @@ local function CreateSlider(parent, globalName, labelText, minVal, maxVal, step)
     _G[globalName.."Low"]:SetText();
     slider:SetMinMaxValues(minVal, maxVal);
     slider:SetValueStep(step);
+    -- SetValueStep alone only snaps arrow-key nudges -- dragging the thumb
+    -- with the mouse ignores it and returns fractional values unless this
+    -- is also set.
+    slider:SetObeyStepOnDrag(true);
     return slider;
 end
 
@@ -234,15 +246,28 @@ SetTooltip(showFlightPathsButton, TWM_OPTIONS_TOGGLE_FLIGHTPATHS, TWM_TOOLTIP_OP
 local flightPathThicknessSlider = CreateSlider(BrowserPanel, "TWMOptionFlightPathThicknessSlider", TWM_OPTIONS_FLIGHTPATH_THICKNESS, 1, 4, 0.5);
 flightPathThicknessSlider:SetPoint("TOPLEFT", showFlightPathsButton, "BOTTOMLEFT", 4, -32);
 flightPathThicknessSlider:SetScript("OnValueChanged", function(self)
-    if(TWM_SetFlightPathThickness) then TWM_SetFlightPathThickness(self:GetValue()); end
+    local v = self:GetValue();
+    UpdateSliderLabel("TWMOptionFlightPathThicknessSlider", TWM_OPTIONS_FLIGHTPATH_THICKNESS, v, 1);
+    if(TWM_SetFlightPathThickness) then TWM_SetFlightPathThickness(v); end
 end);
 SetTooltip(flightPathThicknessSlider, TWM_OPTIONS_FLIGHTPATH_THICKNESS, TWM_TOOLTIP_OPT_FLIGHTPATHTHICKNESS);
 
+local flightPathInterpolationSlider = CreateSlider(BrowserPanel, "TWMOptionFlightPathInterpolationSlider", TWM_OPTIONS_FLIGHTPATH_INTERPOLATION, 0, 20, 1);
+flightPathInterpolationSlider:SetPoint("TOPLEFT", flightPathThicknessSlider, "BOTTOMLEFT", 0, -32);
+flightPathInterpolationSlider:SetScript("OnValueChanged", function(self)
+    local v = Round(self:GetValue());
+    UpdateSliderLabel("TWMOptionFlightPathInterpolationSlider", TWM_OPTIONS_FLIGHTPATH_INTERPOLATION, v, 0);
+    if(TWM_SetFlightPathInterpolation) then TWM_SetFlightPathInterpolation(v); end
+end);
+SetTooltip(flightPathInterpolationSlider, TWM_OPTIONS_FLIGHTPATH_INTERPOLATION, TWM_TOOLTIP_OPT_FLIGHTPATHINTERPOLATION);
+
 local alphaSlider = CreateSlider(BrowserPanel, "TWMOptionAlphaSlider", TWM_OPTIONS_ALPHA, .1, 1, .05);
-alphaSlider:SetPoint("TOPLEFT", flightPathThicknessSlider, "BOTTOMLEFT", 0, -32);
+alphaSlider:SetPoint("TOPLEFT", flightPathInterpolationSlider, "BOTTOMLEFT", 0, -32);
 alphaSlider:SetScript("OnValueChanged", function(self)
-    TWMFrame:SetAlpha(self:GetValue());
-    TWMOption.Frames["TWMFrame"].Alpha = self:GetValue();
+    local v = self:GetValue();
+    UpdateSliderLabel("TWMOptionAlphaSlider", TWM_OPTIONS_ALPHA, v, 2);
+    TWMFrame:SetAlpha(v);
+    TWMOption.Frames["TWMFrame"].Alpha = v;
 end);
 SetTooltip(alphaSlider, TWM_OPTIONS_ALPHA, TWM_TOOLTIP_OPT_ALPHA);
 
@@ -250,6 +275,7 @@ local iconSizeSlider = CreateSlider(BrowserPanel, "TWMOptionIconSizeSlider", TWM
 iconSizeSlider:SetPoint("TOPLEFT", alphaSlider, "BOTTOMLEFT", 0, -32);
 iconSizeSlider:SetScript("OnValueChanged", function(self)
     local v = self:GetValue();
+    UpdateSliderLabel("TWMOptionIconSizeSlider", TWM_OPTIONS_ICONSIZE, v, 1);
     if(TWMOption.Frames["TWMFrame"].IconSize ~= v) then
         TWMOption.Frames["TWMFrame"].IconSize = v;
         TWMPoints_Update(TWMFrame);
@@ -276,6 +302,7 @@ resetPositionButton:SetScript("OnClick", function()
     TWMOption.ShowEnemyFlightmasters = false;
     TWMOption.ShowFlightPaths = false;
     if(TWM_SetFlightPathThickness) then TWM_SetFlightPathThickness(nil); end
+    if(TWM_SetFlightPathInterpolation) then TWM_SetFlightPathInterpolation(nil); end
 
     TWMPoints_ForceUpdate(TWMFrame);
     BrowserPanel.OnRefresh();
@@ -289,7 +316,9 @@ function BrowserPanel.OnRefresh()
     local opt = TWMOption.Frames["TWMFrame"];
     if(opt) then
         alphaSlider:SetValue(opt.Alpha);
+        UpdateSliderLabel("TWMOptionAlphaSlider", TWM_OPTIONS_ALPHA, opt.Alpha, 2);
         iconSizeSlider:SetValue(opt.IconSize);
+        UpdateSliderLabel("TWMOptionIconSizeSlider", TWM_OPTIONS_ICONSIZE, opt.IconSize, 1);
         showLandmarksButton:SetChecked(not (opt.PointCfg and opt.PointCfg["landmarks"]));
         showGraveyardsButton:SetChecked(not (opt.PointCfg and opt.PointCfg["graveyards"]));
         showCapitalsButton:SetChecked(not (opt.PointCfg and opt.PointCfg["capitals"]));
@@ -299,7 +328,14 @@ function BrowserPanel.OnRefresh()
     showEnemyFlightmastersButton:SetChecked(TWMOption.ShowEnemyFlightmasters);
     showFlightPathsButton:SetChecked(TWMOption.ShowFlightPaths);
     if(TWM_GetFlightPathThickness) then
-        flightPathThicknessSlider:SetValue(TWM_GetFlightPathThickness());
+        local v = TWM_GetFlightPathThickness();
+        flightPathThicknessSlider:SetValue(v);
+        UpdateSliderLabel("TWMOptionFlightPathThicknessSlider", TWM_OPTIONS_FLIGHTPATH_THICKNESS, v, 1);
+    end
+    if(TWM_GetFlightPathInterpolation) then
+        local v = TWM_GetFlightPathInterpolation();
+        flightPathInterpolationSlider:SetValue(v);
+        UpdateSliderLabel("TWMOptionFlightPathInterpolationSlider", TWM_OPTIONS_FLIGHTPATH_INTERPOLATION, v, 0);
     end
 end
 

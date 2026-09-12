@@ -65,6 +65,7 @@ TWM_TOOLTIP_OPT_SHOWFLIGHTMASTERS = "Zeigt Flugmeister-Markierungen auf der Kart
 TWM_TOOLTIP_OPT_SHOWENEMYFLIGHTMASTERS = "Zeigt auch Flugmeister der gegnerischen Fraktion. Standardm\195\164\195\159ig deaktiviert - ohne diese Option werden nur die Flugmeister der eigenen Fraktion und neutrale angezeigt, genau wie auf der echten Flugkarte im Spiel.";
 TWM_TOOLTIP_OPT_TOGGLEFLIGHTPATHS = "Zeichnet immer alle bekannten Flugrouten auf der Karte. Wenn deaktiviert, werden beim \195\156berfahren eines Flugmeisters stattdessen nur die von dort abgehenden Routen angezeigt. Halte in beiden F\195\164llen die Umschalttaste (Shift) gedr\195\188ckt, um den echten, gekr\195\188mmten Flugverlauf statt einer geraden Linie zu sehen. Kann auf Kontinenten mit vielen Routen zu Rucklern f\195\188hren, besonders bei gedr\195\188ckter Umschalttaste.";
 TWM_TOOLTIP_OPT_FLIGHTPATHTHICKNESS = "Legt fest, wie dick die Flugroutenlinien gezeichnet werden, in Bildschirmpixeln.";
+TWM_TOOLTIP_OPT_FLIGHTPATHINTERPOLATION = "Glättet die echte, gekrümmte Flugroute (Umschalt gedrückt) durch zusätzliche berechnete Punkte zwischen den ursprünglichen, statt eines sichtbar eckigen Streckenzugs. 0 deaktiviert dies. Wird nur auf den gerade überfahrenen Flugmeister angewendet, nie auf die Gesamtansicht von \"Flugrouten umschalten\", um Ruckler zu vermeiden.";
 
 TWM_POINTS_SHOWPOINTS_TITLE = "Zeige Punkte";
 -- Landmarks would tranlsate to "Landmarken", "wichtige Orte" would be translated to English: "important places"
@@ -83,6 +84,7 @@ TWM_OPTIONS_SHOW_FLIGHTMASTERS = "Zeige Flugmeister";
 TWM_OPTIONS_SHOW_ENEMY_FLIGHTMASTERS = "Zeige gegnerische Flugmeister";
 TWM_OPTIONS_TOGGLE_FLIGHTPATHS = "Flugrouten anzeigen";
 TWM_OPTIONS_FLIGHTPATH_THICKNESS = "Flugroutendicke";
+TWM_OPTIONS_FLIGHTPATH_INTERPOLATION = "Flugrouten-Glättung";
 
 
 
