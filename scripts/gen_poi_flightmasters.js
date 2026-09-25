@@ -29,11 +29,19 @@
 // player-choosable flight points -- boat/zeppelin dock waypoints ("Transport,
 // ..."), scripted one-off quest flights ("Quest Path ...: ..."), a dev-only
 // island ("Programmer Isle"), and generic scripted targets ("Generic, ...").
-// Filtered out by a name-prefix heuristic (see JUNK_NAME_RE) -- confirmed by
-// eyeballing every row in Vanilla's ~87-row table; no known false positives,
-// but this is a heuristic, not something Map/AreaTable-style data backs up,
-// so double-check the "N junk rows skipped" count against the table's total
-// row count if this is ever re-run against a very different client build.
+// Used to be filtered by a name-prefix heuristic, but every single one of
+// these rows already has Flags == 0 (neither faction bit) -- confirmed
+// empirically across all 4 flavors' full TaxiNodes tables, 0 false
+// negatives -- so isRealFlightPoint's own flags check below already drops
+// every one of them on its own; the name pattern never actually did
+// anything a plain DB2 field check didn't already cover, so it was removed.
+//
+// Separately, a node with zero TaxiPath rows referencing it (either
+// direction) is dropped regardless of name -- confirmed against WoW:
+// Forever's "zzOLD..." rows (Blizzard's rename-instead-of-delete
+// convention for deprecated/replaced data): these pass every other check
+// but are fully disconnected, so this structural signal catches them (and
+// anything like them in the future) without relying on a name pattern.
 //
 // Positions use the same {bigX, bigY} = {Pos_1, Pos_0} convention as
 // AreaTrigger in gen_poi_instances.js (raw world coords ARE Big coords,
@@ -72,8 +80,6 @@ const { parseCsvFile, findCsv } = require('./csv');
 // identical across locale exports -- only Name_lang differs), so it's
 // required; the rest are optional per-locale name overlays.
 const LOCALES = ['enUS', 'deDE', 'esES', 'esMX', 'frFR', 'itIT', 'koKR', 'ptBR', 'ruRU', 'zhCN', 'zhTW'];
-
-const JUNK_NAME_RE = /^(Transport,|Quest Path\b|Generic\b|Programmer Isle)/i;
 
 // A node with neither faction bit set (Flags & 3 == 0) or with
 // CharacterBitNumber == 0 is dropped -- CharacterBitNumber is which bit of
@@ -174,21 +180,36 @@ function main() {
 	const mapByID = {};
 	for (const r of mapRows) mapByID[r.ID] = r;
 
+	// A node with zero TaxiPath rows referencing it (either direction) has
+	// no route to anywhere -- a real, player-usable flight master always
+	// has at least one. Confirmed against WoW: Forever's own "zzOLD..."
+	// rows (Blizzard's internal rename-instead-of-delete convention for
+	// deprecated/replaced data, e.g. "zzOLDBolder'ok, Riverglades") --
+	// these otherwise pass every other check (real faction flags, nonzero
+	// CharacterBitNumber) but are fully disconnected leftover dev rows, so
+	// this structural check catches them (and any future junk like it)
+	// without needing to keep a name-prefix pattern up to date.
+	const nodeIDsWithPaths = new Set();
+	for (const p of taxiPathRows) {
+		nodeIDsWithPaths.add(p.FromTaxiNode);
+		nodeIDsWithPaths.add(p.ToTaxiNode);
+	}
+
 	// Surviving nodes only, keyed by TaxiNode ID -- TaxiPath edges reference
 	// junk/off-continent nodes too, and both endpoints must have survived
 	// for a route to be drawable.
 	const nodeByID = {};
 	const byContinent = {};
-	let kept = 0, junkSkipped = 0, notRealSkipped = 0, noContinentSkipped = 0;
+	let kept = 0, notRealSkipped = 0, noContinentSkipped = 0, noRouteSkipped = 0;
 
 	for (const n of taxiNodeRows) {
-		if (JUNK_NAME_RE.test(n.Name_lang)) {
-			junkSkipped++;
+		if (!isRealFlightPoint(n)) {
+			notRealSkipped++;
 			continue;
 		}
 
-		if (!isRealFlightPoint(n)) {
-			notRealSkipped++;
+		if (!nodeIDsWithPaths.has(n.ID)) {
+			noRouteSkipped++;
 			continue;
 		}
 
@@ -211,7 +232,7 @@ function main() {
 		kept++;
 	}
 
-	console.error(`${kept} flight masters kept (${junkSkipped} junk rows skipped, ${notRealSkipped} failed the faction-flags/CharacterBitNumber check, ${noContinentSkipped} not on an open-world continent)`);
+	console.error(`${kept} flight masters kept (${notRealSkipped} failed the faction-flags/CharacterBitNumber check, ${noRouteSkipped} had no TaxiPath route at all, ${noContinentSkipped} not on an open-world continent)`);
 
 	// Raw TaxiPath rows, filtered only to pairs where both endpoints
 	// survived the junk/continent filter above -- no dedup, no

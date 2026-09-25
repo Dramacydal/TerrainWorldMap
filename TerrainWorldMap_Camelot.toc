@@ -1,4 +1,4 @@
-## Interface: 50504
+## Interface: 11601
 ## Title: TerrainWorldMap
 ## Version: 1.1.5
 ## Author: Dramacydal, Boo Diddly (Yatlas)
@@ -13,13 +13,13 @@ Libs\Libs.xml
 Locale\Locales.xml
 
 mapdata_zones.lua
-Data_Mists\mapdata_continents.lua
-Data_Mists\mapdata_poi.lua
-Data_Mists\mapdata_poi_areas.lua
-Data_Mists\mapdata_poi_graveyards.lua
-Data_Mists\mapdata_poi_instances.lua
-Data_Mists\mapdata_poi_flightmasters.lua
-Data_Mists\mapdata_tiles.lua
+Data_Forever\mapdata_continents.lua
+Data_Forever\mapdata_poi.lua
+Data_Forever\mapdata_poi_areas.lua
+Data_Forever\mapdata_poi_graveyards.lua
+Data_Forever\mapdata_poi_instances.lua
+Data_Forever\mapdata_poi_flightmasters.lua
+Data_Forever\mapdata_tiles.lua
 Points.lua
 TaxiRoutes.lua
 Spline.lua

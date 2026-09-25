@@ -1,6 +1,15 @@
 
 TerrainWorldMap ChangeLog
 ================
+1.1.5 (September 26, 2026)
+----------------------------
+- Added: initial support for WoW: Forever (Classic+, beta) -- terrain
+  tiles, landmarks, graveyards, flight masters and routes, and raid
+  entrance markers all work. Dungeon entrance markers aren't available yet
+  for this flavor -- Blizzard hasn't wired up regular dungeon entrances the
+  same way as everything else yet.
+- Changed: the "Show Points" button's icon.
+
 1.1.4 (September 13, 2026)
 ----------------------------
 - Added: a "Flight Path Curve Smoothing" slider in Settings' Browser tab --

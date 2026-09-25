@@ -291,10 +291,10 @@
 				TWMFOO_OnClick(self);
 			</OnClick>
 		</Scripts>
-		<NormalTexture file="Interface\Buttons\UI-SpellbookIcon-NextPage-Up"/>
-		<PushedTexture file="Interface\Buttons\UI-SpellbookIcon-NextPage-Down"/>
-		<DisabledTexture file="Interface\Buttons\UI-SpellbookIcon-NextPage-Disabled"/>
-		<HighlightTexture file="Interface\Buttons\UI-Common-MouseHilight" alphaMode="ADD"/>
+		<NormalTexture file="Interface\Icons\Trade_Engineering"/>
+		<PushedTexture file="Interface\Icons\Trade_Engineering"/>
+		<DisabledTexture file="Interface\Icons\Trade_Engineering"/>
+		<HighlightTexture file="Interface\Buttons\ButtonHilight-Square" alphaMode="ADD"/>
 	</Button>
 
 	<Button name="TWMFrameZoomButton" parent="TWMFrameViewFrame">

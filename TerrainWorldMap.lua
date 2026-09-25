@@ -42,6 +42,23 @@ function TWM_GetTileFileName(continent, col, row)
     return format("map%.2d_%.2d", col, row);
 end
 
+-- Some flavors' minimap tiles can't be loaded by a plain path string at all
+-- -- confirmed on WoW: Forever/Camelot by testing SetTexture with a raw
+-- "World\Minimaps\..." path against the equivalent numeric FileDataID: the
+-- path silently resolves to nothing (GetTexture() -> nil after SetTexture),
+-- the FileDataID works fine (see gotchas.md). Twm_TileFileID[continent]
+-- [filename] (Data_<Flavor>/mapdata_tiles.lua, only baked in for flavors
+-- that need it -- see parse_wdt.js's --listfile flag) holds the FileDataID
+-- for exactly that case, keyed by the same filename TWM_GetTileFileName
+-- already returns (so it covers the noLiquid variant too, no separate
+-- table needed). Falls back to the old path string for every other
+-- flavor, unaffected.
+function TWM_GetTileTexture(continent, filename)
+    local fileID = Twm_TileFileID and Twm_TileFileID[continent] and Twm_TileFileID[continent][filename];
+    if(fileID) then return fileID; end
+    return pre..continent.."\\"..filename;
+end
+
 -- Forces TWMFrame's own tile grid to rebuild with fresh texture names (e.g.
 -- after toggling "Show underwater terrain") even though the view hasn't
 -- actually panned/zoomed/changed map -- SetLocation()'s forceupdate param
@@ -962,7 +979,7 @@ function TWMFrameTemplate:SetLocation(x,y,forceupdate,forcePointsUpdate)
 
                 -- set textures
                 if(v[hx][hy]) then
-                    TWM_SetTileTexture(tex, pre..mymap.."\\"..v[hx][hy][1], TWM_GetTileFilter());
+                    TWM_SetTileTexture(tex, TWM_GetTileTexture(mymap, v[hx][hy][1]), TWM_GetTileFilter());
                     tex:SetVertexColor(1,1,1,1);
                 else
                     tex:SetTexture("Interface\\Buttons\\WHITE8X8");
@@ -1438,8 +1455,8 @@ function TWMTooltipTemplate:GetNext()
     f:SetWidth(16);
     f:SetParent(self);
     -- No EnableMouse -- these rows have no OnEnter/OnClick of their own
-    -- (visibility in the tooltip is driven by MouseIsOver(), which is a
-    -- pure geometry check and doesn't need mouse input enabled). Enabling
+    -- (visibility in the tooltip is driven by Region:IsMouseOver(), which is
+    -- a pure geometry check and doesn't need mouse input enabled). Enabling
     -- it here only made this row swallow clicks that land on the tooltip
     -- -- e.g. a map-drag that happens to start on top of the tooltip box.
 

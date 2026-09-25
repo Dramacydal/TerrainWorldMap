@@ -458,6 +458,20 @@ function TWMP_SetOffset(point, x, y)
            (current_locy_xact - y)*z + iconsz/2);
 end
 
+-- WoW: Forever (patch 12.1.5) removed the old global MouseIsOver(frame)
+-- entirely (along with several other legacy convenience globals) -- every
+-- client this addon supports, Forever included, has always had the
+-- equivalent Region:IsMouseOver() method, so that's tried first; the
+-- global is only a fallback in case some future/older client turns out to
+-- be missing the method instead (belt and suspenders, same guarded-API
+-- pattern as Templates.xml's SetClipsChildren check).
+local function TWM_IsMouseOverFrame(frame)
+    if(frame.IsMouseOver) then
+        return frame:IsMouseOver();
+    end
+    return MouseIsOver(frame);
+end
+
 function TWMP_OnEnter(self)
     local vf = self:GetParent(); 
     local f = vf:GetParent();
@@ -476,7 +490,7 @@ function TWMFrameViewFrame_UpdatePointTooltip(self)
     local tp = _G[f.hoverTooltip];
 
     for h,v in pairs(f.pointframes) do
-        if(v.intooltip and not MouseIsOver(v)) then
+        if(v.intooltip and not TWM_IsMouseOverFrame(v)) then
             TWMPoints_UpdateTooltip(f, tp, v, "remove");
             tp.knownshownlines = tp.knownshownlines - 1;
 
@@ -486,7 +500,7 @@ function TWMFrameViewFrame_UpdatePointTooltip(self)
                 TWM_HoveredTaxiNodeID = nil;
                 if(TWM_FlightPaths_Refresh) then TWM_FlightPaths_Refresh(); end
             end
-        elseif(not v.intooltip and MouseIsOver(v)) then
+        elseif(not v.intooltip and TWM_IsMouseOverFrame(v)) then
             TWMPoints_UpdateTooltip(f, tp, v, "add");
             tp.knownshownlines = tp.knownshownlines + 1;
 
@@ -501,10 +515,10 @@ function TWMFrameViewFrame_UpdatePointTooltip(self)
     end
 
     for h,v in pairs(f.mobilepointframes) do
-        if(v.intooltip and not MouseIsOver(v)) then
+        if(v.intooltip and not TWM_IsMouseOverFrame(v)) then
             TWMPoints_UpdateTooltip(f, tp, v, "remove");
             tp.knownshownlines = tp.knownshownlines - 1;
-        elseif(not v.intooltip and MouseIsOver(v) and v:IsShown()) then
+        elseif(not v.intooltip and TWM_IsMouseOverFrame(v) and v:IsShown()) then
             TWMPoints_UpdateTooltip(f, tp, v, "add");
             tp.knownshownlines = tp.knownshownlines + 1;
         end

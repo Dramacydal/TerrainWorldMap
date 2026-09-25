@@ -4,6 +4,34 @@ tags: [memory/repo, gotcha]
 
 # Gotchas
 
+## WoW: Forever/Camelot can't load minimap tiles by path string — use FileDataID
+
+Every flavor's tile rendering (`TerrainWorldMap.lua`'s standalone-window
+`SetZoom` and `WorldMapOverlay.lua`'s World Map overlay) called
+`Texture:SetTexture("World\Minimaps\<continent>\mapXX_YY")` — a plain path
+string — and this had worked on every flavor since the addon existed.  On
+WoW: Forever (Camelot beta), the overlay/standalone window showed every
+frame, POI, and the black backdrop correctly, but no terrain at all —
+confirmed (via `/run` in-game) that `SetTexture` with this exact path
+resolves to `nil` on Forever specifically, while the same tile's numeric
+`FileDataID` (looked up from a community listfile, since it's not in any
+DB2 table) loads fine, and a totally unrelated `Interface\Icons\...` path
+string still resolves normally — so this isn't "all path-based SetTexture
+is broken", just this addon's specific `world/` asset category on this one
+flavor. CASCConsole confirmed the actual `.blp` files are still there in
+CASC, unrenamed, at the exact same path — so it's a client-side resolution
+restriction, not missing/moved data.
+
+Fixed with `TWM_GetTileTexture(continent, filename)` (`TerrainWorldMap.lua`):
+returns the numeric FileDataID from `Twm_TileFileID[continent][filename]`
+(`Data_<Flavor>/mapdata_tiles.lua`, baked in by `parse_wdt.js --listfile`)
+when that flavor's data has one, otherwise falls back to the old path
+string — so Vanilla/TBC/Mists are untouched, only Forever needed
+regenerating with the new flag. Both `TerrainWorldMap.lua`'s and
+`WorldMapOverlay.lua`'s own `SetTexture` call sites go through this one
+shared function now instead of each concatenating `"World\Minimaps\"..`
+themselves.
+
 ## `Slider:SetValueStep` doesn't stop mouse-dragging from giving fractional values
 
 `Settings.lua`'s `CreateSlider` calls `slider:SetValueStep(step)`, which
@@ -223,8 +251,22 @@ positioned off-screen, specifically so unused pool slots stay cheap.
 `TWMTooltipTemplate:GetNext()` (`TerrainWorldMap.lua`) used to create each
 tooltip line as a mouse-enabled `Button`, despite having no `OnEnter`/
 `OnClick` of its own — visibility in the tooltip is driven entirely by
-`MouseIsOver()`, a pure geometry check that doesn't need mouse input
+`Region:IsMouseOver()`, a pure geometry check that doesn't need mouse input
 enabled. The stray `EnableMouse(true)` caused the tooltip box to silently
 swallow clicks that landed on it — e.g. a map-drag that happened to start
 while the cursor-following tooltip was sitting under it. Removed; tooltip
 rows are now click-through.
+
+## The global `MouseIsOver(frame)` function doesn't exist on every client
+
+`Points.lua`'s `TWMFrameViewFrame_UpdatePointTooltip` used to call the
+global `MouseIsOver(v)` to check point-icon hover state — worked fine on
+Vanilla/TBC/Mists, but spammed `attempt to call a nil value` on WoW: Forever
+(patch 12.1.5), which removed this global entirely along with a batch of
+other old convenience globals (`GetItemInfo`, `GetMouseFocus`, etc. — see
+Forever's known-issues notes). Fixed with `TWM_IsMouseOverFrame(frame)`
+(`Points.lua`): tries the equivalent `Region:IsMouseOver()` method first
+(present on every supported flavor, Forever included), falling back to the
+bare global only if a frame somehow lacks that method — same guarded-API
+pattern as Templates.xml's `SetClipsChildren` check. Use this helper for
+any future hover check instead of either form directly.

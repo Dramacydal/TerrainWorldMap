@@ -13,8 +13,6 @@
 --
 -- Toggle with "/twm map on" / "/twm map off".
 
-local pre = "World\\Minimaps\\";
-
 local overlay;
 local backdrop;
 local texturePool = {};
@@ -175,7 +173,7 @@ local function DrawTiles(continent, bx1, bx2, by1, by2, targetX1, targetY1, targ
                     tex:SetPoint("TOPLEFT", overlay, "TOPLEFT", ix1, -iy1);
                     tex:SetWidth(ix2-ix1);
                     tex:SetHeight(iy2-iy1);
-                    TWM_SetTileTexture(tex, pre..continent.."\\"..TWM_GetTileFileName(continent, col, row), TWM_GetTileFilter());
+                    TWM_SetTileTexture(tex, TWM_GetTileTexture(continent, TWM_GetTileFileName(continent, col, row)), TWM_GetTileFilter());
                     tex:SetTexCoord((ix1-tx1)/(tx2-tx1), (ix2-tx1)/(tx2-tx1), (iy1-ty1)/(ty2-ty1), (iy2-ty1)/(ty2-ty1));
                     tex:Show();
                 end

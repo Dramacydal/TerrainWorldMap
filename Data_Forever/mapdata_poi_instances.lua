@@ -1,0 +1,19 @@
+-- GENERATED FILE -- do not hand-edit, regenerate with scripts/gen_poi_instances.js
+-- and replace this file wholesale. See scripts/README.md for details.
+--
+-- Deliberately empty for now. Reusing Vanilla's areatrigger_teleport.csv
+-- against this flavor's own AreaTrigger.csv (as documented in
+-- scripts/README.md's Forever section) only ever turns up RAID entrances
+-- (Molten Core/Naxxramas/Zul'Gurub/etc.) -- every classic 5-man dungeon
+-- (Deadmines, Wailing Caverns, Gnomeregan, ...), old AND the new
+-- Forever-only ones, is confirmed enterable in-game already despite having
+-- no AreaTrigger row at all in this build. That's not the beta being
+-- incomplete -- dungeon entrances were restructured to use an interactive
+-- GameObject portal instead of the classic AreaTrigger box, while raids
+-- kept the old walk-through-a-door convention. GameObject spawn data is
+-- server-side only, not in any client file this pipeline can read, so
+-- there's no automated way to fill dungeons in until Blizzard's own live
+-- release (or some other new data source) makes this discoverable again --
+-- shipping a raids-only partial list read as more complete than it
+-- actually is, so nothing is included at all for now instead.
+Twm_instances = {}

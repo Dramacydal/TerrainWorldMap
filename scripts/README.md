@@ -32,6 +32,16 @@ editions, so re-check `.build.info` if a code below stops matching):
 | Vanilla | `wow_classic_era` | `Data_Vanilla` |
 | TBC | `wow_anniversary` | `Data_TBC` |
 | Mists | `wow_classic` | `Data_Mists` |
+| Forever | `wow_classic_beta` | `Data_Forever` |
+
+Forever (WoW: Forever, Classic+) is still in beta as of this writing --
+`wow_classic_beta` is the product code for now, but expect Blizzard to swap
+it for a permanent one at launch (re-check `.build.info` if it stops
+matching). Its continent list is `Azeroth`/`Kalimdor`/`2991` -- `2991` is
+Zephras Isle, a new beta zone with no proper flavor-specific directory name
+assigned yet (just its own numeric `Map.ID`, used as-is as the continent
+key). No Outland/Northrend -- this flavor's world is Classic-era Kalimdor
+and Eastern Kingdoms plus this one new island so far.
 
 ## Step 1 — `init_workdir.ps1`: fetch client data
 
@@ -101,13 +111,14 @@ Azeroth Kalimdor
 ## Step 3 — `parse_wdt.js`: tile validity + AreaIDs
 
 ```bash
-node parse_wdt.js --flavor-dir <dir> --out <out-file.lua> [--noliquid] [--areatable-dir <dir>] <ContinentName> [<ContinentName> ...]
+node parse_wdt.js --flavor-dir <dir> --out <out-file.lua> [--noliquid] [--areatable-dir <dir>] [--listfile <community-listfile.csv>] <ContinentName> [<ContinentName> ...]
 ```
 
 - **`--flavor-dir`** (required) — `<WorkDir>/<Product>` from step 1
 - **`--out`** (required) — output path, e.g. `Data_<Flavor>/mapdata_tiles.lua`
 - **`--noliquid`** (optional) — also detect underwater tiles (noLiquid minimaps) — only meaningful for flavors with submerged zones (Mists onward: Vashj'ir, Pandaria coastline)
 - **`--areatable-dir`** (optional, defaults to `--flavor-dir`) — folder containing `AreaTable.*.csv`
+- **`--listfile`** (optional) — path to a community listfile (`id;path` per line, e.g. `init_workdir.ps1`'s `WorkDir/CASCConsole/listfile.csv`). Bakes each tile's minimap BLP `FileDataID` into `Twm_TileFileID[continent][filename]`. **Only needed for a flavor where `Texture:SetTexture("World\Minimaps\...")` doesn't resolve by path string at all** — confirmed on WoW: Forever/Camelot (see `.claude-docs/gotchas.md`); every other flavor still loads fine by path and doesn't need this flag. A tile with no listfile entry gets a loud `WARNING` on stderr and falls back to the (broken, on that flavor) path string — not silently dropped.
 - **`<ContinentName>...`** (required) — case-sensitive, must match `gen_mapareas.js`'s stdout line 1 exactly
 
 **Examples:**
@@ -324,12 +335,21 @@ Plaguelands faction-war towers — explicitly both-usable) — mapped to
 `TaxiNodes.db2` also carries rows that aren't real, player-choosable flight
 points — boat/zeppelin dock waypoints (`"Transport, ..."`), one-off scripted
 quest flights (`"Quest Path ...: ..."`), a dev-only island
-(`"Programmer Isle"`), and generic scripted targets (`"Generic, ..."`) —
-filtered out by a name-prefix heuristic (`JUNK_NAME_RE` in the script).
-Confirmed against every row in Vanilla's ~87-row table with no known false
-positives, but it's a heuristic, not something DB2 structure backs up —
-sanity-check the "N junk rows skipped" count if this ever runs against a
-very different client build.
+(`"Programmer Isle"`), and generic scripted targets (`"Generic, ..."`).
+Used to be filtered by a name-prefix heuristic, but every one of these rows
+already has `Flags == 0` (neither faction bit) — confirmed empirically
+across all 4 flavors' full `TaxiNodes` tables, 0 false negatives — so the
+faction-flags check below already drops all of them on its own; the name
+pattern never earned its keep over a plain DB2 field check, so it was
+removed.
+
+A node with zero `TaxiPath` rows referencing it (either direction) is
+dropped too, regardless of name — confirmed against WoW: Forever's own
+`"zzOLD..."` rows (Blizzard's rename-instead-of-delete convention for
+deprecated/replaced data, e.g. `"zzOLDBolder'ok, Riverglades"`), which pass
+every other check but lead nowhere at all. Structural, not a name pattern,
+so it also catches anything similar in the future without needing an
+update here.
 
 `Twm_flightmasters[continent]` entries are
 `{id, faction, name = {enUS = ..., deDE = ..., ...}, x, y}` — named fields

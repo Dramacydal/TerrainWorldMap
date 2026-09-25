@@ -140,7 +140,15 @@ const sanityChecks = {
 // TerrainWorldMap's tile-key numbering directly -- no axis swap here.
 function findNoLiquidTiles(dir) {
 	if (!fs.existsSync(dir)) {
-		console.error(`  no noLiquid check: ${dir} doesn't exist (minimaps not extracted for this continent)`);
+		// Just means this continent has zero noliquid_mapXX_YY.blp files in
+		// this client build (init_workdir.ps1 only ever pulls this dir down
+		// if CASCConsole actually found a match) -- "Show underwater terrain"
+		// will have nothing to toggle here, that's all. The addon's REGULAR
+		// map tiles are unaffected either way -- they're never extracted by
+		// this pipeline at all, TerrainWorldMap.lua's TWM_SetTileTexture
+		// loads them live from the player's own client at runtime, same as
+		// any other Blizzard interface texture.
+		console.error(`  no underwater terrain data for this continent (${dir} not found) -- not an error, this build likely has none here`);
 		return [];
 	}
 
@@ -153,6 +161,57 @@ function findNoLiquidTiles(dir) {
 
 	console.error(`  noLiquid tiles found: ${tiles.length}`);
 	return tiles;
+}
+
+// path;id per line (community listfile format, e.g.
+// "204250;world/minimaps/azeroth/map26_35.blp") -- loaded whole into a
+// path->FileDataID map. Only used when --listfile is passed (see
+// findTileFileIDs()) -- confirmed against Zephras Isle's brand-new beta
+// data that even fresh, not-yet-widely-named content already shows up
+// here, so this is trusted as the primary source rather than a from-scratch
+// CASC-root hash lookup (a real CASC parser would be needed for that, and
+// nothing in this pipeline currently needs it).
+function loadListfile(listfilePath) {
+	console.error(`  loading listfile (${listfilePath})...`);
+	const byPath = new Map();
+	const lines = fs.readFileSync(listfilePath, 'utf8').split('\n');
+	for (const line of lines) {
+		const sep = line.indexOf(';');
+		if (sep < 0)
+			continue;
+		const id = parseInt(line.slice(0, sep), 10);
+		const p = line.slice(sep + 1).trim().toLowerCase();
+		if (p)
+			byPath.set(p, id);
+	}
+	console.error(`  listfile entries: ${byPath.size}`);
+	return byPath;
+}
+
+// Resolves the FileDataID for every tile filename (regular + noLiquid, if
+// any) this continent actually has, by looking up its full CASC path
+// (world/minimaps/<continent>/<filename>.blp) in the preloaded listfile.
+// Missing entries are warned about loudly rather than silently dropped --
+// a tile with no resolved ID just falls back to the old path string at
+// runtime (TWM_GetTileTexture, TerrainWorldMap.lua), which is exactly the
+// behavior that's broken on the flavor(s) this table exists for in the
+// first place, so a gap here is a real, visible problem worth flagging.
+function findTileFileIDs(listfileMap, lower, tileKeys, prefix) {
+	const fileIDs = {};
+	let missing = 0;
+	for (const key of tileKeys) {
+		const [col, row] = key.split('x');
+		const filename = `${prefix}map${col}_${row}`;
+		const lookupPath = `world/minimaps/${lower}/${filename}.blp`;
+		const id = listfileMap.get(lookupPath);
+		if (id) {
+			fileIDs[filename] = id;
+		} else {
+			missing++;
+			console.error(`  WARNING: no listfile entry for ${lookupPath} -- this tile will fall back to path-string loading, which is exactly what doesn't work on some flavors`);
+		}
+	}
+	return { fileIDs, missing };
 }
 
 // Majority-vote AreaID across every MCNK in this ADT. `agreement` < 1 means
@@ -233,7 +292,7 @@ function findAdtAreaIDs(dir, parentOf) {
 }
 
 function parseArgs(argv) {
-	const opts = { flavorDir: null, out: null, noliquid: false, areaTableDir: null };
+	const opts = { flavorDir: null, out: null, noliquid: false, areaTableDir: null, listfile: null };
 	const continents = [];
 
 	for (let i = 0; i < argv.length; i++) {
@@ -242,6 +301,7 @@ function parseArgs(argv) {
 		else if (a === '--out') opts.out = argv[++i];
 		else if (a === '--noliquid') opts.noliquid = true;
 		else if (a === '--areatable-dir') opts.areaTableDir = argv[++i];
+		else if (a === '--listfile') opts.listfile = argv[++i];
 		else if (a.startsWith('--')) throw new Error(`Unknown option: ${a}`);
 		else continents.push(a);
 	}
@@ -253,10 +313,12 @@ function parseArgs(argv) {
 }
 
 function printUsage() {
-	console.error('Usage: node parse_wdt.js --flavor-dir <dir> --out <out-file.lua> [--noliquid] [--areatable-dir <dir>] <ContinentName> [<ContinentName> ...]');
+	console.error('Usage: node parse_wdt.js --flavor-dir <dir> --out <out-file.lua> [--noliquid] [--areatable-dir <dir>] [--listfile <community-listfile.csv>] <ContinentName> [<ContinentName> ...]');
 	console.error('  <ContinentName> is case-sensitive (used as-is for the Twm_mapareas/Twm_WDTValidTiles key);');
 	console.error('  paths are derived under --flavor-dir as world/maps/<lowercase>/<lowercase>.wdt etc.');
 	console.error('  --areatable-dir defaults to --flavor-dir if omitted.');
+	console.error('  --listfile bakes in each tile\'s minimap FileDataID (Twm_TileFileID) --');
+	console.error('  only needed for a flavor where loading by path string doesn\'t work at all.');
 }
 
 function main() {
@@ -291,6 +353,8 @@ function main() {
 		+ "Twm_WDTValidTiles = {}\n";
 
 	const noLiquidByContinent = {};
+	const tileFileIDByContinent = {};
+	const listfileMap = opts.listfile ? loadListfile(opts.listfile) : null;
 
 	for (const contName of continents) {
 		const lower = contName.toLowerCase();
@@ -320,6 +384,21 @@ function main() {
 			const minimapDir = path.join(opts.flavorDir, 'world', 'minimaps', lower);
 			noLiquidByContinent[contName] = findNoLiquidTiles(minimapDir);
 		}
+
+		if (listfileMap) {
+			const { fileIDs, missing } = findTileFileIDs(listfileMap, lower, validTiles, '');
+			if (opts.noliquid) {
+				const { fileIDs: noLiquidFileIDs, missing: noLiquidMissing } =
+					findTileFileIDs(listfileMap, lower, noLiquidByContinent[contName] || [], 'noliquid_');
+				Object.assign(fileIDs, noLiquidFileIDs);
+				console.error(`  resolved ${Object.keys(fileIDs).length} tile FileDataIDs from listfile`
+					+ (missing + noLiquidMissing ? `, ${missing + noLiquidMissing} MISSING (see WARNINGs above)` : ''));
+			} else {
+				console.error(`  resolved ${Object.keys(fileIDs).length} tile FileDataIDs from listfile`
+					+ (missing ? `, ${missing} MISSING (see WARNINGs above)` : ''));
+			}
+			tileFileIDByContinent[contName] = fileIDs;
+		}
 	}
 
 	if (opts.noliquid) {
@@ -335,6 +414,27 @@ function main() {
 			lua += `\nTwm_NoLiquidTiles["${contName}"] = {\n`;
 			for (const key of tiles)
 				lua += `    ["${key}"] = true,\n`;
+			lua += '}\n';
+		}
+	}
+
+	if (listfileMap) {
+		lua += "\n-- FileDataID for each tile's own minimap BLP (both the regular and, if\n"
+			+ "-- present, noLiquid variant), resolved from a community listfile at\n"
+			+ "-- generation time (--listfile). Only baked in for a flavor where loading\n"
+			+ "-- by plain \"World\\Minimaps\\...\" path string doesn't work at all (WoW:\n"
+			+ "-- Forever/Camelot, confirmed by testing SetTexture with a raw path vs the\n"
+			+ "-- equivalent numeric FileDataID -- see .claude-docs/gotchas.md).\n"
+			+ "-- TWM_GetTileTexture (TerrainWorldMap.lua) prefers this table when present,\n"
+			+ "-- falling back to the old path string otherwise -- every other flavor is\n"
+			+ "-- untouched. Keyed by the same filename TWM_GetTileFileName returns.\n"
+			+ "Twm_TileFileID = {}\n";
+		for (const [contName, fileIDs] of Object.entries(tileFileIDByContinent)) {
+			if (Object.keys(fileIDs).length === 0)
+				continue;
+			lua += `\nTwm_TileFileID["${contName}"] = {\n`;
+			for (const [filename, id] of Object.entries(fileIDs))
+				lua += `    ["${filename}"] = ${id},\n`;
 			lua += '}\n';
 		}
 	}
