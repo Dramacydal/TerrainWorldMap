@@ -1,6 +1,10 @@
 
 TerrainWorldMap ChangeLog
 ================
+1.1.6 (September 26, 2026)
+----------------------------
+- Added: French (frFR) localization.
+
 1.1.5 (September 26, 2026)
 ----------------------------
 - Added: initial support for WoW: Forever (Classic+, beta) -- terrain

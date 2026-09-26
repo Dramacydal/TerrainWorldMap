@@ -3,4 +3,5 @@
 	<Script file="TerrainWorldMap-deDE.lua"/>
 	<Script file="TerrainWorldMap-zhCN.lua"/>
 	<Script file="TerrainWorldMap-ruRU.lua"/>
+	<Script file="TerrainWorldMap-frFR.lua"/>
 </Ui>
