@@ -32,7 +32,7 @@ nothing to your addon folder's size or your loading screens.
 - **Native settings panel** (Esc → Options → AddOns → TerrainWorldMap).
 - Covers whichever continents the running client's flavor data has been
   generated for.
-- Localized: enUS, deDE, zhCN, ruRU.
+- Localized: enUS, deDE, zhCN, ruRU, frFR.
 
 ## Usage
 
