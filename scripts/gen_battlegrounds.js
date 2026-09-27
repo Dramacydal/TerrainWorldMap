@@ -25,17 +25,7 @@
 
 const fs = require('fs');
 const { parseCsvFile: parseCsv, findCsv } = require('./csv');
-
-// Map.csv's InstanceType (0-4, "official from IsInInstance()" per
-// WoWDBDefs' Map.dbd) and UiMap.csv's Type columns, named per TrinityCore's
-// DBCEnums.h (enum MapTypes / enum UiMapType):
-// https://github.com/TrinityCore/TrinityCore/blob/master/src/server/game/DataStores/DBCEnums.h
-// Map.csv also has a separate, unrelated, unenumerated MapType column
-// (checked below as a raw '1') -- INSTANCE_TYPE_* names it deliberately
-// distinct from that so the two don't read as the same thing.
-const INSTANCE_TYPE_BATTLEGROUND = '3'; // MAP_BATTLEGROUND
-const UI_MAP_TYPE_ZONE = '3';           // UI_MAP_TYPE_ZONE
-const UI_MAP_TYPE_ORPHAN = '6';         // UI_MAP_TYPE_ORPHAN
+const { INSTANCE_TYPE_BATTLEGROUND, UI_MAP_TYPE_ZONE, UI_MAP_TYPE_ORPHAN } = require('./dbc_enums');
 
 // A standalone battleground: Map.csv row with ParentMapID=-1 (top-level),
 // MapType=1, InstanceType=INSTANCE_TYPE_BATTLEGROUND -- same shape as

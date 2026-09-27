@@ -354,6 +354,192 @@ swallow clicks that landed on it — e.g. a map-drag that happened to start
 while the cursor-following tooltip was sitting under it. Removed; tooltip
 rows are now click-through.
 
+## Don't blindly reapply this addon's "Big-X = world-Y, Big-Y = world-X" convention to a MODF-derived position
+
+`gen_arena_wmo_tiles.js` first computed a WMO placement's Big coordinates
+as `Big-X = MAP_ORIGIN - World.Y, Big-Y = MAP_ORIGIN - World.X` — copying
+the cross-swap convention used everywhere else in this addon (e.g.
+`gen_mapareas.js`'s header). This looked plausible (still landed inside
+the arena's own coarse `Twm_mapareas` box) but rendered visibly wrong
+in-game (user: "looks like there's an extra rotation, clockwise or
+counterclockwise"). The correct mapping, for a value built from
+`MODF.position` (see the axis-order entry below), is the DIRECT one —
+`Big-X = MAP_ORIGIN - World.X, Big-Y = MAP_ORIGIN - World.Y`, no
+cross-swap. Confirmed empirically, not just asserted: computed each WMO
+tile's Big box both ways and checked which one falls inside its own
+hosting ADT tile's Big box — that box computed completely independently,
+via `TWM_Mini2Big_Coord`'s trusted col/row formula applied to the ADT
+filename (e.g. `orgrimmararena_32_30_obj0.adt` → col=32, row=30). The
+cross-swap version placed every tile in the transposed quadrant relative
+to its own hosting tile; the direct version landed cleanly inside it, for
+both Dalaran Sewers and Orgrimmar (independently checked). Lesson: this
+addon's Big-coordinate cross-swap convention isn't a universal law, it's
+calibrated per-source against whatever that source's own "X"/"Y" already
+mean — reusing it against a raw chunk struct (MODF) without checking is
+exactly how this addon's OWN combination of "two already-known facts"
+elsewhere (the dungeon-interior 90°-rotation note, above) produces a
+correct result in one case and a double-transpose in another. When in
+doubt, check against an independently-computed ground truth box, not
+just "still inside the coarse overall box" (too weak a check — it passed
+here even with the bug present).
+
+## MODF and MOGP store their 3-float vectors in DIFFERENT axis orders
+
+`MODF.position`/`MODF.rotation` (ADT placement struct) store `(X, height,
+Y)` — confirmed earlier (Dalaran Sewers' own placement:
+`position=(16278.01, 6.17, 15765.27)`, the tiny middle value is obviously
+height). `MOGP`'s own bounding box (WMO group file chunk) is a plain
+`C3Vector`, `(X, Y, Z=height)` — the STANDARD order, NOT the same
+reordering MODF uses. `gen_arena_wmo_tiles.js` originally read MOGP's
+index 2 for local Y (copying MODF's convention onto MOGP by mistake) —
+this silently produced tiles that still landed inside the arena's own
+(coarse) `Twm_mapareas` box, so the earlier "validated against the known
+box" check didn't catch it, but they rendered visibly wrong in-game (user
+described it as looking rotated). Confirmed wrong by checking real data:
+a WMO group whose tile filenames include both `blockY=0` and `blockY=1`
+must have a >128-model-unit span along its true Y axis — true for MOGP
+bbox index 1 (~147/~157 units) but not index 2 (~77/~38 units, which
+would only ever need one block). Fixed by reading index 1 for local Y.
+**When combining ANY two of this addon's own raw-chunk vectors, check each
+struct's own documented axis order separately — never assume they match.**
+
+## WMO-tile world position: the final formula, and the reusable lessons behind it
+
+`gen_arena_wmo_tiles.js`'s local→world formula for WMO minimap tiles (rotation≈0
+placements only), current/correct state:
+
+1. `local.X = box.min[0] + blockX*128`, `local.Y_raw = box.min[1] + blockY*128`
+   — `box` is the WMO group's own MOGP bounding box, a plain `(X,Y,Z=height)`
+   `C3Vector` (NOT the same axis order as `MODF.position`/`rotation`, which are
+   `(X,height,Y)` — index 1 is the real horizontal Y, index 2 is height).
+   `blockX`/`blockY` read directly against `box[0]`/`box[1]`, no swap.
+2. Y-flip: compute `globalMaxLocalY = max(local.Y_raw + 128)` across **every
+   tile of every group in the placement combined**, then
+   `local.Y = (globalMaxLocalY - 128) - local.Y_raw`. Must be ONE shared value
+   for the whole placement, never per-group — a per-group max can be
+   numerically identical between groups (block counts coincide) while still
+   being anchored to a different absolute point per group, silently breaking
+   their relative alignment even though within-group adjacency looks fine.
+3. 90°-CW orientation fix: Blizzard's own WMO-group minimap baking pipeline
+   is rotated 90° from world axes (a real, fixed property — also true for
+   WMO dungeon interiors, see the entry above). Apply
+   `(local.X, local.Y) -> (-local.Y, local.X)` right here, before local ever
+   becomes a world position — NOT as a render-time rotation around a pivot
+   (tried both a computed centroid and the placement's real anchor; both
+   worked but are unnecessary, since rotating `local` directly is provably
+   identical and needs no runtime pivot at all).
+4. `World = MODF.position + local` (plain addition). NOT subtraction —
+   wow.export's own source comment "for a global wmo at the wdt origin,
+   model->world is a straight negate" describes a different special case (a
+   *global* WMO at the WDT origin), not the general MODF-placement rule.
+5. `Big-X = MAP_ORIGIN - World.X`, `Big-Y = MAP_ORIGIN - World.Y` — no
+   cross-swap (this addon's usual "Big-X = world-Y" convention is calibrated
+   for other sources, not a value already in MODF's own axis order).
+6. Texture content: identity UV for steps 1-2, but needs its own 90°-CW
+   `SetTexCoord(0,1, 1,1, 0,0, 1,0)` (8-param form) to match step 3 — a
+   separate concern (pixel content) from box position.
+
+Reference implementation: wow.export's real GitHub source
+(`src/js/wmo-minimap.js`, `git clone` it — a locally-installed build can be an
+old version that lacks this file entirely). Its `compute_minimap_layout`
+(per-tile PNG-canvas arrangement, presentation-only) and `build_world_meta`
+(single whole-image corner-to-world mapping) solve different problems —
+don't port one where the other applies.
+
+**Reusable lessons** (each cost real time to relearn once, some twice):
+- A flip/rotation needs ONE pivot shared across everything it's applied to.
+  A per-group or per-tile pivot can look correct on every local check
+  (adjacency, even a numerically-identical-looking reference value) while
+  still producing a wrong absolute result.
+- A reflection (sign flip on an absolute offset, e.g. `pos - local` instead
+  of `pos + local`) is invisible to adjacency checks, pixel-mirror proofs,
+  and even coarse bounding-box containment (it keeps everything inside the
+  same ADT tile) — it only shows up as the whole result being mirrored
+  relative to independent ground truth. When a position bug survives every
+  relative check, suspect the one step that ISN'T relative.
+- A comment documenting the right formula next to code that doesn't match it
+  is worthless — check the two against each other, don't just trust the
+  comment.
+- If a fix can be phrased as "rotate/transform the final result around a
+  reference point," check whether that point is just a fixed offset from an
+  earlier pipeline stage (here, the placement anchor is `local = 0`) and
+  apply the correction there instead — no runtime pivot to get wrong.
+
+## An arena's "map key" is Map.csv's `Directory` value, exact case — not the on-disk folder name
+
+Every `Twm_*[map]` table (`Twm_mapareas`, `TWM_ARENAS`, `frame.opt.Map`) is
+keyed by `Map.csv`'s `Directory` column value verbatim, e.g. `DalaranArena`,
+`OrgrimmarArena` — mixed case. The real on-disk extracted folder name for
+these two specifically is all-lowercase (`world/maps/dalaranarena/`), and
+because Windows filesystem paths are case-insensitive, a script that reads
+its arena argument straight off the extracted folder listing and both (a)
+uses it to build a filesystem path AND (b) writes it verbatim as a Lua
+table key runs to completion with no error, but produces a table keyed
+with the wrong case — `Twm_ArenaWMOTiles[frame.opt.Map]` (exact,
+case-sensitive Lua string match) then always misses. Confirmed this
+happened for `gen_arena_wmo_tiles.js`'s first run (args
+`dalaranarena orgrimmararena`, silently wrong keys — no WMO tiles or
+checkbox ever appeared in-game, no error anywhere). Fix: always pass this
+script the map key exactly as it appears as a `Twm_mapareas`/`Twm_ArenaNames`
+key already (check `Data_<Flavor>/mapdata_arenas.lua` first), not whatever
+case `ls`/`dir` shows for the extracted folder.
+
+## XML comments can't contain a literal `--`
+
+`<!-- ... -->` is standard XML; a literal `--` anywhere inside the comment
+body (not just at the very end) is illegal and fails the client's XML
+parser with `not well-formed (invalid token)`, naming the `.xml` file and a
+line/column that points at the `--` itself, not necessarily at the comment
+start. This has recurred multiple times in this addon's XML files
+(`TerrainWorldMap.xml`, `Templates.xml`) specifically because this
+codebase's Lua comments use `--` as their own comment delimiter, and it's
+easy to carry that habit into an adjacent XML comment (e.g. writing
+`<!-- some data -- rest of note -->` as an em-dash-style aside). Reword to
+avoid the literal `--` (a semicolon, period, or single hyphen all work)
+instead of trying to escape it — XML comments have no escape mechanism.
+
+## Draw order among same-layer, same-sublevel textures is undefined -- don't rely on creation order
+
+The arena WMO overlay (`TWM_ArenaWMO_Update`) originally relied on
+`vf:CreateTexture(nil, "OVERLAY")` call order to stack a higher-height WMO
+tile visually on top of a lower one -- textures created later were assumed
+to draw on top, matching how the rest of this addon's own pooled-texture
+systems (the base tile grid, `Points.lua`'s icons) are already written.
+Confirmed via community reports (wowinterface.com) this is **not**
+documented or guaranteed behavior: draw order for multiple textures
+sharing the same layer AND sublevel is unreliable, and can visibly change
+just from reconfiguring a texture (exactly what happens here every time a
+pooled tile texture is reused for a different map). Fixed by setting each
+tile's sublevel explicitly (`Texture:SetDrawLayer(layer, sublevel)`,
+sublevel range `[-8,7]`) from its rank in an already-sorted list, instead
+of trusting call order. If any other part of this addon ever needs a
+specific, non-obvious stacking order among several same-frame textures,
+use an explicit sublevel the same way -- don't assume creation order will
+hold.
+
+## `Slider:SetReverseValues` doesn't exist at all -- confused with `StatusBar:SetReverseFill`
+
+Used once, for the arena WMO height-cutoff slider (`TWM_ArenaWMO_EnsureHeightSlider`,
+`TerrainWorldMap.lua`), to try to flip a vertical `Slider`'s default
+max-at-bottom layout to the more natural min-at-bottom/max-at-top. Crashed
+live: `attempt to call a nil value`. Initially assumed (wrongly, without
+checking) this meant "exists on retail, missing on this Classic client" —
+corrected after research: `Slider:SetReverseValues` isn't documented
+anywhere (checked warcraft.wiki.gg's `UIOBJECT_Slider` page and Blizzard's
+own auto-generated API dump, `Blizzard_APIDocumentationGenerated` in
+`Gethe/wow-ui-source`) and doesn't appear to exist on ANY client — this was
+very likely confabulated from the real, differently-scoped
+`StatusBar:SetReverseFill`/`GetReverseFill` (a real, documented API, but
+for `StatusBar`, not `Slider`). Fixed without it: store/read the
+**negated** value as the slider's own min/max/value
+(`SetMinMaxValues(-maxH, -minH)`, `SetValue(-maxH)`, then
+`actualHeight = -value` in `OnValueChanged`) — achieves the same reversal
+through plain arithmetic instead of a method call. Lesson: when a
+plausible-sounding Blizzard API method errors as nil, don't assume it's a
+real method missing on this client specifically -- check whether it exists
+on ANY client first, the same way `MouseIsOver`/`SetClipsChildren` below
+were actually confirmed (not assumed) to be client-dependent.
+
 ## The global `MouseIsOver(frame)` function doesn't exist on every client
 
 `Points.lua`'s `TWMFrameViewFrame_UpdatePointTooltip` used to call the

@@ -394,7 +394,7 @@ Flight masters have no AreaID/MapID of their own to resolve a live,
 locale-correct name from at render time the way Landmarks/Capitals/Dungeons
 do (see `.claude-docs/architecture.md`'s live-name-resolution section) — so
 every locale's name is baked in at generation time instead, one column per
-locale, and `TaxiRoutes.lua` (`TWM_ResolveFlightMasterName`) picks the
+locale, and `TaxiRoutes.lua` (`TWM_ResolveLocaleName`) picks the
 client's own locale out of that table at load time (falling back to `enUS`
 if that locale's file was missing, or for `enGB`/`ptPT` clients, which
 wago.tools doesn't export separately from `enUS`/`ptBR`).
@@ -524,6 +524,161 @@ node parse_wdt.js --flavor-dir C:\wow-data\wow_anniversary --out Data_TBC/mapdat
 - **TBC**: the above + NetherstormBG (Eye of the Storm)
 - **Mists**: the above + WintergraspEpic (Wintergrasp), `2755` (Battle for Tol Barad)
 - **Forever**: PVPZone01/03/04 + `2997` (Darkspear Islands) — no Eye of the Storm/Wintergrasp/Tol Barad in this build yet
+
+## Step 9 — `gen_arenas.js`: arena maps (`Twm_ArenaNames`, `Twm_mapareas`)
+
+```bash
+node gen_arenas.js --flavor-dir <dir with Map.*.csv> --locales-dir <dir with Map.<locale>.csv for each of enUS/deDE/esES/esMX/frFR/itIT/koKR/ptBR/ruRU/zhCN/zhTW> --tiles-file <mapdata_tiles.lua, already regenerated including the arena Directory names> --out <out-file.lua>
+```
+
+Same structural Map.csv filter as `gen_battlegrounds.js` (`ParentMapID=-1`,
+`MapType=1`), just `InstanceType=4` (`MAP_ARENA`) instead of `3`. Arenas
+differ from battlegrounds in two ways that shape this whole script:
+
+- **Zero `UiMapAssignment` rows at all** (checked directly on TBC and
+  Mists — every arena MapID matches zero rows, not just zero Zone-type
+  ones) — Blizzard never wired arenas into the World Map system, even
+  though their terrain is real (a full WDT/ADT tile grid, same as any
+  other map). So there's no Region box to read, and no UiMapID either —
+  meaning no position tracking and no `TWM_GetContinentForMapID` hint are
+  possible for an arena; selecting one from the dropdown is the only way
+  to view it.
+- Consequently this script needs two things no other generator does:
+  - **`--tiles-file`**: a box derived from valid-tile extent instead of a
+    DBC Region box. Run `parse_wdt.js` on the arena's own `Directory` name
+    first (same "pass it alongside continents/battlegrounds in the same
+    invocation, don't give it a separate tiles file" rule as
+    `gen_battlegrounds.js`'s own note below), then point this at that
+    output. The tile index range is converted to Big coordinates through
+    `TWM_Mini2Big_Coord`'s own formula (`TerrainWorldMap.lua`) —
+    `x/y = (index-32)*-533.3333` — the same conversion
+    `WorldMapOverlay.lua`'s `DrawTiles` already uses to place each tile.
+  - **`--locales-dir`**: with no live uiMapID, there's no
+    `C_Map.GetMapInfo(uiMapID).name` to resolve a client-locale name from
+    either (unlike `Twm_BattlegroundMapID`) — names are baked in per
+    client locale instead, fetched the same way and for the same 11
+    locales as `gen_poi_flightmasters.js`'s `TaxiNodes.<locale>.csv`, just
+    for `Map.<locale>.csv`. Output shape mirrors `Twm_flightmasters`'s name
+    tables too: `Twm_ArenaNames = {{key=..., name={enUS=..., deDE=...}}, ...}`,
+    resolved into the actual `TWM_ARENAS` dropdown table (`{name: {key}}`,
+    same shape as `TWM_BATTLEGROUNDS`) at load time in `TerrainWorldMap.lua`
+    via `TWM_ResolveLocaleName` (`TaxiRoutes.lua`, a generic `{locale: name}`
+    resolver already used for flight masters; falls back to enUS same as
+    those).
+
+**Example (TBC):**
+```bash
+node gen_arenas.js --flavor-dir C:\wow-data\wow_anniversary --locales-dir C:\wow-data\wow_anniversary\locales --tiles-file Data_TBC/mapdata_tiles.lua --out Data_TBC/mapdata_arenas.lua
+node parse_wdt.js --flavor-dir C:\wow-data\wow_anniversary --out Data_TBC/mapdata_tiles.lua Azeroth Kalimdor Expansion01 PVPZone01 PVPZone03 PVPZone04 NetherstormBG PVPZone05 bladesedgearena PVPLordaeron
+```
+(run `parse_wdt.js` first — `gen_arenas.js` reads its output.)
+
+**Arenas found per flavor** (as of this writing):
+- **Vanilla**: none (arenas didn't exist yet)
+- **TBC**: Nagrand Arena, Blade's Edge Arena, Ruins of Lordaeron
+- **Mists**: the above + Dalaran Sewers, The Ring of Valor, Tol'Viron Arena, The Tiger's Peak
+- **Forever**: `2995` (Hyjal Crater) — none of the above exist in this build yet
+
+## Step 10 — `gen_arena_wmo_tiles.js`: WMO minimap-tile overlay for arenas (`Twm_ArenaWMOTiles`)
+
+```bash
+node gen_arena_wmo_tiles.js --flavor-dir <dir with world/maps/<arena>/*_obj0.adt and extracted world/wmo/... WMOs> --listfile <community-listfile.csv> --out <out-file.lua> <ArenaDirectoryName> [<ArenaDirectoryName> ...]
+```
+
+Some arenas have a WMO placement with its own baked group-minimap tiles
+(`world/minimaps/wmo/.../<name>_<group>_<blockX>_<blockY>.blp`, same system
+as WMO dungeon interiors, `.claude-docs/gotchas.md`) worth showing as an
+overlay — most usefully on Dalaran Sewers (whose outdoor terrain has ZERO
+baked `world/minimaps/<arena>/*.blp` tiles at all), but this is generated
+independently of whether the arena's own outdoor terrain also has real
+minimap art (confirmed: Orgrimmar Arena has both — its outdoor tiles
+extract fine and already show the complete arena, but its WMO tiles are
+still generated too, since the height-cutoff slider (see below) needs them
+to isolate one real building level; a flattened outdoor tile can't do
+that). This script finds WMO placements and their tiles directly — no
+`WMOMinimapTexture` DB2 row needed:
+
+- Scans each arena's `world/maps/<arena>/*_obj0.adt` files for `MODF`
+  chunks (64-byte entries: `nameId`(0)/`uniqueId`(4)/`position`
+  float32[3](8, order X/height/Y)/`rotation` float32[3](20, same order)/
+  bounds(32,44)/`flags`(56)/`doodadSet`(58)/`nameSet`(60)/`scale`(62)),
+  deduped by `nameId`.
+- One streaming pass over `--listfile` resolves each placement's `nameId`
+  to its WMO path, and separately collects every `world/minimaps/wmo/`
+  tile path grouped by stem (path minus its trailing
+  `_<group>_<blockX>_<blockY>.blp`).
+- **Rotation scope**: only placements with `|rotation| <= 0.05` degrees on
+  all three axes are emitted. A placement with real rotation (confirmed to
+  exist, e.g. Tol'Viron Arena, Ring of Valor — always yaw-only, never
+  pitch/roll) is skipped with a console warning; the yaw transform isn't
+  implemented.
+- Each WMO group's own local bounding box (`MOGP` chunk, offset 12 within
+  its data: `flags`(4) then `bboxMin`/`bboxMax` `C3Vector`(12 each), plain
+  `(X,Y,Z=height)` order — NOT the same reordering `MODF` uses) sets that
+  group's tile-grid origin: `local.X = bbox.minX + blockX*128` (128
+  model-units per 256px tile, fixed `PPU=2`, same constant as WMO dungeon
+  interiors) — `blockX` reads directly against `box[0]`, no swap with
+  `box[1]`.
+- `local.Y` gets a flip shared across the WHOLE placement (not per group —
+  see gotchas.md for why that distinction matters): `local.Y_raw =
+  bbox.minY + blockY*128` for every tile of every group in the placement,
+  `globalMaxLocalY = max(local.Y_raw + 128)` across all of them combined,
+  then `local.Y = (globalMaxLocalY - 128) - local.Y_raw`.
+- Local coordinates then get a fixed 90°-clockwise rotation —
+  `(local.X, local.Y) -> (-local.Y, local.X)` — correcting for a real
+  property of Blizzard's own WMO-minimap-tile baking convention (also true
+  for WMO dungeon interiors; confirmed against the real in-game Minimap).
+- Model→world: `World.X = MODF.position[0] + local.X`,
+  `World.Y = MODF.position[2] + local.Y` (plain component-wise addition —
+  the standard MODF-placement convention, no rotation matrix needed since
+  rotation≈0 here). World → Big: `Big-X = MAP_ORIGIN - World.X`,
+  `Big-Y = MAP_ORIGIN - World.Y` (`MAP_ORIGIN = 32*(1600/3)`) — no
+  cross-swap (this addon's usual "Big-X = world-Y" convention is
+  calibrated for other sources, not a value already in `MODF`'s own axis
+  order).
+  `TerrainWorldMap.lua`'s `TWM_ArenaWMO_Update` has no rotation/flip logic
+  of its own — it reads these Big coordinates the same direct way the base
+  map tiles do. The one thing that DOES still live in Lua is the matching
+  texture-CONTENT rotation (`TWM_ArenaWMO_EnsureTextures`'
+  `SetTexCoord(0,1, 1,1, 0,0, 1,0)`, the 8-param form) — a separate concern
+  (what each tile's own pixels show, not where its box goes).
+  See `.claude-docs/gotchas.md`'s "WMO-tile world position" entry for the
+  reference implementation used, the full derivation of all of the above,
+  and several reusable lessons from getting each step wrong at least once
+  before landing here.
+- **The positional args must match the map key's exact DB2 `Directory`
+  casing** (`gen_arenas.js`'s output key, e.g. `DalaranArena`,
+  `OrgrimmarArena`), not whatever case the on-disk extracted folder happens
+  to use (Windows filesystem paths are case-insensitive, so
+  `world/maps/dalaranarena/` resolves fine even when passed `DalaranArena`
+  — the arg only needs to match on disk, but it also becomes the output
+  Lua table's key verbatim, which DOES need to match `frame.opt.Map`
+  exactly). Passing the on-disk lowercase folder name as the arg (as this
+  script's own name suggests) silently produces a working file with the
+  wrong keys — no error, `Twm_ArenaWMOTiles[frame.opt.Map]` just always
+  misses.
+- Output: `Twm_ArenaWMOTiles["<arena>"] = {{fileID, x1, x2, y1, y2, height}, ...}`,
+  one entry per baked tile (`x1/y1` = max, `x2/y2` = min, same box
+  convention as `Twm_mapareas`; `height` = that placement's own
+  `MODF.position[1]` PLUS that specific tile's own WMO GROUP's height-axis
+  center — tracked per group, not just per placement, since one
+  placement's groups can be at meaningfully different real heights, e.g. a
+  raised walkway over the main floor; confirmed on Dalaran Sewers' own two
+  groups). Entries are sorted by this height ascending before output.
+  Rendered in `TerrainWorldMap.lua` as a pooled set of plain textures
+  (`TWM_ArenaWMO_Update`), shown only when a map has an entry in this
+  table, toggled by the "Show WMO Layers" checkbox
+  (`TWMFrameShowArenaWMOButton`, default on) plus a vertical height-cutoff
+  slider (shown only when an arena's tiles actually span more than one
+  height) — see `.claude-docs/architecture.md`'s Arenas section.
+
+**Generated so far**: every arena in every flavor has been run through this
+script at least once. Only Mists' `DalaranArena` (6 tiles) and
+`OrgrimmarArena` (6 tiles) produce any output. Everything else produces 0:
+TBC's Nagrand Arena/Blade's Edge Arena/Forever's Hyjal Crater have no
+qualifying WMO placement at all (no console warning even); TBC's/Mists'
+Ruins of Lordaeron and Mists' Tol'Viron Arena/Tiger's Peak have qualifying
+WMOs but all with real rotation (skipped with a warning each).
 
 ## Other scripts
 

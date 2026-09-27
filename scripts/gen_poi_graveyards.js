@@ -41,13 +41,9 @@
 
 const fs = require('fs');
 const { parseCsvFile, findCsv } = require('./csv');
+const { UI_MAP_TYPE_ZONE, UI_MAP_TYPE_ORPHAN } = require('./dbc_enums');
 
 const DEDUP_DISTANCE = 15; // yards
-
-// UiMap.csv's Type column, named per TrinityCore's DBCEnums.h (enum
-// UiMapType): https://github.com/TrinityCore/TrinityCore/blob/master/src/server/game/DataStores/DBCEnums.h
-const UI_MAP_TYPE_ZONE = '3';   // UI_MAP_TYPE_ZONE
-const UI_MAP_TYPE_ORPHAN = '6'; // UI_MAP_TYPE_ORPHAN
 
 // {areaID: box} for every Zone UiMapAssignment row (UI_MAP_TYPE_ZONE, or
 // UI_MAP_TYPE_ORPHAN on builds that use it -- see gen_mapareas.js),

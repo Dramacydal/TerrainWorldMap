@@ -5,7 +5,7 @@
 --
 -- Twm_TaxiNodeInfo[nodeID]      = {faction, name, x, y, continent} -- name
 --                                 is already resolved to the client's own
---                                 locale here (see TWM_ResolveFlightMasterName
+--                                 locale here (see TWM_ResolveLocaleName
 --                                 below), not the raw per-locale name table.
 -- Twm_TaxiNeighbors[nodeID]     = { otherNodeID, ... } -- for the hover-preview
 --                                 line display (sets/flightmasters.lua),
@@ -30,17 +30,21 @@ Twm_TaxiRoutesByContinent = {};
 -- straight line.
 Twm_TaxiPathIDByPair = {};
 
--- Flight masters have no AreaID/MapID of their own to resolve a live name
--- from (unlike Landmarks/Capitals/Dungeons -- see architecture.md's live-
--- name-resolution section), so scripts/gen_poi_flightmasters.js bakes in
--- every locale's name instead (Twm_flightmasters[continent][n].name, keyed
--- by client locale). This just picks the current client's own locale out of
--- that table once, at load time. enGB/ptPT clients aren't fetched as their
--- own locale (wago.tools doesn't export them separately from enUS/ptBR),
--- hence the aliasing.
+-- Flight masters (and, since scripts/gen_arenas.js, arenas too) have no
+-- AreaID/MapID/uiMapID of their own to resolve a live name from (unlike
+-- Landmarks/Capitals/Dungeons -- see architecture.md's live-name-resolution
+-- section), so their generators bake in every locale's name instead
+-- (Twm_flightmasters[continent][n].name / Twm_ArenaNames[n].name, keyed by
+-- client locale). This is a generic {locale: name} -> name resolver, not
+-- flight-master-specific despite living in this file (loading order: needs
+-- to be defined before anything that calls it, and this is the earliest
+-- flight-master-or-later file) -- picks the current client's own locale out
+-- of the table once. enGB/ptPT clients aren't fetched as their own locale
+-- (wago.tools doesn't export them separately from enUS/ptBR), hence the
+-- aliasing.
 local LOCALE_ALIASES = { enGB = "enUS", ptPT = "ptBR" };
 
-function TWM_ResolveFlightMasterName(nameTable)
+function TWM_ResolveLocaleName(nameTable)
     local loc = GetLocale();
     loc = LOCALE_ALIASES[loc] or loc;
     return nameTable[loc] or nameTable.enUS;
@@ -50,7 +54,7 @@ local function TWM_BuildTaxiRouteTables()
     wipe(Twm_TaxiNodeInfo);
     for continent, list in pairs(Twm_flightmasters) do
         for _, v in ipairs(list) do
-            Twm_TaxiNodeInfo[v.id] = { faction = v.faction, name = TWM_ResolveFlightMasterName(v.name), x = v.x, y = v.y, continent = continent };
+            Twm_TaxiNodeInfo[v.id] = { faction = v.faction, name = TWM_ResolveLocaleName(v.name), x = v.x, y = v.y, continent = continent };
         end
     end
 

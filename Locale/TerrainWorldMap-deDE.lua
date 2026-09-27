@@ -73,6 +73,7 @@ TWM_CATEGORY_CONTINENTS = "Kontinente";
 TWM_CATEGORY_DUNGEONS = "Dungeons";
 TWM_CATEGORY_RAIDS = "Schlachtzüge";
 TWM_CATEGORY_BATTLEGROUNDS = "Schlachtfelder";
+TWM_CATEGORY_ARENAS = "Arenen";
 -- Landmarks would tranlsate to "Landmarken", "wichtige Orte" would be translated to English: "important places"
 -- I would prefer "wichtige Orte" over "Landmarken"
 TWM_POINTS_LANDMARKS = "wichtige Orte";
@@ -81,6 +82,7 @@ TWM_POINTS_CAPITALS = "Hauptst\195\164dte";
 TWM_POINTS_DUNGEONS = "Dungeons";
 TWM_POINTS_FLIGHTMASTERS = "Flugmeister";
 
+TWM_OPTIONS_SHOW_ARENA_WMO = "Zeige WMO-Ebenen";
 TWM_OPTIONS_SHOW_LANDMARKS = "Zeige wichtige Orte";
 TWM_OPTIONS_SHOW_GRAVEYARDS = "Zeige Friedh\195\182fe";
 TWM_OPTIONS_SHOW_CAPITALS = "Zeige Hauptst\195\164dte";

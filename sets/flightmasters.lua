@@ -4,7 +4,7 @@ local set = {name="flightmasters"};
 -- Flight master markers, generated (see scripts/gen_poi_flightmasters.js)
 -- into Data_<Flavor>/mapdata_poi_flightmasters.lua. Entries are
 -- {id, faction, name = {enUS = ..., deDE = ..., ...}, x, y} -- name is
--- resolved to the client's own locale via TWM_ResolveFlightMasterName
+-- resolved to the client's own locale via TWM_ResolveLocaleName
 -- (TaxiRoutes.lua), since a flight master has no AreaID/MapID of its own to
 -- resolve a live name from at render time the way Landmarks/Capitals/
 -- Dungeons do. Enemy-faction markers are skipped entirely here (not just
@@ -16,7 +16,7 @@ function set.getpoints(name, map)
     for h,v in ipairs(Twm_flightmasters[map]) do
         if(TWM_IsFlightmasterVisible(v.faction)) then
             local x,y = TWM_Big2Mini_Coord(v.x, v.y);
-            TWMPoints_AddPoint(nil, "flightmasters", TWM_ResolveFlightMasterName(v.name), x, y, nil, {v.id, v.faction});
+            TWMPoints_AddPoint(nil, "flightmasters", TWM_ResolveLocaleName(v.name), x, y, nil, {v.id, v.faction});
         end
     end
 end

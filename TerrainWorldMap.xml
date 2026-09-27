@@ -323,6 +323,46 @@
 		<HighlightTexture file="Interface\Buttons\UI-Common-MouseHilight" alphaMode="ADD"/>
 	</Button>
 
+	<!-- Only shown (TerrainWorldMap.lua) when the current map has
+	     Twm_ArenaWMOTiles data; most maps never will. -->
+	<CheckButton name="TWMFrameShowArenaWMOButton" parent="TWMFrameViewFrame" inherits="UICheckButtonTemplate" hidden="true">
+		<Size>
+			<AbsDimension x="24" y="24"/>
+		</Size>
+		<Anchors>
+			<Anchor point="TOPRIGHT" relativePoint="TOPRIGHT">
+				<Offset>
+					<AbsDimension x="-8" y="-8"/>
+				</Offset>
+			</Anchor>
+		</Anchors>
+		<Scripts>
+			<OnLoad>
+				self:SetFrameLevel(self:GetFrameLevel() + 4);
+				_G[self:GetName().."Label"]:SetText(TWM_OPTIONS_SHOW_ARENA_WMO);
+			</OnLoad>
+			<OnClick>
+				TWMFrameShowArenaWMOButton_OnClick(self);
+			</OnClick>
+		</Scripts>
+		<Layers>
+			<Layer level="ARTWORK">
+				<FontString name="$parentLabel" inherits="GameFontHighlightSmall" justifyH="RIGHT">
+					<Size>
+						<AbsDimension x="150" y="24"/>
+					</Size>
+					<Anchors>
+						<Anchor point="RIGHT" relativePoint="LEFT">
+							<Offset>
+								<AbsDimension x="0" y="0"/>
+							</Offset>
+						</Anchor>
+					</Anchors>
+				</FontString>
+			</Layer>
+		</Layers>
+	</CheckButton>
+
 	<!-- Parented to TWMFrame itself, NOT TWMFrameViewFrame/TWMFrameZoomButton.
 	     TWMFrameViewTemplate's OnLoad calls SetClipsChildren(true) on the map
 	     canvas (so tiles/flight-path lines don't render past its edges), which

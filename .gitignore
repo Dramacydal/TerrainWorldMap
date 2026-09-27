@@ -4,3 +4,4 @@ scripts/node_modules
 *.csv
 *.wdt
 icon_large.png
+deploy_to_clients.bat

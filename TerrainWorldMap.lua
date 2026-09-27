@@ -92,6 +92,7 @@ TWM_FRAME_OPTION_DEFAULTS = {
     ["Alpha"] = 1,
     ["IconSize"] = 1.0,
     ["PointCfg"] = {},
+    ["ShowArenaWMOLayers"] = true,
     ["Zoom"] = 256,
     ["Width"] = 539,
     ["Height"] = 628,
@@ -215,6 +216,257 @@ function TWM_FindZoneAtBigCoord(map, bigx, bigy, tilekey)
     end
 
     return bestID;
+end
+
+-- TWM_ARENAS (dropdown name -> {key}, same shape as TWM_BATTLEGROUNDS) is
+-- built here from Twm_ArenaNames (Data_<Flavor>/mapdata_arenas.lua, when
+-- that flavor has one -- see scripts/gen_arenas.js), resolving each arena's
+-- name for the current client locale via TWM_ResolveLocaleName
+-- (TaxiRoutes.lua, loads before this file; falls back to enUS). Arenas have
+-- no live uiMapID to resolve a name from (see gen_arenas.js's header),
+-- unlike Twm_BattlegroundMapID's C_Map.GetMapInfo(uiMapID).name, so this
+-- baked-in table is the only source for one.
+if(Twm_ArenaNames) then
+    TWM_ARENAS = {};
+    for _, e in ipairs(Twm_ArenaNames) do
+        TWM_ARENAS[TWM_ResolveLocaleName(e.name)] = {e.key};
+    end
+end
+
+-- "Show WMO Layers" overlay: a few arenas (Dalaran Sewers, Orgrimmar --
+-- see Twm_ArenaWMOTiles, Data_<Flavor>/mapdata_arena_wmo_tiles.lua,
+-- scripts/gen_arena_wmo_tiles.js) have real outdoor ADT terrain but no
+-- baked minimap art for it at all; the only real minimap art there is the
+-- placed WMO building's own baked group tiles. Drawn as a small pool of
+-- plain textures (raw FileDataIDs), positioned in the same mini-coordinate
+-- space TWMPoints uses (see TWMP_SetOffset, Points.lua) so they pan/zoom in
+-- sync with the rest of the view.
+function TWM_ArenaWMO_EnsureTextures(frame, count)
+    local lm = frame:GetName();
+    local vf = _G[lm.."ViewFrame"];
+
+    frame.arenaWMOTextures = frame.arenaWMOTextures or {};
+    for i = #frame.arenaWMOTextures+1, count do
+        local tex = vf:CreateTexture(nil, "OVERLAY");
+        -- Blizzard's own WMO-group minimap baking pipeline has a fixed,
+        -- non-arbitrary 90-degree rotation relative to world axes (already
+        -- documented in gotchas.md for the separate dungeon-interior
+        -- minimap feature -- arenas use this exact same tile-baking
+        -- system, so the same correction applies here). Corrected by
+        -- rotating the displayed CONTENT 90 degrees clockwise via the
+        -- 8-param SetTexCoord form. The matching POSITION rotation lives
+        -- in gen_arena_wmo_tiles.js -- baked directly into how local
+        -- coordinates become a world/Big position (a single, always-
+        -- correct-by-construction transform, not a separate runtime step
+        -- here -- see that script's own comment for the derivation). This
+        -- content rotation is unrelated to the (separate, already-correct)
+        -- Y-flip also in that script, which arranges which raw block goes
+        -- in which grid slot -- this is a real, additional orientation fix
+        -- on top of that.
+        tex:SetTexCoord(0, 1, 1, 1, 0, 0, 1, 0);
+        frame.arenaWMOTextures[i] = tex;
+    end
+
+    return frame.arenaWMOTextures;
+end
+
+-- Tiles are generated in ascending-height order (gen_arena_wmo_tiles.js).
+-- That order alone is NOT enough to guarantee stacking, though: draw order
+-- among multiple textures in the same layer AND sublevel is undefined in
+-- WoW's own UI engine (confirmed -- this isn't documented or guaranteed by
+-- creation order, and can visibly change when a texture is reconfigured,
+-- which is exactly what happens here every time the tile pool is reused
+-- for a different map). So each tile's sublevel is set explicitly below,
+-- from its rank in the already-sorted list -- the actual, reliable
+-- mechanism -- with the sort order only providing that rank cheaply.
+--
+-- frame.arenaWMOHeightCutoff (runtime-only, set by the height slider below;
+-- not persisted -- height ranges are per-arena, so a leftover absolute
+-- value from a previous arena wouldn't mean anything) hides any tile whose
+-- own placement height is above it, letting a multi-level arena's upper
+-- layer be peeled back to see what's underneath. nil means "no cutoff,
+-- show everything" -- deliberately not just "set to the arena's own max
+-- height", since a WoW Slider stores its value as a 32-bit float
+-- internally while the generated height data is a full Lua double; reusing
+-- the exact max-height number as the cutoff risks a tile that IS that max
+-- height reading as fractionally taller than a float-rounded cutoff and
+-- getting hidden at the slider's own topmost position.
+-- TWM_ARENA_WMO_HEIGHT_EPSILON below is a second line of defense for every
+-- other (non-nil) comparison.
+local TWM_ARENA_WMO_HEIGHT_EPSILON = 0.05;
+
+function TWM_ArenaWMO_Update(frame)
+    local lm = frame:GetName();
+    local vf = _G[lm.."ViewFrame"];
+    local tiles = Twm_ArenaWMOTiles and Twm_ArenaWMOTiles[frame.opt.Map];
+
+    if(not tiles or not frame.opt.ShowArenaWMOLayers) then
+        if(frame.arenaWMOTextures) then
+            for _, tex in ipairs(frame.arenaWMOTextures) do
+                tex:Hide();
+            end
+        end
+        return;
+    end
+
+    local textures = TWM_ArenaWMO_EnsureTextures(frame, #tiles);
+    local Lx, Ly = frame.opt.Location[1], frame.opt.Location[2];
+    local z = frame:GetZoom();
+    local cutoff = frame.arenaWMOHeightCutoff;
+
+    for i, tile in ipairs(tiles) do
+        local tex = textures[i];
+        local height = tile[6];
+
+        if(cutoff and height and height > cutoff + TWM_ARENA_WMO_HEIGHT_EPSILON) then
+            tex:Hide();
+        else
+            local fileID, bx1, bx2, by1, by2 = tile[1], tile[2], tile[3], tile[4], tile[5];
+            local mx1, my1 = TWM_Big2Mini_Coord(bx1, by1);
+            local mx2, my2 = TWM_Big2Mini_Coord(bx2, by2);
+
+            local left, right = math.min(mx1, mx2), math.max(mx1, mx2);
+            local top, bottom = math.min(my1, my2), math.max(my1, my2);
+
+            -- Explicit sublevel from this tile's rank in the (ascending-
+            -- height-sorted) list -- the reliable way to stack a higher
+            -- tile above a lower one; see this function's header comment
+            -- for why relying on draw/creation order alone doesn't work.
+            -- Sublevel range is only [-8,7] (16 steps); real arenas have
+            -- far fewer tiles than that, so clamping is just a safety net.
+            tex:SetDrawLayer("OVERLAY", math.max(-8, math.min(7, i - 9)));
+            tex:SetTexture(fileID);
+            tex:ClearAllPoints();
+            tex:SetPoint("TOPLEFT", vf, "TOPLEFT", (left-Lx)*z, (Ly-top)*z);
+            tex:SetWidth((right-left)*z);
+            tex:SetHeight((bottom-top)*z);
+            tex:Show();
+        end
+    end
+
+    for i = #tiles+1, #textures do
+        textures[i]:Hide();
+    end
+end
+
+-- Lazily creates the vertical height-cutoff slider, anchored below the
+-- checkbox. Built purely in Lua (OptionsSliderTemplate reused from
+-- Settings.lua's own convention) rather than in XML -- a vertical slider
+-- needs no extra art of its own beyond what that template already provides,
+-- and its value range is per-arena (set by TWM_UpdateArenaWMOButton), so
+-- there's nothing static worth declaring in XML.
+function TWM_ArenaWMO_EnsureHeightSlider(frame)
+    local lm = frame:GetName();
+    local name = lm.."ArenaWMOHeightSlider";
+    local slider = _G[name];
+    if(slider) then return slider; end
+
+    local button = _G[lm.."ShowArenaWMOButton"];
+    slider = CreateFrame("Slider", name, _G[lm.."ViewFrame"], "OptionsSliderTemplate");
+    slider:SetOrientation("VERTICAL");
+    slider:SetSize(16, 120);
+    slider:SetHitRectInsets(0, 0, 0, 0);
+    slider:ClearAllPoints();
+    slider:SetPoint("TOP", button, "BOTTOM", 0, -12);
+    slider:SetFrameLevel(button:GetFrameLevel());
+    -- OptionsSliderTemplate's thumb art (UI-SliderBar-Button-Horizontal) is
+    -- a wide, short grip meant to be dragged left/right -- sideways-looking
+    -- on a vertical bar. Swap to the vertical counterpart and match its
+    -- (taller-than-wide) proportions. Guarded: GetThumbTexture is a very
+    -- old, standard Slider method, but SetReverseValues (see below) turned
+    -- out to not exist on this client at all, so this codebase can no
+    -- longer assume any given Slider method is present without checking.
+    local thumb = slider.GetThumbTexture and slider:GetThumbTexture();
+    if(thumb) then
+        thumb:SetTexture("Interface\\Buttons\\UI-SliderBar-Button-Vertical");
+        thumb:SetSize(16, 24);
+    end
+    -- OptionsSliderTemplate's baked-in Low/High/Text labels read as a
+    -- horizontal min/max/title strip -- blank them rather than leave
+    -- sideways-looking text next to a vertical bar.
+    _G[name.."Low"]:SetText("");
+    _G[name.."High"]:SetText("");
+    _G[name.."Text"]:SetText("");
+    -- WoW's Slider defaults a vertical orientation to max-at-bottom,
+    -- min-at-top -- backwards from the natural "higher = further up"
+    -- reading a height control should have. The obvious fix,
+    -- SetReverseValues(true), doesn't exist as a method on this client's
+    -- Slider mixin (confirmed live: "attempt to call a nil value") --
+    -- flipped instead by storing/reading the NEGATED height as the
+    -- slider's own value throughout (TWM_UpdateArenaWMOButton sets
+    -- SetMinMaxValues(-maxH, -minH) and SetValue(-maxH)), which puts the
+    -- slider's own minimum (top, under default vertical layout) at the
+    -- arena's highest real height and its own maximum (bottom) at the
+    -- lowest -- exactly the reversed reading needed, with no dependency on
+    -- an API this client doesn't have.
+    slider:SetScript("OnValueChanged", function(self, value)
+        local sliderMin = self:GetMinMaxValues();
+        local actualHeight = -value;
+        local actualMax = -sliderMin;
+        if(actualHeight >= actualMax - TWM_ARENA_WMO_HEIGHT_EPSILON) then
+            -- Topmost position: never filter, full stop -- see this
+            -- function's own header comment for why nil (not actualMax
+            -- itself) is what "show everything" means here.
+            frame.arenaWMOHeightCutoff = nil;
+        else
+            frame.arenaWMOHeightCutoff = actualHeight;
+        end
+        TWM_ArenaWMO_Update(frame);
+    end);
+
+    return slider;
+end
+
+-- Show the checkbox (and, when the current map's WMO placements actually
+-- span more than one height, the height-cutoff slider) only on maps that
+-- have WMO layer data; sync the checkbox to its persisted option and reset
+-- the slider to "show everything" for whichever arena is now selected.
+function TWM_UpdateArenaWMOButton(frame)
+    local lm = frame:GetName();
+    local button = _G[lm.."ShowArenaWMOButton"];
+    if(not button) then return; end
+
+    local tiles = Twm_ArenaWMOTiles and Twm_ArenaWMOTiles[frame.opt.Map];
+    if(tiles) then
+        button:Show();
+        button:SetChecked(frame.opt.ShowArenaWMOLayers);
+
+        local minH, maxH = math.huge, -math.huge;
+        for _, tile in ipairs(tiles) do
+            local h = tile[6];
+            if(h) then
+                if(h < minH) then minH = h; end
+                if(h > maxH) then maxH = h; end
+            end
+        end
+
+        local slider = TWM_ArenaWMO_EnsureHeightSlider(frame);
+        -- Default: show everything, regardless of what the slider below
+        -- ends up reporting once shown -- see TWM_ArenaWMO_Update's header
+        -- comment for why nil, not maxH itself, is what "no cutoff" means.
+        frame.arenaWMOHeightCutoff = nil;
+        if(maxH > minH) then
+            -- Negated -- see TWM_ArenaWMO_EnsureHeightSlider's OnValueChanged
+            -- comment for why (no SetReverseValues on this client).
+            slider:SetMinMaxValues(-maxH, -minH);
+            slider:SetValue(-maxH);
+            slider:Show();
+        else
+            -- Only one distinct height among this arena's placements --
+            -- nothing meaningful for the slider to filter.
+            slider:Hide();
+        end
+    else
+        button:Hide();
+        local slider = _G[lm.."ArenaWMOHeightSlider"];
+        if(slider) then slider:Hide(); end
+    end
+end
+
+function TWMFrameShowArenaWMOButton_OnClick(self)
+    local frame = self:GetParent():GetParent();
+    frame.opt.ShowArenaWMOLayers = self:GetChecked() and true or false;
+    TWM_ArenaWMO_Update(frame);
 end
 
 -- Twm_ContinentMapID is defined in Data_<Flavor>/mapdata_poi.lua (loads before
@@ -636,6 +888,20 @@ function TWM_GetSortedBattlegroundNames()
     return names;
 end
 
+-- TWM_ARENAS never gets built above (stays nil) for a flavor with no
+-- arenas (Vanilla, no Twm_ArenaNames at all) -- guarded the same way
+-- TWM_GetSortedBattlegroundNames is.
+function TWM_GetSortedArenaNames()
+    local names = {};
+    if(TWM_ARENAS) then
+        for h in pairs(TWM_ARENAS) do
+            tinsert(names, h);
+        end
+        table.sort(names);
+    end
+    return names;
+end
+
 -- Top-level dropdown is now a category tree (Continents/Dungeons/Raids/
 -- Battlegrounds, MoP will add Scenarios) instead of a flat continent list --
 -- Dungeons/Raids/Battlegrounds are deliberately empty placeholders for now,
@@ -662,6 +928,11 @@ function TWMFrameDropDown_Initialize()
 
         info = {text = TWM_CATEGORY_BATTLEGROUNDS, hasArrow = true, notCheckable = true, value = "battlegrounds"};
         UIDropDownMenu_AddButton(info, level);
+
+        if(TWM_ARENAS) then
+            info = {text = TWM_CATEGORY_ARENAS, hasArrow = true, notCheckable = true, value = "arenas"};
+            UIDropDownMenu_AddButton(info, level);
+        end
     elseif(UIDROPDOWNMENU_MENU_VALUE == "continents") then
         local currentMap = _G["TWMFrame"].opt.Map;
         for i,h in ipairs(TWM_GetSortedMapNames()) do
@@ -689,6 +960,16 @@ function TWMFrameDropDown_Initialize()
             };
             UIDropDownMenu_AddButton(info, level);
         end
+    elseif(UIDROPDOWNMENU_MENU_VALUE == "arenas") then
+        local currentMap = _G["TWMFrame"].opt.Map;
+        for i,h in ipairs(TWM_GetSortedArenaNames()) do
+            info = {
+                    text = h;
+                    func = TWMFrameDropDownButton_Arena_OnClick;
+                    checked = (TWM_ARENAS[h][1] == currentMap);
+            };
+            UIDropDownMenu_AddButton(info, level);
+        end
     end
     -- "dungeons"/"raids": no entries yet.
 end
@@ -706,6 +987,14 @@ function TWMFrameDropDownButton_Battleground_OnClick(self)
         local h = TWM_GetSortedBattlegroundNames()[i];
         if(h) then
             return _G["TWMFrame"]:SelectMap(TWM_BATTLEGROUNDS[h][1]);
+        end
+end
+
+function TWMFrameDropDownButton_Arena_OnClick(self)
+        local i = self:GetID();
+        local h = TWM_GetSortedArenaNames()[i];
+        if(h) then
+            return _G["TWMFrame"]:SelectMap(TWM_ARENAS[h][1]);
         end
 end
 
@@ -796,7 +1085,9 @@ function TWMFrameTemplate:SetMap(mapname)
     local lm = self:GetName();
 
     self.opt.Map = mapname;
-    
+
+    TWM_UpdateArenaWMOButton(self);
+
     local mapdropdown = _G[lm.."DropDown"];
     if(mapdropdown) then
         for i,h in ipairs(TWM_GetSortedMapNames()) do
@@ -813,6 +1104,11 @@ function TWMFrameTemplate:SetMap(mapname)
         end
         for i,h in ipairs(TWM_GetSortedBattlegroundNames()) do
             if(TWM_BATTLEGROUNDS[h][1] == mapname) then
+                UIDropDownMenu_SetText(mapdropdown,h);
+            end
+        end
+        for i,h in ipairs(TWM_GetSortedArenaNames()) do
+            if(TWM_ARENAS[h][1] == mapname) then
                 UIDropDownMenu_SetText(mapdropdown,h);
             end
         end
@@ -1430,6 +1726,7 @@ function TWMFrameTemplate:SetLocation(x,y,forceupdate,forcePointsUpdate)
         forcePointsUpdate = forceupdate;
     end
     TWMPoints_OnMove(self, x, y, forcePointsUpdate);
+    TWM_ArenaWMO_Update(self);
 end
 
 function TWMFrameTemplate:GetLocation()

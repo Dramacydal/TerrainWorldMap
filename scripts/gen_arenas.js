@@ -1,0 +1,190 @@
+// Regenerates Data_<Flavor>/mapdata_arenas.lua (Twm_mapareas entries for
+// each arena, plus Twm_ArenaNames) from Map.csv DBC data plus an already-
+// generated mapdata_tiles.lua. See README.md for usage.
+//
+// Unlike battlegrounds, an arena has ZERO UiMapAssignment rows at all
+// (confirmed on TBC and Mists: every arena MapID matches zero rows,
+// checked directly, not just zero Zone-type ones) -- Blizzard never wired
+// arenas into the World Map system, even though their terrain is real (a
+// full WDT/ADT tile grid, same as any other map). That means:
+//   - no UiMapID at all for an arena, so no Twm_ArenaMapID/position
+//     tracking/TWM_GetContinentForMapID hint -- selecting one from the
+//     dropdown is the only way to view it.
+//   - no Region box to read a box from either -- this script instead
+//     derives one from --tiles-file's already-computed
+//     Twm_WDTValidTiles["<arena>"] (run parse_wdt.js on the arena's own
+//     Directory name first, same as any other continent/battleground),
+//     converting the tile index range through TWM_Mini2Big_Coord's own
+//     formula (TerrainWorldMap.lua) -- x/y = (index-32)*-533.3333 -- since
+//     that's the same conversion WorldMapOverlay.lua's DrawTiles already
+//     uses to place each tile, so the derived box lines up with the tiles
+//     it's meant to bound.
+//   - no live uiMapID to resolve a client-locale name from either (unlike
+//     Twm_BattlegroundMapID's C_Map.GetMapInfo(uiMapID).name) -- names are
+//     baked in per client locale here instead, same reason and same shape
+//     as gen_poi_flightmasters.js's Twm_flightmasters name tables:
+//     TerrainWorldMap.lua resolves the current client's locale from this at
+//     load time (TWM_ResolveLocaleName, TaxiRoutes.lua) to build the actual
+//     TWM_ARENAS dropdown table, falling back to enUS same as flight
+//     masters do.
+
+const fs = require('fs');
+const { parseCsvFile: parseCsv, findCsv } = require('./csv');
+const { INSTANCE_TYPE_ARENA } = require('./dbc_enums');
+
+const MINI2BIG = 1600 / 3; // 533.3333..., matches TerrainWorldMap.lua's MINI2BIGX/Y
+function miniToBig(v) { return (v - 32) * -MINI2BIG; }
+
+// Client locales Map.csv's MapName_lang is fetched for (wago.tools:
+// /db2/Map/csv?product=<product>&locale=<locale>, see --locales-dir) --
+// same set gen_poi_flightmasters.js uses for TaxiNodes.
+const LOCALES = ['enUS', 'deDE', 'esES', 'esMX', 'frFR', 'itIT', 'koKR', 'ptBR', 'ruRU', 'zhCN', 'zhTW'];
+
+// A standalone arena: Map.csv row with ParentMapID=-1 (top-level), MapType=1,
+// InstanceType=INSTANCE_TYPE_ARENA -- same structural shape as
+// gen_battlegrounds.js's battleground filter, minus the UiMapAssignment
+// zone-row requirement (arenas have none to require).
+function findArenas(mapRows) {
+	return mapRows
+		.filter(r => r.ParentMapID === '-1' && r.MapType === '1' && r.InstanceType === INSTANCE_TYPE_ARENA)
+		.map(r => ({ key: r.Directory, mapID: r.ID, names: { enUS: r.MapName_lang } }));
+}
+
+// {col, row} min/max across every key in Twm_WDTValidTiles["<name>"] of an
+// already-generated mapdata_tiles.lua -- same "COLxROW" keys parse_wdt.js
+// itself writes.
+function tileBoundsFor(tilesLua, name) {
+	const marker = `Twm_WDTValidTiles["${name}"] = {`;
+	const start = tilesLua.indexOf(marker);
+	if (start === -1) return null;
+	const end = tilesLua.indexOf('\n}', start);
+	const block = tilesLua.slice(start, end === -1 ? undefined : end);
+
+	let colMin = Infinity, colMax = -Infinity, rowMin = Infinity, rowMax = -Infinity;
+	const re = /\["(\d+)x(\d+)"\]/g;
+	let m, count = 0;
+	while ((m = re.exec(block))) {
+		const col = parseInt(m[1], 10), row = parseInt(m[2], 10);
+		colMin = Math.min(colMin, col); colMax = Math.max(colMax, col);
+		rowMin = Math.min(rowMin, row); rowMax = Math.max(rowMax, row);
+		count++;
+	}
+	if (count === 0) return null;
+	return { colMin, colMax, rowMin, rowMax, count };
+}
+
+function parseArgs(argv) {
+	const opts = { flavorDir: null, localesDir: null, tilesFile: null, out: null };
+	for (let i = 0; i < argv.length; i++) {
+		const a = argv[i];
+		if (a === '--flavor-dir') opts.flavorDir = argv[++i];
+		else if (a === '--locales-dir') opts.localesDir = argv[++i];
+		else if (a === '--tiles-file') opts.tilesFile = argv[++i];
+		else if (a === '--out') opts.out = argv[++i];
+		else throw new Error(`Unknown option: ${a}`);
+	}
+	return opts;
+}
+
+function printUsage() {
+	console.error('Usage: node gen_arenas.js --flavor-dir <dir with Map.*.csv> --locales-dir <dir with Map.<locale>.csv for each of ' + LOCALES.join('/') + '> --tiles-file <mapdata_tiles.lua, already regenerated including the arena Directory names> --out <out-file.lua>');
+}
+
+function main() {
+	let opts;
+	try {
+		opts = parseArgs(process.argv.slice(2));
+	} catch (e) {
+		console.error(e.message);
+		printUsage();
+		process.exit(1);
+	}
+
+	if (!opts.flavorDir || !opts.localesDir || !opts.tilesFile || !opts.out) {
+		printUsage();
+		process.exit(1);
+	}
+
+	const mapRows = parseCsv(findCsv(opts.flavorDir, 'Map.'));
+	const tilesLua = fs.readFileSync(opts.tilesFile, 'utf8');
+
+	const candidates = findArenas(mapRows);
+	console.error(`${candidates.length} arena Map rows found:`, candidates.map(a => `${a.key} (${a.names.enUS}, MapID=${a.mapID})`));
+
+	// stdout: case-sensitive Directory names, for parse_wdt.js's trailing
+	// <ContinentName> args (run BEFORE this script, so --tiles-file already
+	// has these).
+	console.log(candidates.map(a => a.key).join(' '));
+
+	// Name_lang for every other locale, keyed by Map ID -- missing locale
+	// files are skipped with a warning rather than a hard failure, same as
+	// gen_poi_flightmasters.js.
+	for (const locale of LOCALES) {
+		if (locale === 'enUS') continue;
+		let rows;
+		try {
+			rows = parseCsv(findCsv(opts.localesDir, `Map.${locale}.`));
+		} catch (e) {
+			console.error(`Skipping ${locale}: ${e.message}`);
+			continue;
+		}
+		const byID = {};
+		for (const r of rows) byID[r.ID] = r.MapName_lang;
+		for (const a of candidates) {
+			if (byID[a.mapID]) a.names[locale] = byID[a.mapID];
+		}
+	}
+
+	const arenas = [];
+	for (const a of candidates) {
+		const bounds = tileBoundsFor(tilesLua, a.key);
+		if (!bounds) {
+			console.error(`  (skipping ${a.key} "${a.names.enUS}" -- no Twm_WDTValidTiles entry in --tiles-file; regenerate it with ${a.key} included first)`);
+			continue;
+		}
+		const box = {
+			x1: miniToBig(bounds.colMin), x2: miniToBig(bounds.colMax + 1),
+			y1: miniToBig(bounds.rowMin), y2: miniToBig(bounds.rowMax + 1),
+		};
+		arenas.push({ ...a, box, tileCount: bounds.count });
+	}
+	console.error(`${arenas.length} arenas with usable tile data.`);
+
+	let fullOutput = "-- GENERATED FILE -- do not hand-edit, regenerate with scripts/gen_arenas.js\n"
+		+ "-- and replace this file wholesale. See scripts/README.md for details.\n"
+		+ "--\n"
+		+ "-- Arena zone boxes, kept deliberately separate from Twm_ContinentMapID/\n"
+		+ "-- TWM_MAPS and Twm_BattlegroundMapID/TWM_BATTLEGROUNDS (see this script's\n"
+		+ "-- header) -- own \"Arenas\" dropdown category. No Twm_ArenaMapID table:\n"
+		+ "-- arenas have no UiMapID at all (unlike battlegrounds), so there's no\n"
+		+ "-- position tracking or continent-hint lookup to back with one.\n"
+		+ "-- Twm_mapareas is the same generic per-map-name box registry every other\n"
+		+ "-- top-level map category already populates, just derived from valid-tile\n"
+		+ "-- extent (Big coordinates, via TWM_Mini2Big_Coord's own formula) instead\n"
+		+ "-- of a UiMapAssignment Region box, which doesn't exist for these.\n"
+		+ "-- Twm_ArenaNames is resolved into the actual TWM_ARENAS dropdown table at\n"
+		+ "-- load time (TerrainWorldMap.lua), same as Twm_flightmasters' name\n"
+		+ "-- tables (TaxiRoutes.lua) -- see this file's own header comment.\n\n"
+		+ "Twm_ArenaNames = {\n";
+	for (const a of arenas.slice().sort((x, y) => x.names.enUS.localeCompare(y.names.enUS))) {
+		fullOutput += `    {\n`;
+		fullOutput += `        key = "${a.key}",\n`;
+		fullOutput += `        name = {\n`;
+		for (const locale of LOCALES) {
+			if (!a.names[locale]) continue;
+			const name = a.names[locale].replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+			fullOutput += `            ${locale} = "${name}",\n`;
+		}
+		fullOutput += `        },\n`;
+		fullOutput += `    },\n`;
+	}
+	fullOutput += "}\n\n";
+
+	for (const a of arenas)
+		fullOutput += `Twm_mapareas["${a.key}"] = {\n    [0] = {${a.box.x1}, ${a.box.x2}, ${a.box.y1}, ${a.box.y2}},    --${a.names.enUS.replace(/[^A-Za-z0-9']/g, '')}\n}\n`;
+
+	fs.writeFileSync(opts.out, fullOutput);
+	console.error(`\nWritten: ${opts.out}`);
+}
+
+main();
