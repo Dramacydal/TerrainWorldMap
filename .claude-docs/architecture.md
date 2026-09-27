@@ -264,8 +264,14 @@ Coordinate derivation (see gotchas.md's "WMO-tile world position" entry for
 the full formula, the reference implementation used, and the reusable
 lessons behind it): `box[0]`/`box[1]` (a WMO group's own MOGP bounding box)
 pair directly with `blockX`/`blockY`, no swap; local Y gets one flip shared
-across the whole placement (`globalMaxLocalY`, not per-group); local
-coordinates then get a fixed 90°-clockwise rotation
+across the whole placement (`globalMaxLocalY`, not per-group), re-anchored
+onto the placement's own true minimum (`trueMinLocalY`) rather than the
+flip's own implicit zero (the flip formula is a faithful port of
+wow.export's `compute_minimap_layout`, which builds a presentation-only
+canvas coordinate — using it unmodified as a real local coordinate silently
+mis-anchors the whole assembly, confirmed by comparing Orgrimmar Arena's
+WMO overlay directly against its own real ADT-baked tile of the identical
+building); local coordinates then get a fixed 90°-clockwise rotation
 (`(localX,localY)->(-localY,localX)`, correcting for a real property of
 Blizzard's own WMO-minimap-tile baking convention — also true for WMO
 dungeon interiors); `World = MODF.position + local` (plain addition); then

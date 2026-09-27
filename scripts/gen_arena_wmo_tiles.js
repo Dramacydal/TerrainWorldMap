@@ -307,10 +307,38 @@ async function main() {
 			if (rawTiles.length === 0) continue;
 
 			const globalMaxLocalY = Math.max(...rawTiles.map(rt => rt.localY1raw + TILE_UNITS));
+			// wow.export's own real compute_minimap_layout() computes this
+			// same flip (`canvas_y = (max_y-256) - absY`, adapted above to
+			// model units as `globalMaxLocalY-128-localY_raw`) -- but that
+			// function builds a CANVAS/PIXEL coordinate, valid only for
+			// arranging tiles relative to EACH OTHER on a composited image.
+			// wow.export's OWN separate world-position function,
+			// build_world_meta(), does NOT use canvas_y at all -- it reads
+			// the raw, UNFLIPPED absY directly (`world = -model`). Verified
+			// by reading wow.export's real source directly (git clone,
+			// src/js/wmo-minimap.js): using canvas_y as if it were a real
+			// local-model coordinate re-centers the WHOLE placement onto a
+			// wrong absolute reference (the canvas's own 0-based frame)
+			// while still preserving correct RELATIVE tile-to-tile
+			// arrangement -- exactly the kind of bug invisible to every
+			// adjacency check, only showing up against real ground truth
+			// (confirmed live: Orgrimmar's WMO overlay sat next to, not on
+			// top of, its own real ADT-baked minimap tile -- pure
+			// horizontal offset, matching this axis exactly).
+			// Fixed by re-anchoring canvas_y back onto the placement's own
+			// TRUE combined range (adding back its own true minimum,
+			// `trueMinLocalY`) instead of the canvas's arbitrary zero.
+			// This is a single GLOBAL constant added equally to every tile
+			// of every group, so it cannot change any already-verified
+			// relative arrangement (Dalaran's own group-to-group offset,
+			// ~21.575 units, matching wow.export's real output, is
+			// unaffected by construction) -- it only corrects the
+			// assembly's absolute position.
+			const trueMinLocalY = Math.min(...rawTiles.map(rt => rt.localY1raw));
 
 			for (const { t, box, localX1, localY1raw } of rawTiles) {
 				const localX2 = localX1 + TILE_UNITS;
-				const localY1 = (globalMaxLocalY - TILE_UNITS) - localY1raw;
+				const localY1 = (globalMaxLocalY - TILE_UNITS - localY1raw) + trueMinLocalY;
 				const localY2 = localY1 + TILE_UNITS;
 
 				// Blizzard's own WMO-group minimap baking pipeline has a

@@ -428,14 +428,40 @@ placements only), current/correct state:
    (tried both a computed centroid and the placement's real anchor; both
    worked but are unnecessary, since rotating `local` directly is provably
    identical and needs no runtime pivot at all).
-4. `World = MODF.position + local` (plain addition). NOT subtraction —
+4. **Re-anchor the Y-flip onto the placement's own true range, not the
+   canvas's implicit zero.** Step 2's flip formula is a faithful, verbatim
+   port of wow.export's real `compute_minimap_layout()` — confirmed by
+   reading its actual GitHub source, not a paraphrase. But that function
+   builds a `canvas_y` PIXEL coordinate, valid only for arranging tiles
+   relative to EACH OTHER on a composited image — wow.export's own,
+   separate `build_world_meta()` (the actual real-world-position function)
+   does NOT use `canvas_y` at all; it reads the raw, unflipped value
+   directly (`world = -model`). Treating `canvas_y` as if it were a real
+   local coordinate re-anchors the whole placement onto the canvas's own
+   arbitrary zero — a bug invisible to every relative/adjacency check
+   (confirmed against wow.export, confirmed gapless) since it shifts
+   everything by the same amount, and only showing up against independent
+   ground truth: Orgrimmar Arena's WMO overlay, compared pixel-for-pixel
+   against its own real ADT-baked minimap tile (which draws the identical
+   building), sat next to it rather than on top of it — a large, pure,
+   single-axis offset. Fixed by adding back `trueMinLocalY` (the true
+   minimum raw local Y across every tile of every group in the placement)
+   to step 2's result. This is one GLOBAL constant added equally to every
+   tile, so it cannot change any already-verified relative arrangement
+   (Dalaran's own ~21.575-unit group-to-group offset, matching wow.export's
+   real output, is unaffected by construction — adding the same number to
+   both groups doesn't change their difference) — it only corrects the
+   assembly's absolute position. Verified by re-rendering the Orgrimmar
+   overlay-vs-real-ADT-tile comparison: the WMO overlay now sits almost
+   exactly on the real building (previously it barely touched it).
+5. `World = MODF.position + local` (plain addition). NOT subtraction —
    wow.export's own source comment "for a global wmo at the wdt origin,
    model->world is a straight negate" describes a different special case (a
    *global* WMO at the WDT origin), not the general MODF-placement rule.
-5. `Big-X = MAP_ORIGIN - World.X`, `Big-Y = MAP_ORIGIN - World.Y` — no
+6. `Big-X = MAP_ORIGIN - World.X`, `Big-Y = MAP_ORIGIN - World.Y` — no
    cross-swap (this addon's usual "Big-X = world-Y" convention is calibrated
    for other sources, not a value already in MODF's own axis order).
-6. Texture content: identity UV for steps 1-2, but needs its own 90°-CW
+7. Texture content: identity UV for steps 1-2, but needs its own 90°-CW
    `SetTexCoord(0,1, 1,1, 0,0, 1,0)` (8-param form) to match step 3 — a
    separate concern (pixel content) from box position.
 
@@ -464,6 +490,17 @@ don't port one where the other applies.
   reference point," check whether that point is just a fixed offset from an
   earlier pipeline stage (here, the placement anchor is `local = 0`) and
   apply the correction there instead — no runtime pivot to get wrong.
+- A reference tool's PRESENTATION coordinate (built for arranging pixels on
+  its own canvas/image) and its WORLD coordinate can both derive from the
+  same raw data yet be genuinely different values, not just different units
+  — porting the former where the latter is needed reproduces the right
+  *relative* arrangement while silently re-anchoring the whole result onto
+  the presentation coordinate's own arbitrary origin. This class of bug is
+  invisible to every relative check (adjacency, cross-referencing against
+  the same tool's own output) and only shows up against independent ground
+  truth — here, comparing the WMO overlay directly against Orgrimmar's own
+  real ADT-baked tile of the identical building, pixel-for-pixel, was what
+  finally surfaced it.
 
 ## An arena's "map key" is Map.csv's `Directory` value, exact case — not the on-disk folder name
 

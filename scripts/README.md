@@ -623,7 +623,21 @@ that). This script finds WMO placements and their tiles directly — no
   see gotchas.md for why that distinction matters): `local.Y_raw =
   bbox.minY + blockY*128` for every tile of every group in the placement,
   `globalMaxLocalY = max(local.Y_raw + 128)` across all of them combined,
-  then `local.Y = (globalMaxLocalY - 128) - local.Y_raw`.
+  then `local.Y = (globalMaxLocalY - 128 - local.Y_raw) + trueMinLocalY`,
+  where `trueMinLocalY = min(local.Y_raw)` across the same combined set.
+  That last `+ trueMinLocalY` matters: the flip itself is a faithful port
+  of wow.export's real `compute_minimap_layout()`, but that function builds
+  a presentation-only CANVAS coordinate (valid for arranging tiles relative
+  to each other, not as a real local coordinate) — without re-anchoring it
+  onto the placement's own true range, the whole assembly silently lands on
+  the canvas's own arbitrary zero instead of its real position. Since it's
+  one constant added equally to every tile, it can't disturb the
+  already-verified relative arrangement between groups (confirmed: Dalaran's
+  own ~21.575-unit group-to-group offset is unchanged by it) — it only
+  fixes the absolute position, confirmed by comparing Orgrimmar Arena's WMO
+  overlay directly, pixel-for-pixel, against its own real ADT-baked tile of
+  the identical building (previously offset by ~160 units on one axis,
+  matching perfectly after this fix).
 - Local coordinates then get a fixed 90°-clockwise rotation —
   `(local.X, local.Y) -> (-local.Y, local.X)` — correcting for a real
   property of Blizzard's own WMO-minimap-tile baking convention (also true
