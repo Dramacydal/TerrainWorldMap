@@ -17,28 +17,41 @@
 // world-X, no offset/scale).
 //
 // Unlike continents, a battleground's Map row has no separate "whole map"
-// UiMapAssignment root row (Type=2/System=0/AreaID=0) -- it's just one (or
-// occasionally a couple, e.g. a BG with a genuinely disjoint second area)
-// Type=3 Zone row directly, which doubles as both the position-tracking
-// UiMapID *and* the map's own [0] box (unioned if more than one row exists).
+// UiMapAssignment root row (UI_MAP_TYPE_CONTINENT/UI_MAP_SYSTEM_WORLD/
+// AreaID=0) -- it's just one (or occasionally a couple, e.g. a BG with a
+// genuinely disjoint second area) Zone row directly, which doubles as both
+// the position-tracking UiMapID *and* the map's own [0] box (unioned if
+// more than one row exists).
 
 const fs = require('fs');
 const { parseCsvFile: parseCsv, findCsv } = require('./csv');
 
+// Map.csv's InstanceType (0-4, "official from IsInInstance()" per
+// WoWDBDefs' Map.dbd) and UiMap.csv's Type columns, named per TrinityCore's
+// DBCEnums.h (enum MapTypes / enum UiMapType):
+// https://github.com/TrinityCore/TrinityCore/blob/master/src/server/game/DataStores/DBCEnums.h
+// Map.csv also has a separate, unrelated, unenumerated MapType column
+// (checked below as a raw '1') -- INSTANCE_TYPE_* names it deliberately
+// distinct from that so the two don't read as the same thing.
+const INSTANCE_TYPE_BATTLEGROUND = '3'; // MAP_BATTLEGROUND
+const UI_MAP_TYPE_ZONE = '3';           // UI_MAP_TYPE_ZONE
+const UI_MAP_TYPE_ORPHAN = '6';         // UI_MAP_TYPE_ORPHAN
+
 // A standalone battleground: Map.csv row with ParentMapID=-1 (top-level),
-// MapType=1, InstanceType=3 -- same shape as gen_mapareas.js's continent
-// filter, just the PvP InstanceType instead of the open-world one.
+// MapType=1, InstanceType=INSTANCE_TYPE_BATTLEGROUND -- same shape as
+// gen_mapareas.js's continent filter, just the PvP InstanceType instead of
+// the open-world one.
 function findBattlegrounds(mapRows, assignRows, uiMapType) {
 	const battlegrounds = [];
 
 	for (const mapRow of mapRows) {
-		if (mapRow.ParentMapID !== '-1' || mapRow.MapType !== '1' || mapRow.InstanceType !== '3')
+		if (mapRow.ParentMapID !== '-1' || mapRow.MapType !== '1' || mapRow.InstanceType !== INSTANCE_TYPE_BATTLEGROUND)
 			continue;
 
-		// UiMap Type for a battleground's own zone row is 3 (same as any
-		// regular outdoor zone) on Vanilla/TBC/Mists, but 6 (a distinct
-		// PvP-zone type, not used for anything else) on WoW: Forever/Camelot.
-		const zoneRows = assignRows.filter(r => r.MapID === mapRow.ID && (uiMapType[r.UiMapID] === '3' || uiMapType[r.UiMapID] === '6'));
+		// UiMap Type for a battleground's own zone row is UI_MAP_TYPE_ZONE
+		// (same as any regular outdoor zone) on Vanilla/TBC/Mists, but
+		// UI_MAP_TYPE_ORPHAN on WoW: Forever/Camelot.
+		const zoneRows = assignRows.filter(r => r.MapID === mapRow.ID && (uiMapType[r.UiMapID] === UI_MAP_TYPE_ZONE || uiMapType[r.UiMapID] === UI_MAP_TYPE_ORPHAN));
 		if (zoneRows.length === 0)
 			continue;
 

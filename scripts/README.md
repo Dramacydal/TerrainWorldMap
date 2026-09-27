@@ -99,11 +99,15 @@ joining it against `UiMapAssignment`'s `AreaID`↔`UiMapID` mapping — no
 per-flavor hand-collection needed.
 
 **Which UiMapAssignment rows become a zone box:** a zone row's `UiMap.Type`
-is `3` on Vanilla/TBC/Mists, but a build can also use `6` for one (e.g.
-Gilneas on Mists) — the per-continent zone-box loop accepts either (the
-initial "is this Map row even a continent" check stays `3`-only, so this
-doesn't pull in unrelated Map rows as new continents, only fixes an
-already-included continent's own zone list).
+is `3` (`UI_MAP_TYPE_ZONE`) on Vanilla/TBC/Mists, but a build can also use
+`6` (`UI_MAP_TYPE_ORPHAN`) for one (e.g. Gilneas on Mists) — the
+per-continent zone-box loop accepts either (the initial "is this Map row
+even a continent" check stays `UI_MAP_TYPE_ZONE`-only, so this doesn't pull
+in unrelated Map rows as new continents, only fixes an already-included
+continent's own zone list). Names per TrinityCore's
+[`DBCEnums.h`](https://github.com/TrinityCore/TrinityCore/blob/master/src/server/game/DataStores/DBCEnums.h)
+(`enum UiMapType`, `enum MapTypes` for `Map.InstanceType` — `3` there is
+`MAP_BATTLEGROUND`, used throughout `gen_battlegrounds.js`).
 
 A zone row is skipped from becoming its own box entry when its `AreaID`
 has a non-zero `ParentAreaID` in `AreaTable` — a real displayed zone

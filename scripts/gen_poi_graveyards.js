@@ -44,15 +44,20 @@ const { parseCsvFile, findCsv } = require('./csv');
 
 const DEDUP_DISTANCE = 15; // yards
 
-// {areaID: box} for every Zone UiMapAssignment row (Type 3, or 6 on builds
-// that use it -- see gen_mapareas.js), regardless of whether gen_mapareas.js
-// exposed it as one of Twm_mapareas' own displayed-zone entries. A small
-// starting-experience camp (Camp Narache, Gilneas City, ...) has its own
-// real box here even when gen_mapareas.js excluded it from the zone
-// dropdown for not being a top-level AreaTable entry -- Wowhead's graveyard
-// coordinates for it are percentages of exactly that box, not its parent
-// zone's (a parent-box fallback would place the point wrong, not just
-// approximately).
+// UiMap.csv's Type column, named per TrinityCore's DBCEnums.h (enum
+// UiMapType): https://github.com/TrinityCore/TrinityCore/blob/master/src/server/game/DataStores/DBCEnums.h
+const UI_MAP_TYPE_ZONE = '3';   // UI_MAP_TYPE_ZONE
+const UI_MAP_TYPE_ORPHAN = '6'; // UI_MAP_TYPE_ORPHAN
+
+// {areaID: box} for every Zone UiMapAssignment row (UI_MAP_TYPE_ZONE, or
+// UI_MAP_TYPE_ORPHAN on builds that use it -- see gen_mapareas.js),
+// regardless of whether gen_mapareas.js exposed it as one of Twm_mapareas'
+// own displayed-zone entries. A small starting-experience camp (Camp
+// Narache, Gilneas City, ...) has its own real box here even when
+// gen_mapareas.js excluded it from the zone dropdown for not being a
+// top-level AreaTable entry -- Wowhead's graveyard coordinates for it are
+// percentages of exactly that box, not its parent zone's (a parent-box
+// fallback would place the point wrong, not just approximately).
 function loadRawZoneBoxes(flavorDir) {
 	const assignRows = parseCsvFile(findCsv(flavorDir, 'UiMapAssignment.'));
 	const uiMapRows = parseCsvFile(findCsv(flavorDir, 'UiMap.'));
@@ -61,7 +66,7 @@ function loadRawZoneBoxes(flavorDir) {
 
 	const boxes = {};
 	for (const r of assignRows) {
-		if (r.AreaID === '0' || (uiMapType[r.UiMapID] !== '3' && uiMapType[r.UiMapID] !== '6'))
+		if (r.AreaID === '0' || (uiMapType[r.UiMapID] !== UI_MAP_TYPE_ZONE && uiMapType[r.UiMapID] !== UI_MAP_TYPE_ORPHAN))
 			continue;
 		if (boxes[r.AreaID]) continue; // keep the first, same as gen_mapareas.js
 		const R0 = parseFloat(r.Region_0), R1 = parseFloat(r.Region_1);

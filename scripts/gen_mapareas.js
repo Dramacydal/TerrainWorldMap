@@ -10,6 +10,19 @@ const fs = require('fs');
 const path = require('path');
 const { parseCsvFile: parseCsv, findCsv } = require('./csv');
 
+// Map.csv's InstanceType (0-4, "official from IsInInstance()" per
+// WoWDBDefs' Map.dbd) and UiMap.csv's Type columns, named per TrinityCore's
+// DBCEnums.h (enum MapTypes / enum UiMapType):
+// https://github.com/TrinityCore/TrinityCore/blob/master/src/server/game/DataStores/DBCEnums.h
+// Map.csv also has a separate, unrelated, unenumerated MapType column
+// (checked below as a raw '1') -- INSTANCE_TYPE_* names it deliberately
+// distinct from that so the two don't read as the same thing.
+const INSTANCE_TYPE_COMMON = '0';  // MAP_COMMON
+const UI_MAP_TYPE_CONTINENT = '2'; // UI_MAP_TYPE_CONTINENT
+const UI_MAP_TYPE_ZONE = '3';      // UI_MAP_TYPE_ZONE
+const UI_MAP_TYPE_ORPHAN = '6';    // UI_MAP_TYPE_ORPHAN
+const UI_MAP_SYSTEM_WORLD = '0';   // UI_MAP_SYSTEM_WORLD
+
 // Reads mapdata_zones.lua's own Twm_CapitalAreaIDs table (the single
 // source of truth for which AreaIDs are capitals) instead of keeping a
 // second, driftable copy of the same list in this script.
@@ -58,35 +71,37 @@ function findCityMapIDs(assignRows, capitalAreaIDs) {
 }
 
 // A standalone open-world map: Map.csv row with ParentMapID=-1 (top-level),
-// MapType=1, InstanceType=0 (excludes dungeons/raids/battlegrounds/
-// scenarios), and at least one Type=3 (Zone) UiMapAssignment row (real
-// playable terrain, not an unused/orphaned MapID). Deliberately Type=3
-// only, not also 6 (see the per-continent zone-row filter below, which does
-// accept both) -- this is what decides which Map rows this script treats as
-// a continent at all, and broadening it surfaces several more Mists Map
-// rows (e.g. DeathKnightStart, DarkmoonFaire) whose only zone row is
-// Type=6; adding those to the generated continent list is a separate,
-// bigger decision than fixing an already-included continent's own zone
-// list (Gilneas2, see below).
+// MapType=1, InstanceType=INSTANCE_TYPE_COMMON (excludes dungeons/raids/
+// battlegrounds/scenarios), and at least one UI_MAP_TYPE_ZONE
+// UiMapAssignment row (real playable terrain, not an unused/orphaned
+// MapID). Deliberately
+// UI_MAP_TYPE_ZONE only, not also UI_MAP_TYPE_ORPHAN (see the per-continent
+// zone-row filter below, which does accept both) -- this is what decides
+// which Map rows this script treats as a continent at all, and broadening
+// it surfaces several more Mists Map rows (e.g. DeathKnightStart,
+// DarkmoonFaire) whose only zone row is UI_MAP_TYPE_ORPHAN; adding those to
+// the generated continent list is a separate, bigger decision than fixing
+// an already-included continent's own zone list (Gilneas2, see below).
 function findContinents(uiMapRows, assignRows, mapRows, uiMapType, uiMapSystem) {
 	const continents = [];
 
 	for (const mapRow of mapRows) {
-		if (mapRow.ParentMapID !== '-1' || mapRow.MapType !== '1' || mapRow.InstanceType !== '0')
+		if (mapRow.ParentMapID !== '-1' || mapRow.MapType !== '1' || mapRow.InstanceType !== INSTANCE_TYPE_COMMON)
 			continue;
 
-		const zoneRows = assignRows.filter(r => r.MapID === mapRow.ID && r.AreaID !== '0' && uiMapType[r.UiMapID] === '3');
+		const zoneRows = assignRows.filter(r => r.MapID === mapRow.ID && r.AreaID !== '0' && uiMapType[r.UiMapID] === UI_MAP_TYPE_ZONE);
 		if (zoneRows.length === 0)
 			continue;
 
-		// Whole-map [0] box: prefer the AreaID=0 row with System=0 + Type=2
-		// (a MapID can have multiple AreaID=0 candidates -- duplicates, a
-		// "World" cosmic map row -- only this combination is the real one).
-		// Falls back to the union of zone boxes for maps with no such row
-		// (single/few-zone islands like Deepholm).
+		// Whole-map [0] box: prefer the AreaID=0 row that's
+		// UI_MAP_TYPE_CONTINENT + UI_MAP_SYSTEM_WORLD (a MapID can have
+		// multiple AreaID=0 candidates -- duplicates, a "World" cosmic map
+		// row -- only this combination is the real one). Falls back to the
+		// union of zone boxes for maps with no such row (single/few-zone
+		// islands like Deepholm).
 		let rootBox;
 		const rootRow = assignRows.find(r => r.MapID === mapRow.ID && r.AreaID === '0'
-			&& uiMapType[r.UiMapID] === '2' && uiMapSystem[r.UiMapID] === '0');
+			&& uiMapType[r.UiMapID] === UI_MAP_TYPE_CONTINENT && uiMapSystem[r.UiMapID] === UI_MAP_SYSTEM_WORLD);
 		if (rootRow) {
 			const R0 = parseFloat(rootRow.Region_0), R1 = parseFloat(rootRow.Region_1);
 			const R3 = parseFloat(rootRow.Region_3), R4 = parseFloat(rootRow.Region_4);
@@ -94,9 +109,10 @@ function findContinents(uiMapRows, assignRows, mapRows, uiMapType, uiMapSystem) 
 		} else {
 			// The union itself should still cover every real zone regardless
 			// of which Type let it gate inclusion above -- Gilneas2's only
-			// Type=3 row is "Gilneas City" (a sub-area of Gilneas itself,
-			// Type=6), which alone would make this box too small.
-			const boxRows = assignRows.filter(r => r.MapID === mapRow.ID && r.AreaID !== '0' && (uiMapType[r.UiMapID] === '3' || uiMapType[r.UiMapID] === '6'));
+			// UI_MAP_TYPE_ZONE row is "Gilneas City" (a sub-area of Gilneas
+			// itself, UI_MAP_TYPE_ORPHAN), which alone would make this box
+			// too small.
+			const boxRows = assignRows.filter(r => r.MapID === mapRow.ID && r.AreaID !== '0' && (uiMapType[r.UiMapID] === UI_MAP_TYPE_ZONE || uiMapType[r.UiMapID] === UI_MAP_TYPE_ORPHAN));
 			rootBox = boxRows.reduce((acc, r) => {
 				const R0 = parseFloat(r.Region_0), R1 = parseFloat(r.Region_1);
 				const R3 = parseFloat(r.Region_3), R4 = parseFloat(r.Region_4);
@@ -180,11 +196,11 @@ function main() {
 		+ "-- declares Twm_mapareas.\n\n";
 
 	for (const { name: contName, mapID, rootBox } of continents) {
-		// Zone rows only (Type 3, or 6 on builds that use it -- see
-		// findContinents above) -- excludes Dungeon/Micro/scenario uiMapIDs
-		// that can share an AreaID with a real zone but carry a different
-		// Region box.
-		const rows = assignRows.filter(r => r.MapID === mapID && r.AreaID !== '0' && (uiMapType[r.UiMapID] === '3' || uiMapType[r.UiMapID] === '6'));
+		// Zone rows only (UI_MAP_TYPE_ZONE, or UI_MAP_TYPE_ORPHAN on builds
+		// that use it -- see findContinents above) -- excludes
+		// Dungeon/Micro/scenario uiMapIDs that can share an AreaID with a
+		// real zone but carry a different Region box.
+		const rows = assignRows.filter(r => r.MapID === mapID && r.AreaID !== '0' && (uiMapType[r.UiMapID] === UI_MAP_TYPE_ZONE || uiMapType[r.UiMapID] === UI_MAP_TYPE_ORPHAN));
 		const out = [];
 		const seenAreaID = {};
 
