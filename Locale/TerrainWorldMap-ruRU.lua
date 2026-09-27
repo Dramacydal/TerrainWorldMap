@@ -59,6 +59,11 @@ TWM_TOOLTIP_OPT_FLIGHTPATHTHICKNESS = "Задаёт толщину линий м
 TWM_TOOLTIP_OPT_FLIGHTPATHINTERPOLATION = "Сглаживает реальный изогнутый маршрут полёта (при зажатом Shift), добавляя между его исходными точками дополнительные вычисленные точки, вместо заметно ломаной линии. 0 отключает сглаживание. Применяется только к тому флайт-мастеру, над которым сейчас находится курсор, и никогда — к полному виду континента при включённом \"Показывать маршруты полётов\", чтобы не вызывать лаги.";
 
 TWM_POINTS_SHOWPOINTS_TITLE = "Показывать метки";
+
+TWM_CATEGORY_CONTINENTS = "Континенты";
+TWM_CATEGORY_DUNGEONS = "Подземелья";
+TWM_CATEGORY_RAIDS = "Рейды";
+TWM_CATEGORY_BATTLEGROUNDS = "Поля боя";
 TWM_POINTS_LANDMARKS = "Достопримечательности";
 TWM_POINTS_GRAVEYARDS = "Кладбища";
 TWM_POINTS_CAPITALS = "Столицы";

@@ -101,6 +101,14 @@ local function GetViewBigBox(mapID)
             return continent, box[1], box[2], box[3], box[4];
         end
     end
+    if(Twm_BattlegroundMapID) then
+        for bg, bgMapID in pairs(Twm_BattlegroundMapID) do
+            if(mapID == bgMapID) then
+                local box = Twm_mapareas[bg][0];
+                return bg, box[1], box[2], box[3], box[4];
+            end
+        end
+    end
 
     local hint = TWM_GetContinentForMapID(mapID);
     local tryOrder = {};

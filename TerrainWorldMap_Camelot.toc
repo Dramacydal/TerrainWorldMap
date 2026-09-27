@@ -1,6 +1,6 @@
 ## Interface: 11601
 ## Title: TerrainWorldMap
-## Version: 1.1.5
+## Version: 2.0.0
 ## Author: Dramacydal, Boo Diddly (Yatlas)
 ## X-Website: https://github.com/Dramacydal/TerrainWorldMap
 ## Notes: Overlays real terrain tiles onto the World Map
@@ -15,7 +15,9 @@ Locale\Locales.xml
 mapdata_zones.lua
 Data_Forever\mapdata_continents.lua
 Data_Forever\mapdata_poi.lua
+Data_Forever\mapdata_battlegrounds.lua
 Data_Forever\mapdata_poi_areas.lua
+Data_Forever\mapdata_poi_battlegrounds_areas.lua
 Data_Forever\mapdata_poi_graveyards.lua
 Data_Forever\mapdata_poi_instances.lua
 Data_Forever\mapdata_poi_flightmasters.lua

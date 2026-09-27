@@ -76,6 +76,17 @@ function set.internal.OnWorldMapUpdateUnit(u)
         return;
     end
 
+    -- Map identified but no live position on it (e.g. Alterac Valley) --
+    -- nothing to plot; treat like unit not found so a stale pin gets
+    -- cleared instead of erroring on the arithmetic below.
+    if(x == nil) then
+        if(unitlocations[u]) then
+            unitlocations[u] = nil;
+            TWMPoints_HideMobile("players", u);
+        end
+        return;
+    end
+
     local x1,x2,y1,y2;
     if(Twm_mapareas[map][0] ~= nil) then
         x1 = Twm_mapareas[map][0][1];

@@ -24,9 +24,9 @@
 				if(TWMOption and TWMOption.Frames) then
 					local o = TWMOption.Frames[self:GetName()];
 					if(o.track) then
-						TWMFramePlayerJumpButton_Seek(self, o.track);
+						TWMFrame_SeekOnShow(self, o.track);
 					elseif(o.trackonshow) then
-						 TWMFramePlayerJumpButton_Seek(self, o.trackonshow);
+						 TWMFrame_SeekOnShow(self, o.trackonshow);
 					end
 				end
 			</OnShow>
@@ -623,7 +623,7 @@
 				</Anchors>
 				<Scripts>
 					<OnClick>
-						local p = self:GetParent():GetParent():GetParent():GetParent();
+						local p = self:GetParent():GetParent();
 						p:SetZoom(p:GetZoom()+24);
 					</OnClick>
 				</Scripts>
@@ -641,7 +641,7 @@
 				</Anchors>
 				<Scripts>
 					<OnClick>
-						local p = self:GetParent():GetParent():GetParent():GetParent();
+						local p = self:GetParent():GetParent();
 						p:SetZoom(p:GetZoom()-24);
 					</OnClick>
 				</Scripts>
@@ -659,6 +659,16 @@
 				};
 				self:SetBackdropBorderColor(1, 1, 1);
 				self:SetBackdropColor(0, 0, 0, 1);
+
+				-- Map tiles/POI icons all live in TWMFrame's own "HIGH" strata
+				-- (POI icons explicitly bumped +4 frame levels above their
+				-- parent, see Points.lua) -- a mere frame-level bump here
+				-- would need to out-guess all of those. Bumping strata
+				-- instead guarantees this popup draws above everything in
+				-- "HIGH" regardless of frame level, the same way TWMFOO's
+				-- settings dropdown (a native UIDropDownMenuTemplate, always
+				-- drawn through its own top-level system) is never obscured.
+				self:SetFrameStrata("DIALOG");
 			</OnLoad>
 		</Scripts>
 	</Frame>

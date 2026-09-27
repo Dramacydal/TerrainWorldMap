@@ -217,11 +217,43 @@ function TWM_FindZoneAtBigCoord(map, bigx, bigy, tilekey)
     return bestID;
 end
 
--- Twm_ContinentMapID is defined in Data_<Flavor>/mapdata_poi.lua (loads before this file).
-
+-- Twm_ContinentMapID is defined in Data_<Flavor>/mapdata_poi.lua (loads before
+-- this file); Twm_BattlegroundMapID (same shape, separate table -- see
+-- scripts/gen_battlegrounds.js) in Data_<Flavor>/mapdata_poi_battlegrounds.lua,
+-- when that flavor has one. Both feed the same reverse-index below --
+-- TWM_GetContinentForMapID's parent-chain walk (and so
+-- TWM_GetUnitContinentPosition's "Goto Player"/live tracking) doesn't care
+-- which table a given top-level map came from, only that Twm_mapareas has a
+-- [0] box for it. Battlegrounds are real, position-trackable outdoor zones
+-- (unlike dungeon/raid interiors, which have no live position API at all --
+-- see .claude-docs/gotchas.md), so they plug into this exactly like a
+-- continent does.
 local TWM_ContinentByMapID = {};
 for h,v in pairs(Twm_ContinentMapID) do
     TWM_ContinentByMapID[v] = h;
+end
+if(Twm_BattlegroundMapID) then
+    for h,v in pairs(Twm_BattlegroundMapID) do
+        TWM_ContinentByMapID[v] = h;
+    end
+end
+
+-- The UiMapID a top-level map name (continent OR battleground -- whichever
+-- table actually has it) resolves to. Twm_ContinentMapID/Twm_BattlegroundMapID
+-- stay separate data-wise (see scripts/gen_battlegrounds.js's header for why),
+-- but every runtime consumer that needs "the UiMapID for this known map name"
+-- -- not just TWM_ContinentByMapID's reverse direction above -- has to check
+-- both, or a battleground name resolved via TWM_GetContinentForMapID ends up
+-- indexing straight into Twm_ContinentMapID and quietly getting nil (this
+-- exact bug, twice -- see WorldMapOverlay.lua's GetViewBigBox and this file's
+-- own TWM_GetUnitContinentPosition).
+function TWM_GetTopLevelMapUiMapID(name)
+    local id = Twm_ContinentMapID[name];
+    if(id) then return id; end
+    if(Twm_BattlegroundMapID) then
+        return Twm_BattlegroundMapID[name];
+    end
+    return nil;
 end
 
 -- Walks a uiMapID up its parent chain until it hits one of our known
@@ -272,12 +304,19 @@ function TWM_GetUnitContinentPosition(u)
         continent = TWM_GetContinentForMapID(mapID);
         if(not continent) then return nil; end
         zoneBox = Twm_mapareas[continent][0];
-        queryMapID = Twm_ContinentMapID[continent];
+        queryMapID = TWM_GetTopLevelMapUiMapID(continent);
     end
     if(not zoneBox) then return nil; end
 
+    -- Some battlegrounds (Alterac Valley, confirmed live -- unlike Warsong
+    -- Gulch) have no live position data at all, same category as dungeons/
+    -- raids. Still return `continent` alone (x/y nil) instead of bailing
+    -- out entirely -- callers that only need "which map is the unit on"
+    -- (OnWorldMapUpdateU's auto-follow, SelectMap's == comparison) can use
+    -- that to at least switch to the right map; only actual dot-plotting
+    -- needs to keep checking x/y for nil.
     local pos = C_Map.GetPlayerMapPosition(queryMapID, u);
-    if(not pos) then return nil; end
+    if(not pos) then return continent; end
 
     local nx, ny = pos:GetXY();
     local zx1,zx2,zy1,zy2 = zoneBox[1],zoneBox[2],zoneBox[3],zoneBox[4];
@@ -562,7 +601,13 @@ end
 function TWMFrameDropDown_OnEvent(self, event)
     if(event == "VARIABLES_LOADED") then
         UIDropDownMenu_Initialize(self, TWMFrameDropDown_Initialize);
-        UIDropDownMenu_SetSelectedID(self, 1);
+        -- No UIDropDownMenu_SetSelectedID here -- it drives its own
+        -- persistent "checked" highlight on whichever button sits at that
+        -- ID, independent of (and in addition to) each button's own
+        -- info.checked field below. Leaving it at its leftover value from
+        -- the old flat (pre-category-tree) menu meant button #1 of whatever
+        -- submenu was open stayed permanently highlighted alongside the one
+        -- info.checked correctly marked for the frame's actual current map.
         UIDropDownMenu_SetWidth(self, 150);
     end
 end
@@ -576,24 +621,150 @@ function TWM_GetSortedMapNames()
     return names;
 end
 
+-- TWM_BATTLEGROUNDS (Data_<Flavor>/mapdata_poi_battlegrounds.lua) doesn't
+-- exist at all for a flavor with no generated battleground data yet --
+-- guarded the same way TWM_HasNoLiquidData-style optional tables are
+-- elsewhere in this addon.
+function TWM_GetSortedBattlegroundNames()
+    local names = {};
+    if(TWM_BATTLEGROUNDS) then
+        for h in pairs(TWM_BATTLEGROUNDS) do
+            tinsert(names, h);
+        end
+        table.sort(names);
+    end
+    return names;
+end
+
+-- Top-level dropdown is now a category tree (Continents/Dungeons/Raids/
+-- Battlegrounds, MoP will add Scenarios) instead of a flat continent list --
+-- Dungeons/Raids/Battlegrounds are deliberately empty placeholders for now,
+-- ahead of the dungeon-interior map rendering feature they're meant to lead
+-- into (see .claude-docs/gotchas.md's WMO-minimap-tile entries for where
+-- that stands). Continents keeps working exactly as before, just one level
+-- deeper -- TWMFrameDropDownButton_OnClick's use of GetID() as an index into
+-- TWM_GetSortedMapNames() still works unchanged, since a submenu's buttons
+-- are numbered from 1 within that submenu, same as they were at the top
+-- level before this change.
 function TWMFrameDropDown_Initialize()
     local info;
-    for i,h in ipairs(TWM_GetSortedMapNames()) do
+    local level = UIDROPDOWNMENU_MENU_LEVEL;
+    if(level == 1) then
+        info = {text = TWM_CATEGORY_CONTINENTS, hasArrow = true, notCheckable = true, value = "continents"};
+        UIDropDownMenu_AddButton(info, level);
+
+        -- Hidden for now -- no entries yet.
+        --info = {text = TWM_CATEGORY_DUNGEONS, hasArrow = true, notCheckable = true, value = "dungeons"};
+        --UIDropDownMenu_AddButton(info, level);
+
+        --info = {text = TWM_CATEGORY_RAIDS, hasArrow = true, notCheckable = true, value = "raids"};
+        --UIDropDownMenu_AddButton(info, level);
+
+        info = {text = TWM_CATEGORY_BATTLEGROUNDS, hasArrow = true, notCheckable = true, value = "battlegrounds"};
+        UIDropDownMenu_AddButton(info, level);
+    elseif(UIDROPDOWNMENU_MENU_VALUE == "continents") then
+        local currentMap = _G["TWMFrame"].opt.Map;
+        for i,h in ipairs(TWM_GetSortedMapNames()) do
             info = {
                     text = h;
                     func = TWMFrameDropDownButton_OnClick;
-                    --value = _G[UIDROPDOWNMENU_INIT_MENU]:GetParent();
+                    -- Without this, the checkmark falls back to comparing
+                    -- each button's own ID against UIDropDownMenu_SetSelectedID
+                    -- (set once, to 1, back at load time and never since --
+                    -- there's no single "selected ID" that means anything once
+                    -- this list lives inside a submenu) -- always checking
+                    -- whichever entry sorts first, regardless of the frame's
+                    -- actual current map.
+                    checked = (TWM_MAPS[h][1] == currentMap);
             };
-            UIDropDownMenu_AddButton(info);
+            UIDropDownMenu_AddButton(info, level);
+        end
+    elseif(UIDROPDOWNMENU_MENU_VALUE == "battlegrounds") then
+        local currentMap = _G["TWMFrame"].opt.Map;
+        for i,h in ipairs(TWM_GetSortedBattlegroundNames()) do
+            info = {
+                    text = h;
+                    func = TWMFrameDropDownButton_Battleground_OnClick;
+                    checked = (TWM_BATTLEGROUNDS[h][1] == currentMap);
+            };
+            UIDropDownMenu_AddButton(info, level);
+        end
     end
+    -- "dungeons"/"raids": no entries yet.
 end
 
 function TWMFrameDropDownButton_OnClick(self)
         local i = self:GetID();
         local h = TWM_GetSortedMapNames()[i];
         if(h) then
-            return _G["TWMFrame"]:SetMap(TWM_MAPS[h][1]);
+            return _G["TWMFrame"]:SelectMap(TWM_MAPS[h][1]);
         end
+end
+
+function TWMFrameDropDownButton_Battleground_OnClick(self)
+        local i = self:GetID();
+        local h = TWM_GetSortedBattlegroundNames()[i];
+        if(h) then
+            return _G["TWMFrame"]:SelectMap(TWM_BATTLEGROUNDS[h][1]);
+        end
+end
+
+-- What actually runs when a map is picked from the dropdown -- as opposed to
+-- SetMap's other callers (e.g. OnWorldMapUpdateU's own player-centering
+-- flow), which already know exactly where they want to end up and shouldn't
+-- be second-guessed here. If the player is actually on the map just picked
+-- *and* "Zoom to Player on Show" is enabled for this window, centers on the
+-- player (the same jump the Goto Player button does); otherwise fits the
+-- map's first registered zone if it has any (a continent), or the whole
+-- map otherwise (a battleground) -- the previous zoom/position was tuned
+-- for whatever map was showing before, and can leave the new one too tiny
+-- or scrolled off-screen to find.
+function TWMFrameTemplate:SelectMap(mapname)
+    self:SetMap(mapname);
+
+    local opt = TWMOption.Frames[self:GetName()];
+    if(opt and opt.trackonshow and TWM_GetUnitContinentPosition("player") == mapname) then
+        self.trackseek = "player";
+        self:OnWorldMapUpdateU("player");
+    else
+        -- Not tracking the player here -- fit whatever box gives the most
+        -- useful view. A map with real registered zones (a continent) fits
+        -- its first one (self.zonepulldowns, same "first zone" used by
+        -- SetMap's own jump-to-first-zone fallback below) rather than the
+        -- whole continent zoomed all the way out; a flat map with none (a
+        -- battleground) falls back to its own [0] whole-map box.
+        self:FitMapToViewport(mapname, self.zonepulldowns and self.zonepulldowns[1]);
+    end
+end
+
+-- Zooms/centers so `zoneKey`'s box (default: the map's own [0] whole-map
+-- box) fills the viewport, with a little margin so its edges aren't flush
+-- against the window's own border.
+function TWMFrameTemplate:FitMapToViewport(mapname, zoneKey)
+    local box = Twm_mapareas[mapname] and Twm_mapareas[mapname][zoneKey or 0];
+    if(not box) then return; end
+
+    local lm = self:GetName();
+    local viewframe = _G[lm.."ViewFrame"];
+    local vw, vh = viewframe:GetWidth(), viewframe:GetHeight();
+    if(vw <= 0 or vh <= 0) then return; end
+
+    local bigWidth, bigHeight = box[1]-box[2], box[3]-box[4];
+    local miniWidth, miniHeight = bigWidth/MINI2BIGX, bigHeight/MINI2BIGY;
+    if(miniWidth <= 0 or miniHeight <= 0) then return; end
+
+    local MARGIN = 0.9; -- a little breathing room around the map's own edges
+    local wantedZoom = math.min(vw/miniWidth, vh/miniHeight) * MARGIN;
+
+    self:SetZoom(wantedZoom, true);
+    -- SetZoom can clamp/adjust what we asked for (the ~32 hard floor, or its
+    -- own "too zoomed in for this viewport size" recursion) -- read back
+    -- whatever it actually settled on instead of trusting wantedZoom, or the
+    -- position math below would be centered for a zoom level that isn't the
+    -- one actually applied.
+    local zoom = self:GetZoom();
+    local cx, cy = TWM_Big2Mini_Coord((box[1]+box[2])/2, (box[3]+box[4])/2);
+    self:SetLocation(cx-(vw/2)/zoom, cy-(vh/2)/zoom);
 end
 
 function TWMFrameTemplate:ToggleLock()
@@ -630,7 +801,18 @@ function TWMFrameTemplate:SetMap(mapname)
     if(mapdropdown) then
         for i,h in ipairs(TWM_GetSortedMapNames()) do
             if(TWM_MAPS[h][1] == mapname) then
-                UIDropDownMenu_SetSelectedID(mapdropdown, i);
+                -- No UIDropDownMenu_SetSelectedID here -- that tracks a
+                -- checkmark against a button's position in the level it was
+                -- set for, and the continent list now lives one level down
+                -- (inside the "Continents" category), not at the top level
+                -- this call would otherwise target. SetText below is what
+                -- actually matters -- it's what keeps the closed dropdown
+                -- button showing the current continent's name.
+                UIDropDownMenu_SetText(mapdropdown,h);
+            end
+        end
+        for i,h in ipairs(TWM_GetSortedBattlegroundNames()) do
+            if(TWM_BATTLEGROUNDS[h][1] == mapname) then
                 UIDropDownMenu_SetText(mapdropdown,h);
             end
         end
@@ -808,6 +990,21 @@ end
 function TWMFramePlayerJumpButton_Seek(frame, unit)
     frame.trackseek = unit;
     frame:OnWorldMapUpdateU(unit);
+end
+
+-- Only re-seeks (switch map + recenter/fit, discarding whatever the player
+-- panned/zoomed to) when the unit's current map actually differs from what
+-- this frame is already showing -- otherwise a mere close/reopen with
+-- "track"/"trackonshow" enabled would reset the view every time even though
+-- nothing about the player's location changed. An explicit "Jump to player"
+-- button click (TWMFramePlayerJumpButton_Jump/_Toggle) bypasses this and
+-- always seeks -- that's the whole point of clicking it.
+function TWMFrame_SeekOnShow(frame, unit)
+    local map = TWM_GetUnitContinentPosition(unit);
+    if(map and frame.opt and map == frame.opt.Map) then
+        return;
+    end
+    TWMFramePlayerJumpButton_Seek(frame, unit);
 end
 
 function TWMFramePlayerJumpButton_Update(btn)
@@ -1284,6 +1481,23 @@ function TWMFrameTemplate:OnWorldMapUpdateU(u)
     local zoom = self.opt.Zoom
 
     if(map == nil or Twm_mapareas[map] == nil) then
+        return;
+    end
+
+    -- No live position on this map (e.g. Alterac Valley) -- still switch to
+    -- it so the frame doesn't stay stuck on whatever was open before, just
+    -- can't center/follow the player without x/y, so fit the whole map
+    -- instead. Guard opt.track against re-fitting every OnUpdate tick once
+    -- we're already showing the right map (would fight manual pan/zoom).
+    if(x == nil) then
+        if(u == self.trackseek) then
+            self:SetMap(map);
+            self:FitMapToViewport(map);
+            self.trackseek = nil;
+        elseif(u == self.opt.track and self.opt.Map ~= map) then
+            self:SetMap(map);
+            self:FitMapToViewport(map);
+        end
         return;
     end
 

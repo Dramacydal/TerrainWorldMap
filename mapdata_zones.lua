@@ -23,6 +23,14 @@ Twm_areadb = setmetatable({}, {
 -- loads right after this file).
 Twm_mapareas = {}
 
+-- Named sub-area/POI labels, keyed by top-level map name. Per-continent and
+-- (when generated) per-battleground blocks live in their own
+-- Data_<Flavor>/mapdata_poi_areas*.lua files (scripts/gen_poi_areas.js),
+-- each assigning its own Twm_poi_areas["<name>"] key rather than the whole
+-- table -- so declaring it here first is what lets them coexist regardless
+-- of .toc load order.
+Twm_poi_areas = {}
+
 -- Hardcoded capital-city AreaIDs (AreaTable.dbc's own AreaID, from
 -- Wowhead's capital-city list) -- neither AreaTable nor AreaPOI's own
 -- flags reliably separate "capital" from "city" across every flavor (see

@@ -264,14 +264,20 @@ function main() {
 	const { parentOf, nameOf } = loadAreaTable(opts.areaTableDir);
 	const mapareasLua = fs.readFileSync(opts.mapareasFile, 'utf8');
 
+	// Per-key assignment (Twm_poi_areas["X"] = {...}), NOT a single
+	// `Twm_poi_areas = {...}` literal -- this file can be regenerated/loaded
+	// independently of other Twm_poi_areas producers (e.g. a separate
+	// battlegrounds POI file alongside the continents' one) without one
+	// clobbering the other's entries regardless of .toc load order.
+	// Twm_poi_areas itself must already exist (declared in mapdata_zones.lua,
+	// loaded before any per-continent/per-battleground data file).
 	let fullOutput = "-- GENERATED FILE -- do not hand-edit, regenerate with scripts/gen_poi_areas.js\n"
 		+ "-- and replace this file wholesale. See scripts/README.md for details.\n"
 		+ "--\n"
-		+ "-- Named sub-areas/POIs (Twm_poi_areas) nested under this continent's own\n"
-		+ "-- displayed zones (Twm_mapareas), extracted from AreaTable's own parent\n"
-		+ "-- hierarchy. Coordinates are each AreaID's own centroid (average MCNK\n"
-		+ "-- chunk position across this client's ADT data).\n\n"
-		+ "Twm_poi_areas = {\n";
+		+ "-- Named sub-areas/POIs (Twm_poi_areas) nested under each of these zones'\n"
+		+ "-- own displayed zones (Twm_mapareas), extracted from AreaTable's own\n"
+		+ "-- parent hierarchy. Coordinates are each AreaID's own centroid (average\n"
+		+ "-- MCNK chunk position across this client's ADT data).\n\n";
 
 	for (const contName of continents) {
 		const setA = extractMapareasKeys(mapareasLua, contName);
@@ -285,16 +291,38 @@ function main() {
 		const zoneBoxes = extractMapareasBoxes(mapareasLua, contName);
 		const { centroids, totalSkipped } = centroidsForContinent(adtDir, parentOf, zoneBoxes);
 
+		// Battlegrounds (and similar single-zone maps) have no numbered
+		// Twm_mapareas keys -- setA is empty, since there's no "displayed
+		// sub-zone" tier the way a continent has. Widening the ancestor-match
+		// target to every top-level AreaID (ParentAreaID 0) actually found in
+		// this map's own ADT data -- not just setA -- lets a battleground's
+		// own children (e.g. Alterac Valley/2597's Frostwolf Keep, Tower
+		// Point, ...) resolve via hasAncestorIn; for a continent this only
+		// adds coverage for an orphan top-level zone's own children, if any.
+		const topLevelInCentroids = new Set(Object.keys(centroids).filter(id => !parentOf[id]));
+		const ancestorSet = new Set([...setA, ...topLevelInCentroids]);
+
+		// A flat map's own top-level AreaID (e.g. Alterac Valley/2597 on
+		// PVPZone01) acts as the parent for its real sub-areas (Frostwolf
+		// Keep, Tower Point, ...) found in this same scan -- i.e. it has
+		// children here, unlike a genuine standalone landmark (e.g.
+		// Northrend's Dalaran, usually childless). Excluded the same way a
+		// continent's own displayed zones are (setA), so it doesn't show up
+		// as a redundant POI duplicating the map's own title; its children
+		// still resolve via ancestorSet above.
+		const hasChildrenHere = id => Object.keys(centroids).some(other => other !== id && hasAncestorIn(other, new Set([id]), parentOf));
+
 		const entries = [];
 		for (const areaID of Object.keys(centroids)) {
 			if (setA.has(areaID)) continue; // the zone itself, not a sub-area
+			if (topLevelInCentroids.has(areaID) && hasChildrenHere(areaID)) continue;
 			// A sub-area nested under a displayed zone (the usual case), OR a
 			// top-level zone (ParentAreaID 0) that isn't itself displayed --
 			// e.g. Northrend's Dalaran, which has no Twm_mapareas box at all
 			// (no dedicated UiMapAssignment zone row in this build) but is
 			// real terrain with real ADT chunks.
 			const isTopLevel = !parentOf[areaID];
-			if (!isTopLevel && !hasAncestorIn(areaID, setA, parentOf)) continue;
+			if (!isTopLevel && !hasAncestorIn(areaID, ancestorSet, parentOf)) continue;
 			const name = nameOf[areaID];
 			if (!name) continue;
 			entries.push({ areaID, name, ...centroids[areaID] });
@@ -303,15 +331,13 @@ function main() {
 
 		console.error(`${contName}: ${setA.size} displayed zones, ${entries.length} sub-area POIs found (${totalSkipped} phased-copy chunks excluded)`);
 
-		fullOutput += `    ["${contName}"] = {\n`;
+		fullOutput += `Twm_poi_areas["${contName}"] = {\n`;
 		for (const e of entries) {
 			const name = e.name.replace(/"/g, '\\"');
-			fullOutput += `        {${e.areaID}, "${name}", ${e.x.toFixed(2)}, ${e.y.toFixed(2)}},\n`;
+			fullOutput += `    {${e.areaID}, "${name}", ${e.x.toFixed(2)}, ${e.y.toFixed(2)}},\n`;
 		}
-		fullOutput += '    },\n';
+		fullOutput += '}\n';
 	}
-
-	fullOutput += '}\n';
 
 	fs.writeFileSync(opts.out, fullOutput);
 	console.error(`\nWritten: ${opts.out}`);

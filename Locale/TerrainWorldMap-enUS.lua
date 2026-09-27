@@ -64,6 +64,11 @@ TWM_TOOLTIP_OPT_FLIGHTPATHTHICKNESS = "Sets how thick flight path lines are draw
 TWM_TOOLTIP_OPT_FLIGHTPATHINTERPOLATION = "Smooths a route's real curved flight path (Shift held) by adding extra calculated points between its original ones, instead of a visibly jagged polyline. 0 disables it. Only applied to whichever flight master you're currently hovering over, never to \"Toggle Flight Paths\"' full continent view, to keep it from getting laggy.";
 
 TWM_POINTS_SHOWPOINTS_TITLE = "Show Points";
+
+TWM_CATEGORY_CONTINENTS = "Continents";
+TWM_CATEGORY_DUNGEONS = "Dungeons";
+TWM_CATEGORY_RAIDS = "Raids";
+TWM_CATEGORY_BATTLEGROUNDS = "Battlegrounds";
 TWM_POINTS_LANDMARKS = "Landmarks";
 TWM_POINTS_GRAVEYARDS = "Graveyards";
 TWM_POINTS_CAPITALS = "Capitals";

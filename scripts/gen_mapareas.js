@@ -30,6 +30,20 @@ function loadCapitalAreaIDs() {
 	return ids;
 }
 
+// AreaID -> ParentAreaID, straight from AreaTable. A genuine displayed zone
+// (Mulgore, Durotar, Elwynn Forest, ...) is always a top-level AreaTable
+// entry (ParentAreaID 0) -- used to filter out a small starting-experience
+// camp (Camp Narache, Valley of Trials, ...) that Blizzard still gave its
+// own dedicated UiMapAssignment Zone row despite it really being a
+// sub-area of a real zone in AreaTable's own hierarchy.
+function loadAreaParents(csvDir) {
+	const rows = parseCsv(findCsv(csvDir, 'AreaTable.'));
+	const parentOf = {};
+	for (const r of rows)
+		parentOf[r.ID] = parseInt(r.ParentAreaID, 10);
+	return parentOf;
+}
+
 // {uiMapID: areaID} for every UiMapAssignment row whose AreaID is a known
 // capital -- replaces the old per-flavor Twm_CityMapIDs, which used 3
 // different, inconsistent hand/semi-hand methods (see scripts/README.md).
@@ -46,7 +60,14 @@ function findCityMapIDs(assignRows, capitalAreaIDs) {
 // A standalone open-world map: Map.csv row with ParentMapID=-1 (top-level),
 // MapType=1, InstanceType=0 (excludes dungeons/raids/battlegrounds/
 // scenarios), and at least one Type=3 (Zone) UiMapAssignment row (real
-// playable terrain, not an unused/orphaned MapID).
+// playable terrain, not an unused/orphaned MapID). Deliberately Type=3
+// only, not also 6 (see the per-continent zone-row filter below, which does
+// accept both) -- this is what decides which Map rows this script treats as
+// a continent at all, and broadening it surfaces several more Mists Map
+// rows (e.g. DeathKnightStart, DarkmoonFaire) whose only zone row is
+// Type=6; adding those to the generated continent list is a separate,
+// bigger decision than fixing an already-included continent's own zone
+// list (Gilneas2, see below).
 function findContinents(uiMapRows, assignRows, mapRows, uiMapType, uiMapSystem) {
 	const continents = [];
 
@@ -71,7 +92,12 @@ function findContinents(uiMapRows, assignRows, mapRows, uiMapType, uiMapSystem) 
 			const R3 = parseFloat(rootRow.Region_3), R4 = parseFloat(rootRow.Region_4);
 			rootBox = { x1: R4, x2: R1, y1: R3, y2: R0 };
 		} else {
-			rootBox = zoneRows.reduce((acc, r) => {
+			// The union itself should still cover every real zone regardless
+			// of which Type let it gate inclusion above -- Gilneas2's only
+			// Type=3 row is "Gilneas City" (a sub-area of Gilneas itself,
+			// Type=6), which alone would make this box too small.
+			const boxRows = assignRows.filter(r => r.MapID === mapRow.ID && r.AreaID !== '0' && (uiMapType[r.UiMapID] === '3' || uiMapType[r.UiMapID] === '6'));
+			rootBox = boxRows.reduce((acc, r) => {
 				const R0 = parseFloat(r.Region_0), R1 = parseFloat(r.Region_1);
 				const R3 = parseFloat(r.Region_3), R4 = parseFloat(r.Region_4);
 				return {
@@ -101,6 +127,7 @@ function main() {
 	const mapRows = parseCsv(findCsv(csvDir, 'Map.'));
 	const uiMapRows = parseCsv(findCsv(csvDir, 'UiMap.'));
 	const assignRows = parseCsv(findCsv(csvDir, 'UiMapAssignment.'));
+	const areaParentOf = loadAreaParents(csvDir);
 
 	const uiMapName = {};
 	const uiMapType = {};
@@ -153,9 +180,11 @@ function main() {
 		+ "-- declares Twm_mapareas.\n\n";
 
 	for (const { name: contName, mapID, rootBox } of continents) {
-		// Type=3 (Zone) only -- excludes Dungeon/Micro/scenario uiMapIDs that
-		// can share an AreaID with a real zone but carry a different Region box.
-		const rows = assignRows.filter(r => r.MapID === mapID && r.AreaID !== '0' && uiMapType[r.UiMapID] === '3');
+		// Zone rows only (Type 3, or 6 on builds that use it -- see
+		// findContinents above) -- excludes Dungeon/Micro/scenario uiMapIDs
+		// that can share an AreaID with a real zone but carry a different
+		// Region box.
+		const rows = assignRows.filter(r => r.MapID === mapID && r.AreaID !== '0' && (uiMapType[r.UiMapID] === '3' || uiMapType[r.UiMapID] === '6'));
 		const out = [];
 		const seenAreaID = {};
 
@@ -164,6 +193,11 @@ function main() {
 			const R3 = parseFloat(r.Region_3), R4 = parseFloat(r.Region_4);
 			const name = uiMapName[r.UiMapID] || '?';
 			const areaID = parseInt(r.AreaID, 10);
+
+			if (areaParentOf[areaID]) {
+				console.error(`  (skipping ${contName} AreaID ${areaID} "${name}" -- ParentAreaID ${areaParentOf[areaID]} in AreaTable, not a top-level zone)`);
+				continue;
+			}
 
 			// Multiple UiMapAssignment rows can share the same (MapID, AreaID)
 			// (e.g. per-building interior scoping) -- keep the first, warn if a

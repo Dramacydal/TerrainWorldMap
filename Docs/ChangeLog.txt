@@ -1,6 +1,28 @@
 
 TerrainWorldMap ChangeLog
 ================
+2.0.0 (September 27, 2026)
+----------------------------
+- Added: Battleground support -- Alterac Valley, Warsong Gulch, Arathi
+  Basin and Eye of the Storm on every flavor that has them, plus Wintergrasp
+  and Battle for Tol Barad on Mists and Darkspear Islands on WoW: Forever.
+  Adds a "Battlegrounds" category to the map selector, live player position
+  tracking where the game itself supports it, and the same real-terrain
+  overlay on the native World Map as continents get.
+- Added: named landmarks (towers, bunkers, graveyards, mines, bases) on
+  battleground maps.
+- Fixed: the standalone map window's pan/zoom position no longer resets
+  every time it's reopened -- only when you actually switch to a different
+  map.
+- Fixed: selecting a continent you're not currently on now centers the view
+  on its first zone instead of zooming all the way out to the whole
+  continent.
+- Fixed: a handful of starting-experience camps (Camp Narache, Gilneas
+  City, and similar) no longer show up as their own separate entries in the
+  zone list on Mists of Pandaria Classic.
+- Fixed: the zoom flyout on the standalone map window could get clipped by
+  the map canvas instead of showing fully.
+
 1.1.5 (September 26, 2026)
 ----------------------------
 - Added: initial support for WoW: Forever (Classic+, beta) -- terrain

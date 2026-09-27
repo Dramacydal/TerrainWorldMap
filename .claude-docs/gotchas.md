@@ -4,6 +4,103 @@ tags: [memory/repo, gotcha]
 
 # Gotchas
 
+## Dungeon/interior minimap tiles are a completely different system from outdoor `mapCC_RR` tiles
+
+Investigated while prototyping a "show a real map inside dungeons" feature (not yet
+implemented — see SESSION notes/conversation for status). Outdoor continents use
+`world/minimaps/<continent>/mapCC_RR.blp`, addressed by a uniform 533.333-yard grid
+(`TWM_Big2Mini_Coord`). Dungeon/instance interiors (built from a single big WMO, not
+ADT terrain) use a **completely unrelated** system:
+
+- **There is a dedicated DB2 table, `WMOMinimapTexture`** (`WMOID, GroupNum, BlockX,
+  BlockY, FileDataID`) — this is the actual source of truth for which texture belongs
+  to which WMO group. Don't try to reverse-engineer it from the tile filenames'
+  sequential numbering (`<name>_NNN_00_00.blp`) — that numbering happening to match
+  `GroupNum` 1:1 is a coincidence of simple cases, not a rule (`BlockX`/`BlockY` are
+  nonzero for groups too big for one 256x256 texture, tiling further).
+- **Fixed PPU = 2** pixels per world unit, for every WMO minimap universally — NOT
+  derived from any particular group's own bounding-box-to-texture-size ratio (that
+  was my first wrong guess; it produces confidently-wrong-looking "sensible" numbers
+  that are still wrong).
+- Per-group placement: `absX = min(group.bbox.x0, group.bbox.x1) * 2 + blockX*256`
+  (same for Y). Canvas placement is a **Y-flip**, not a full X/Y transpose:
+  `canvas_y = (max_y - 256) - absY`. (I initially "confirmed" a transpose hypothesis
+  visually against a colored-rectangle diagnostic — that was a false positive; this
+  particular dungeon's layout happens to look plausible under several different wrong
+  transforms. Don't trust a single visual confirmation on a symmetric-ish layout.)
+- A group whose texture is smaller than a full 256x256 block (cropped) is anchored to
+  the **bottom-left** of its cell, not top-left and not stretched to fill.
+- Reference implementation: `wow.export`'s `src/js/wmo-minimap.js`
+  (github.com/Kruithne/wow.export) — read this before reinventing any part of this
+  again. Its own code comment is the source for the PPU and the model→world relation
+  below.
+- **Skip fully-transparent source texels (`alpha === 0`)** when compositing — the
+  padding around a group's actual footprint within its 256x256 canvas is transparent,
+  not black; blit it as opaque and you paint over neighboring groups' content.
+- **Round every pixel coordinate to an integer before using it as a typed-array
+  index.** A fractional index (`png.data[3.7]`) is not an error and does not throw —
+  it's simply a silent no-op per the TypedArray spec (non-canonical numeric key). One
+  missing `Math.round()` here presented as "almost the whole composite is empty/black
+  except one tile" and cost a long detour before the actual cause was found.
+- **The apparent "why do I need an extra 90° rotation on top of everything" step is
+  not a fudge factor** — it falls out of composing two already-known facts: (a) for a
+  global WMO placed at the WDT origin with no rotation, `wow.export`'s own code notes
+  "model->world is a straight negate" (`world = -model`), and (b) this addon's own
+  `Big-X = world-Y, Big-Y = world-X` convention (already used for continents). Chain
+  those two together and the net pixel-space relationship between `wow.export`'s raw
+  output and this addon's own Big-coordinate convention is exactly a 90° rotation.
+  For a WMO placed with a *real* rotation (see the Shadowfang case below), this
+  shortcut doesn't apply — the actual `MODF` rotation has to be applied honestly.
+- **FileDataID is global, but content is per-build.** The same
+  `world/minimaps/wmo/dungeon/.../foo_000_00_00.blp` FileDataID returned visibly
+  different bytes when extracted from `wow_classic_beta` vs `wow_anniversary` for the
+  literal same dungeon (Stockade) — and the WMO root file itself differed too (27
+  groups in one build, 26 in the other). Extracting the WMO root, the
+  `WMOMinimapTexture` DB2 rows, and the BLP tiles must all come from **the same
+  product/build** — mixing them (e.g. geometry from one build, textures from another)
+  produces a plausible-looking but wrong composite that's very hard to distinguish
+  from "my math is still off" by eye. If a composite looks like two half-overlapping
+  copies of the same layout, suspect a mismatched data source before suspecting the
+  math again.
+
+## Detecting a "pure WMO" dungeon/instance map vs a real (if small) ADT map
+
+`MPHD.flags & 0x1` (`wdt_uses_global_map_obj`, documented at wowdev.wiki/WDT) is the
+authoritative signal. Confirmed against two real cases:
+
+- **Stockade** (`stormwindjail.wdt`): flag set. `MAIN`/`MAID` exist structurally but
+  every tile's `rootADT` is 0 (no real terrain at all) — `parse_wdt.js`'s
+  `getValidTiles()` already naturally returns an empty list for a map like this, for
+  free. A single WDT-level `MODF` places the one global WMO at `pos=(0,0,0), rot=0`.
+- **Shadowfang Keep** (`shadowfang.wdt`): flag NOT set. 25 real ADT tiles (courtyard
+  terrain) in a 5x5 grid, no WDT-level `MODF` at all. The castle itself is a WMO
+  placed the same way any outdoor building is: a normal `MODF` entry inside one of
+  those tiles' own `_obj0.adt`, with a real position **and rotation**
+  (confirmed: `rot=(0, 68.5, 0)` for Shadowfang's interior/castle WMO — not the
+  trivial no-rotation case, so its group bounding boxes can't be placed by translation
+  alone, unlike Stockade's).
+
+Don't assume a WMO asset that merely *exists* in the listfile under a dungeon's own
+folder is actually placed in the live map — `ld_shadowfang.wmo` (a separate,
+plausibly-named "exterior" file sitting right next to `ld_shadowfanginterior.wmo` in
+the same CASC folder) turned out to be referenced **nowhere** in any of Shadowfang's
+25 tiles' `MODF` chunks when exhaustively scanned; the interior WMO's own
+exterior-facing groups are what's actually rendered as the castle's outside walls/roof.
+Confirm placement by scanning actual `MODF` FileDataIDs across every tile that has
+one, not by name-based inference.
+
+## `C_Map.GetPlayerMapPosition` returns `nil` inside many classic-era instance maps
+
+Confirmed in-game (Stockade, `wow_anniversary`/TBC client): `C_Map.GetBestMapForUnit`
+returns a perfectly valid `UiMapID` while inside the instance, but
+`C_Map.GetPlayerMapPosition(thatMapID, "player")` reliably returns `nil` anyway. This
+isn't a missing-argument bug or an occasionally-flaky thing — classic-era dungeon/raid
+maps as a category never got real coordinate-to-pixel mapping data configured (unlike
+every outdoor zone, and unlike retail's own dungeon maps). Don't spend time trying to
+work around this with a different API call; there's nothing to read here on these
+clients. (Relevant if a "player position inside dungeons" feature is ever revisited —
+it isn't retrievable at all for the maps tested, not just "sometimes".)
+
 ## WoW: Forever/Camelot can't load minimap tiles by path string — use FileDataID
 
 Every flavor's tile rendering (`TerrainWorldMap.lua`'s standalone-window

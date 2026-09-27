@@ -299,7 +299,7 @@
 
 	<Button name="TWMFrameZoomButton" parent="TWMFrameViewFrame">
 		<Size>
-			<AbsDimension x="24" y="24"/>
+			<AbsDimension x="32" y="32"/>
 		</Size>
 		<Anchors>
 			<Anchor point="BOTTOMLEFT" relativePoint="BOTTOMLEFT">
@@ -308,17 +308,6 @@
 				</Offset>
 			</Anchor>
 		</Anchors>
-		<Frames>
-			<Frame name="TWMFrameZoomFrame" inherits="TWMZoomTemplate" hidden="true">
-				<Anchors>
-					<Anchor point="TOP">
-						<Offset>
-							<AbsDimension x="0" y="-20"/>
-						</Offset>
-					</Anchor>
-				</Anchors>
-			</Frame>
-		</Frames>
 		<Scripts>
 			<OnClick>
 				if(not TWMFrameZoomFrame:IsShown()) then
@@ -333,5 +322,22 @@
 		<DisabledTexture file="Interface\AddOns\TerrainWorldMap\images\MagButton-Disabled"/>
 		<HighlightTexture file="Interface\Buttons\UI-Common-MouseHilight" alphaMode="ADD"/>
 	</Button>
+
+	<!-- Parented to TWMFrame itself, NOT TWMFrameViewFrame/TWMFrameZoomButton.
+	     TWMFrameViewTemplate's OnLoad calls SetClipsChildren(true) on the map
+	     canvas (so tiles/flight-path lines don't render past its edges), which
+	     silently clipped this popup too when it lived inside that hierarchy
+	     (its own height pushed most of it below the canvas's visible rect).
+	     Anchored explicitly to TWMFrameZoomButton instead of relying on
+	     parent-relative anchoring, since it's no longer that button's child. -->
+	<Frame name="TWMFrameZoomFrame" parent="TWMFrame" inherits="TWMZoomTemplate" hidden="true">
+		<Anchors>
+			<Anchor point="BOTTOM" relativeTo="TWMFrameZoomButton" relativePoint="TOP">
+				<Offset>
+					<AbsDimension x="0" y="4"/>
+				</Offset>
+			</Anchor>
+		</Anchors>
+	</Frame>
 
 </Ui>

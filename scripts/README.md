@@ -8,7 +8,8 @@ Pipeline: `init_workdir.ps1` (fetch client data) → `gen_mapareas.js` (zone
 boxes) → `parse_wdt.js` (tile validity + AreaIDs) → `gen_poi_areas.js`
 (sub-area/POI labels) → `gen_poi_graveyards.js` (graveyards) →
 `gen_poi_instances.js` (dungeon/raid entrances) → `gen_poi_flightmasters.js`
-(flight masters + routes).
+(flight masters + routes) → `gen_battlegrounds.js` (battleground maps, run
+independently of the rest — see its own step below).
 
 ## Setup
 
@@ -96,6 +97,26 @@ reading `mapdata_zones.lua`'s own `Twm_CapitalAreaIDs` (hand-maintained
 `AreaID` list, stable across the whole game's history) directly and
 joining it against `UiMapAssignment`'s `AreaID`↔`UiMapID` mapping — no
 per-flavor hand-collection needed.
+
+**Which UiMapAssignment rows become a zone box:** a zone row's `UiMap.Type`
+is `3` on Vanilla/TBC/Mists, but a build can also use `6` for one (e.g.
+Gilneas on Mists) — the per-continent zone-box loop accepts either (the
+initial "is this Map row even a continent" check stays `3`-only, so this
+doesn't pull in unrelated Map rows as new continents, only fixes an
+already-included continent's own zone list).
+
+A zone row is skipped from becoming its own box entry when its `AreaID`
+has a non-zero `ParentAreaID` in `AreaTable` — a real displayed zone
+(Mulgore, Durotar, Elwynn Forest, ...) is always a top-level `AreaTable`
+entry, but Blizzard sometimes also gives a small starting-experience camp
+carved out of one (Camp Narache/Mulgore, Valley of Trials/Durotar,
+Northshire/Elwynn Forest, Gilneas City/Gilneas, ...) its own dedicated
+zone-type row too; without this filter it shows up as a peer entry
+alongside its own parent zone in the zone dropdown. It's still a real
+`AreaTable` row and shows up as an ordinary sub-area POI
+(`gen_poi_areas.js`) under its real parent zone, same as any other named
+sub-area — this only excludes it from being its own separate top-level
+zone box.
 
 **Example:**
 ```bash
@@ -189,15 +210,49 @@ Sea"/"The Veiled Sea" (open ocean, spread along the whole coastline, one
 AreaTable row per stretch of coast). Left in as-is; prune by name/AreaID
 by hand if it bothers you.
 
+Output is one `Twm_poi_areas["<Name>"] = {...}` assignment per zone name
+passed, not a single `Twm_poi_areas = {...}` literal — safe to run this
+script more than once against different `--mapareas-file`s/`--out` files
+(e.g. once for continents, once for battlegrounds) without one run
+clobbering another's entries. `Twm_poi_areas = {}` itself is pre-declared
+in root `mapdata_zones.lua`, loaded before any of these files.
+
 **Example:**
 ```bash
 node gen_poi_areas.js --flavor-dir C:\wow-data\wow_anniversary --mapareas-file Data_TBC/mapdata_continents.lua --out Data_TBC/mapdata_poi_areas.lua Azeroth Kalimdor Expansion01
 ```
 
+**Battlegrounds:** run this a second time against
+`Data_TBC/mapdata_battlegrounds.lua`'s zone names (`PVPZone01` etc.),
+writing to a separate `mapdata_poi_battlegrounds_areas.lua` (both files
+assign into the same shared `Twm_poi_areas`, see the per-key-assignment
+note above). A battleground has no per-zone boxes in `Twm_mapareas` (only
+the `[0]` whole-map box), so "set A" for it is empty; the algorithm's
+ancestor-match step accounts for this by also treating every top-level
+AreaID (`ParentAreaID` 0) actually found in the map's own ADT data as a
+valid ancestor, not just `--mapareas-file`'s keys — this is what lets a
+battleground's real sub-areas (Frostwolf Keep, Tower Point, Stonehearth
+Outpost, etc., all `AreaTable` rows parented to the battleground's own
+AreaID) resolve correctly. Confirmed working for all 4 TBC/Anniversary
+battlegrounds (23/2/7/4 sub-area POIs respectively).
+
+The battleground's own top-level AreaID itself (e.g. Alterac Valley/2597)
+is excluded from the output — it's the parent of the real sub-areas above,
+not a sub-area itself, so including it would just duplicate the map's own
+title. Detected structurally: a top-level AreaID found via the widened
+ancestor-match above is excluded when something else in this same scan
+resolves to it as an ancestor (i.e. it has children here); a genuine
+standalone top-level landmark (Northrend's Dalaran) has none and stays.
+
+**Example:**
+```bash
+node gen_poi_areas.js --flavor-dir C:\wow-data\wow_anniversary --mapareas-file Data_TBC/mapdata_battlegrounds.lua --out Data_TBC/mapdata_poi_battlegrounds_areas.lua PVPZone01 PVPZone03 PVPZone04 NetherstormBG
+```
+
 ## Step 5 — `gen_poi_graveyards.js`: graveyard/spirit-healer locations (`Twm_poi_graveyards`)
 
 ```bash
-node gen_poi_graveyards.js --wowhead-html <saved Spirit Healer NPC page.html> --mapareas-file <target flavor mapdata_continents.lua> --out <out-file.lua>
+node gen_poi_graveyards.js --wowhead-html <saved Spirit Healer NPC page.html> --mapareas-file <target flavor mapdata_continents.lua> --out <out-file.lua> [--flavor-dir <dir with UiMapAssignment/UiMap/AreaTable.*.csv>]
 ```
 
 No DB2 or ADT source has graveyard locations, so this borrows Wowhead's own
@@ -235,12 +290,28 @@ Save each page's HTML (e.g. `curl -A "Mozilla/5.0" <url> -o spirit_<flavor>.html
   whichever continent actually declares that AreaID — supplies the zone's
   own box, in this flavor's own Big-coordinate space, via `Twm_mapareas`.
 - **`--out`** (required) — output path, e.g. `Data_<Flavor>/mapdata_poi_graveyards.lua`
+- **`--flavor-dir`** (optional) — `<WorkDir>/<Product>` from step 1. Without
+  it, an AreaID from the page with no matching box in `--mapareas-file`
+  (e.g. a zone from a later expansion this flavor doesn't have, **or** a
+  small starting-experience camp `gen_mapareas.js` excluded from the zone
+  dropdown for not being a top-level `AreaTable` entry — Camp Narache,
+  Gilneas City, ...) is silently skipped. With it, such an AreaID is still
+  resolved: its own box comes straight from this dir's `UiMapAssignment.csv`
+  (not its parent zone's box, which would place the point wrong, not just
+  approximately — the percentages are relative to that AreaID's own map),
+  and which output section it goes under comes from walking `AreaTable`'s
+  `ParentAreaID` chain up to whichever ancestor **is** in `--mapareas-file`.
+  Confirmed for Mists: Gilneas2 alone has two disjoint sets of real
+  graveyards on Wowhead, one keyed to Gilneas City, one to Gilneas itself —
+  losing either silently is why this flag exists.
 
-An AreaID from the page with no matching box in `--mapareas-file` (e.g. a
-zone from a later expansion this flavor doesn't have) is silently skipped;
-skip count is printed to stderr. Confirmed 0 skipped for Vanilla/TBC (full
-match); Mists skips ~36 (non-open-world/instance-only zones not part of
-this addon's continent list).
+Dedup (see below) runs per output continent across every AreaID that landed
+there, not per AreaID — a zone and a sub-area of it (Gilneas/Gilneas City)
+can each contribute points close enough together to be the same physical
+graveyard, and only whole-continent dedup catches that. Skip count (fully
+unresolvable AreaIDs) is printed to stderr; Mists still skips ~36 even with
+`--flavor-dir` (non-open-world/instance-only zones not part of this addon's
+continent list at all).
 
 **Example:**
 ```bash
@@ -394,6 +465,61 @@ box center, falling back to a `Twm_poi_areas` entry with the same AreaID
 (step 4's top-level-zone case) for capitals with no zone box of their own
 (e.g. Northrend's Dalaran). Names resolve live via `Twm_areadb`/
 `C_Map.GetAreaInfo`, same as landmarks — see `.claude-docs/architecture.md`.
+
+## Step 8 — `gen_battlegrounds.js`: battleground maps (`Twm_BattlegroundMapID`, `TWM_BATTLEGROUNDS`, `Twm_mapareas`)
+
+```bash
+node gen_battlegrounds.js --flavor-dir <dir with Map/UiMap/UiMapAssignment CSVs> --out <out-file.lua>
+```
+
+- **`--flavor-dir`** (required) — `<WorkDir>/<Product>` from step 1
+- **`--out`** (required) — output path, e.g. `Data_<Flavor>/mapdata_battlegrounds.lua`
+
+Not part of the main pipeline chain — run it standalone whenever a flavor's
+battleground list changes. Same top-level-map shape as `gen_mapareas.js`'s
+continents (`Map.csv` row with `ParentMapID=-1`, `MapType=1`), just
+`InstanceType=3` instead of `0`. Unlike continents, a battleground has no
+separate "whole map" `UiMapAssignment` root row (`Type=2`/`System=0`/`AreaID=0`)
+— it's just one Zone row directly (unioned if a battleground ever has more
+than one), which doubles as both the `[0]` box **and** the position-tracking
+`UiMapID`. That Zone row's own `UiMap.Type` value is `3` on Vanilla/TBC/Mists
+(same as any regular outdoor zone) but `6` on WoW: Forever/Camelot (its own
+distinct PvP-zone type there) — the script matches either.
+
+A `Map.csv` row matching the structural filter but with zero matching
+`UiMapAssignment` rows (checked, not just assumed) has no map data to
+generate at all yet in that build and is skipped — e.g. Forever's "Battle
+for Gilneas" (MapID 3005) as of this writing.
+
+Deliberately writes `Twm_BattlegroundMapID`/`TWM_BATTLEGROUNDS` as their own
+tables, separate from `Twm_ContinentMapID`/`TWM_MAPS` — see this script's own
+header comment for why (short version: they're for a different dropdown
+category, even though the runtime position-tracking code doesn't care which
+table a map came from). `Twm_mapareas` entries are added under the
+battleground's own key, into the same table `gen_mapareas.js`'s continents
+already populate.
+
+Battlegrounds are real outdoor ADT terrain, unlike dungeon/raid interiors —
+`parse_wdt.js` handles them exactly like a small continent (pass the
+battleground's own `Directory` as one of its `<ContinentName>` args, output to
+the flavor's own `mapdata_tiles.lua` alongside its continents — do **not**
+give battlegrounds a separate tiles file, since `parse_wdt.js` always emits a
+fresh `Twm_WDTValidTiles = {}` reset at the top of its output, which would
+wipe out whatever an earlier, separately-run continents pass had already
+written to that global table if loaded afterward).
+
+**Example (TBC):**
+```bash
+node gen_battlegrounds.js --flavor-dir C:\wow-data\wow_anniversary --out Data_TBC/mapdata_battlegrounds.lua
+node parse_wdt.js --flavor-dir C:\wow-data\wow_anniversary --out Data_TBC/mapdata_tiles.lua Azeroth Kalimdor Expansion01 PVPZone01 PVPZone03 PVPZone04 NetherstormBG
+```
+
+**Battlegrounds found per flavor** (as of this writing — re-run
+`gen_battlegrounds.js` to pick up any new ones):
+- **Vanilla**: PVPZone01 (Alterac Valley), PVPZone03 (Warsong Gulch), PVPZone04 (Arathi Basin)
+- **TBC**: the above + NetherstormBG (Eye of the Storm)
+- **Mists**: the above + WintergraspEpic (Wintergrasp), `2755` (Battle for Tol Barad)
+- **Forever**: PVPZone01/03/04 + `2997` (Darkspear Islands) — no Eye of the Storm/Wintergrasp/Tol Barad in this build yet
 
 ## Other scripts
 

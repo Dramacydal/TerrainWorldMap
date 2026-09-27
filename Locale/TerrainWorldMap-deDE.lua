@@ -68,6 +68,11 @@ TWM_TOOLTIP_OPT_FLIGHTPATHTHICKNESS = "Legt fest, wie dick die Flugroutenlinien 
 TWM_TOOLTIP_OPT_FLIGHTPATHINTERPOLATION = "Glättet die echte, gekrümmte Flugroute (Umschalt gedrückt) durch zusätzliche berechnete Punkte zwischen den ursprünglichen, statt eines sichtbar eckigen Streckenzugs. 0 deaktiviert dies. Wird nur auf den gerade überfahrenen Flugmeister angewendet, nie auf die Gesamtansicht von \"Flugrouten umschalten\", um Ruckler zu vermeiden.";
 
 TWM_POINTS_SHOWPOINTS_TITLE = "Zeige Punkte";
+
+TWM_CATEGORY_CONTINENTS = "Kontinente";
+TWM_CATEGORY_DUNGEONS = "Dungeons";
+TWM_CATEGORY_RAIDS = "Schlachtzüge";
+TWM_CATEGORY_BATTLEGROUNDS = "Schlachtfelder";
 -- Landmarks would tranlsate to "Landmarken", "wichtige Orte" would be translated to English: "important places"
 -- I would prefer "wichtige Orte" over "Landmarken"
 TWM_POINTS_LANDMARKS = "wichtige Orte";

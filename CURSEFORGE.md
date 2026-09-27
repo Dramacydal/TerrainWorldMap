@@ -8,8 +8,9 @@ Currently supports **Classic Era (Vanilla)**, **Classic Anniversary (TBC)**, **M
 
 ## Features
 
-- **Real terrain overlay on the World Map**.
-- **Standalone browser window** — a movable, resizable, zoomable minimap-style view, with adjustable transparency and icon size.
+- **Real terrain overlay on the World Map** — for continents and battlegrounds alike.
+- **Battlegrounds** — Alterac Valley, Warsong Gulch, Arathi Basin, Eye of the Storm (plus Wintergrasp and Battle for Tol Barad on Mists, Darkspear Islands on WoW: Forever), each with real terrain, named landmarks.
+- **Standalone browser window** — a movable, resizable, zoomable minimap-style view, with a category-organized map selector (Continents/Battlegrounds), adjustable transparency and icon size.
 - **Underwater terrain toggle** (Mists of Pandaria) — shows the underwater terrain where possible, by default. Useful for Vashj'ir, but some zones at Pandaria's coastline also have this data (that seems to be erroneous).
 - **Player, party and raid tracking** on the map.
 - **Map markers**, each independently toggleable: Landmarks (points of interest), Graveyards, Capitals, Dungeons & Raids, and Flight Masters (color-coded by faction) — all shown with mouseover tooltips, and all displayed in whatever language you're playing in.

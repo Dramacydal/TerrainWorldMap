@@ -63,6 +63,11 @@ TWM_TOOLTIP_OPT_FLIGHTPATHTHICKNESS = "设置飞行航线的绘制粗细（以�
 TWM_TOOLTIP_OPT_FLIGHTPATHINTERPOLATION = "在按住Shift显示真实弯曲航线时，通过在原始点之间添加额外计算的点来平滑航线，而不是显示明显的折线。0表示禁用。仅对当前鼠标悬停的飞行管理员生效，不会应用于\"显示飞行航线\"的整个大陆视图，以免造成卡顿。";
 
 TWM_POINTS_SHOWPOINTS_TITLE = "显示标记";
+
+TWM_CATEGORY_CONTINENTS = "大陆";
+TWM_CATEGORY_DUNGEONS = "地下城";
+TWM_CATEGORY_RAIDS = "团队副本";
+TWM_CATEGORY_BATTLEGROUNDS = "战场";
 TWM_POINTS_LANDMARKS = "地名";
 TWM_POINTS_GRAVEYARDS = "墓地";
 TWM_POINTS_CAPITALS = "首都";
