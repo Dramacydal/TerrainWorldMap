@@ -904,7 +904,10 @@ function TWMFrameTemplate:CenterOnZone(z)
 
     local mx, my = TWM_Big2Mini_Coord(x,y);
 
-    self:SetLocation(mx-(512/2)/zoom, my-(512/2)/zoom);
+    local viewframe = _G[self:GetName().."ViewFrame"];
+    local vw, vh = viewframe:GetWidth(), viewframe:GetHeight();
+
+    self:SetLocation(mx-(vw/2)/zoom, my-(vh/2)/zoom);
 end
 
 function TWMFrameDropDownButton2_OnClick(self)
