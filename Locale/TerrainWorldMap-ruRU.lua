@@ -71,7 +71,7 @@ TWM_POINTS_CAPITALS = "Столицы";
 TWM_POINTS_DUNGEONS = "Подземелья";
 TWM_POINTS_FLIGHTMASTERS = "Лётные мастера";
 
-TWM_OPTIONS_SHOW_ARENA_WMO = "Показывать слои WMO";
+TWM_OPTIONS_SHOW_WMO_OVERLAY = "Показывать слои WMO";
 TWM_OPTIONS_SHOW_LANDMARKS = "Показывать достопримечательности";
 TWM_OPTIONS_SHOW_GRAVEYARDS = "Показывать кладбища";
 TWM_OPTIONS_SHOW_CAPITALS = "Показывать столицы";

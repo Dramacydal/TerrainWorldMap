@@ -579,26 +579,33 @@ node parse_wdt.js --flavor-dir C:\wow-data\wow_anniversary --out Data_TBC/mapdat
 - **Mists**: the above + Dalaran Sewers, The Ring of Valor, Tol'Viron Arena, The Tiger's Peak
 - **Forever**: `2995` (Hyjal Crater) — none of the above exist in this build yet
 
-## Step 10 — `gen_arena_wmo_tiles.js`: WMO minimap-tile overlay for arenas (`Twm_ArenaWMOTiles`)
+## Step 10 — `gen_wmo_tiles.js`: WMO minimap-tile overlay (`Twm_WMOTiles`)
 
 ```bash
-node gen_arena_wmo_tiles.js --flavor-dir <dir with world/maps/<arena>/*_obj0.adt and extracted world/wmo/... WMOs> --listfile <community-listfile.csv> --out <out-file.lua> <ArenaDirectoryName> [<ArenaDirectoryName> ...]
+node gen_wmo_tiles.js --flavor-dir <dir with world/maps/<map>/*_obj0.adt and extracted world/wmo/... WMOs> --listfile <community-listfile.csv> --out <out-file.lua> <MapDirectoryName> [<MapDirectoryName> ...]
 ```
 
-Some arenas have a WMO placement with its own baked group-minimap tiles
+Naming here is deliberately map-generic, not arena-specific — arenas are
+the only maps that use this so far, but the same WMO-minimap-tile system
+also applies to dungeons/raids, meant to be added later (their own
+extraction specifics, e.g. a WDT-level `MODF` for pure-WMO instances —
+see `.claude-docs/gotchas.md`'s "Detecting a pure WMO dungeon" entry — are
+NOT implemented yet, only the generic naming/plumbing below is in place).
+
+Some maps have a WMO placement with its own baked group-minimap tiles
 (`world/minimaps/wmo/.../<name>_<group>_<blockX>_<blockY>.blp`, same system
 as WMO dungeon interiors, `.claude-docs/gotchas.md`) worth showing as an
-overlay — most usefully on Dalaran Sewers (whose outdoor terrain has ZERO
-baked `world/minimaps/<arena>/*.blp` tiles at all), but this is generated
-independently of whether the arena's own outdoor terrain also has real
-minimap art (confirmed: Orgrimmar Arena has both — its outdoor tiles
+overlay — most usefully on Dalaran Sewers Arena (whose outdoor terrain has
+ZERO baked `world/minimaps/<map>/*.blp` tiles at all), but this is
+generated independently of whether the map's own outdoor terrain also has
+real minimap art (confirmed: Orgrimmar Arena has both — its outdoor tiles
 extract fine and already show the complete arena, but its WMO tiles are
 still generated too, since the height-cutoff slider (see below) needs them
 to isolate one real building level; a flattened outdoor tile can't do
 that). This script finds WMO placements and their tiles directly — no
 `WMOMinimapTexture` DB2 row needed:
 
-- Scans each arena's `world/maps/<arena>/*_obj0.adt` files for `MODF`
+- Scans each map's `world/maps/<map>/*_obj0.adt` files for `MODF`
   chunks (64-byte entries: `nameId`(0)/`uniqueId`(4)/`position`
   float32[3](8, order X/height/Y)/`rotation` float32[3](20, same order)/
   bounds(32,44)/`flags`(56)/`doodadSet`(58)/`nameSet`(60)/`scale`(62)),
@@ -663,10 +670,10 @@ that). This script finds WMO placements and their tiles directly — no
   cross-swap (this addon's usual "Big-X = world-Y" convention is
   calibrated for other sources, not a value already in `MODF`'s own axis
   order).
-  `TerrainWorldMap.lua`'s `TWM_ArenaWMO_Update` has no rotation/flip logic
+  `TerrainWorldMap.lua`'s `TWM_WMOOverlay_Update` has no rotation/flip logic
   of its own — it reads these Big coordinates the same direct way the base
   map tiles do. The one thing that DOES still live in Lua is the matching
-  texture-CONTENT rotation (`TWM_ArenaWMO_EnsureTextures`'
+  texture-CONTENT rotation (`TWM_WMOOverlay_EnsureTextures`'
   `SetTexCoord(0,1, 1,1, 0,0, 1,0)`, the 8-param form) — a separate concern
   (what each tile's own pixels show, not where its box goes).
   See `.claude-docs/gotchas.md`'s "WMO-tile world position" entry for the
@@ -682,9 +689,9 @@ that). This script finds WMO placements and their tiles directly — no
   Lua table's key verbatim, which DOES need to match `frame.opt.Map`
   exactly). Passing the on-disk lowercase folder name as the arg (as this
   script's own name suggests) silently produces a working file with the
-  wrong keys — no error, `Twm_ArenaWMOTiles[frame.opt.Map]` just always
+  wrong keys — no error, `Twm_WMOTiles[frame.opt.Map]` just always
   misses.
-- Output: `Twm_ArenaWMOTiles["<arena>"] = {{fileID, x1, x2, y1, y2, height}, ...}`,
+- Output: `Twm_WMOTiles["<map>"] = {{fileID, x1, x2, y1, y2, height}, ...}`,
   one entry per baked tile (`x1/y1` = max, `x2/y2` = min, same box
   convention as `Twm_mapareas`; `height` = that placement's own
   `MODF.position[1]` PLUS that specific tile's own WMO GROUP's height-axis
@@ -693,10 +700,10 @@ that). This script finds WMO placements and their tiles directly — no
   raised walkway over the main floor; confirmed on Dalaran Sewers' own two
   groups). Entries are sorted by this height ascending before output.
   Rendered in `TerrainWorldMap.lua` as a pooled set of plain textures
-  (`TWM_ArenaWMO_Update`), shown only when a map has an entry in this
+  (`TWM_WMOOverlay_Update`), shown only when a map has an entry in this
   table, toggled by the "Show WMO Layers" checkbox
-  (`TWMFrameShowArenaWMOButton`, default on) plus a vertical height-cutoff
-  slider (shown only when an arena's tiles actually span more than one
+  (`TWMFrameShowWMOOverlayButton`, default on) plus a vertical height-cutoff
+  slider (shown only when a map's tiles actually span more than one
   height) — see `.claude-docs/architecture.md`'s Arenas section.
 
 **Generated so far**: every arena in every flavor has been run through this

@@ -1,11 +1,17 @@
-// Regenerates Data_<Flavor>/mapdata_arena_wmo_tiles.lua (Twm_ArenaWMOTiles)
-// -- minimap tile placement data for arena maps whose real terrain has no
-// baked minimap art of its own (confirmed on Mists' Dalaran Sewers: real
-// WDT/ADT tiles exist, but zero "world/minimaps/<arena>/*.blp" files do),
-// while the WMO structure actually placed there DOES have its own baked
+// Regenerates Data_<Flavor>/mapdata_wmo_tiles.lua (Twm_WMOTiles) --
+// minimap tile placement data for maps whose real terrain has no baked
+// minimap art of its own (confirmed on Mists' Dalaran Sewers Arena: real
+// WDT/ADT tiles exist, but zero "world/minimaps/<map>/*.blp" files do),
+// while a WMO structure actually placed there DOES have its own baked
 // minimap art (world/minimaps/wmo/.../<name>_<group>_<blockX>_<blockY>.blp,
 // via the same per-WMO-group minimap system as WMO dungeon interiors --
 // see .claude-docs/gotchas.md's "Dungeon/interior minimap tiles" section).
+// Currently only ever run against arena maps (see "Generated so far" in
+// scripts/README.md) -- generalized (naming, no arena-specific hardcodes)
+// so dungeons/raids can reuse this same script later; that extraction
+// scope itself (e.g. handling a WDT-level MODF for pure-WMO instances,
+// see gotchas.md's "Detecting a pure WMO dungeon" entry) is NOT yet
+// implemented, only the naming/generality groundwork is done for now.
 //
 // SCOPE: only WMO placements with zero rotation (MODF.rotation all three
 // components ~0) are supported -- model->world for those is a plain
@@ -17,7 +23,7 @@
 // visually validate it against real anything (no rotated WMO's placement
 // has been visually confirmed correct in this addon's own history).
 //
-// Coordinate derivation (verified against this arena's own already-computed
+// Coordinate derivation (verified against this map's own already-computed
 // Twm_mapareas box, itself from valid-tile extent -- see gen_arenas.js):
 //   MODF.position is (X, height, Y) -- height is the middle component (a
 //   small value, confirmed: e.g. Dalaran Sewers' own placement has
@@ -31,8 +37,8 @@
 //   "Big-X = world-Y, Big-Y = world-X" convention (that convention is
 //   calibrated for a different raw source's own X/Y labeling; MODF's
 //   (X, height, Y) slots already line up directly with Big-X/Big-Y once
-//   read correctly). Confirmed empirically against two independent arenas
-//   (Dalaran Sewers, Orgrimmar): only the direct, no-swap mapping lands
+//   read correctly). Confirmed empirically against two independent maps
+//   (Dalaran Sewers Arena, Orgrimmar Arena): only the direct, no-swap mapping lands
 //   each computed WMO tile inside its own hosting ADT tile's own Big box
 //   (that box computed completely independently, via
 //   TWM_Mini2Big_Coord's col/row formula on the ADT filename) -- the
@@ -53,7 +59,7 @@
 // index 2's span (~77/~38, <128) would only ever need 1 block, contradicting
 // the real data. An earlier version of this script read index 2 for local.Y
 // (copying MODF's axis order onto MOGP by mistake) -- this produced tiles
-// that still landed inside the arena's own Twm_mapareas box (too coarse a
+// that still landed inside the map's own Twm_mapareas box (too coarse a
 // check to catch a per-group axis mixup) but visibly misplaced in-game.
 // Nominal (non-cropped) tile size is used for every block regardless of
 // whether the real baked content is smaller -- the BLP's own alpha channel
@@ -74,8 +80,7 @@ const PPU = 2; // pixels per world unit for WMO minimap tiles (fixed, not derive
 const TILE_UNITS = 256 / PPU; // 128 model-units per 256px tile
 const ROT_EPSILON = 0.05; // degrees -- MODF rotation floats aren't always exactly 0.0
 
-// {areaID}-unrelated: every MODF entry (deduped by nameId) across an
-// arena's own _obj0.adt files.
+// Every MODF entry (deduped by nameId) across a map's own _obj0.adt files.
 function findModfPlacements(mapDir) {
 	const entries = [];
 	const seen = new Set();
@@ -129,42 +134,42 @@ function groupBoundingBox(groupFilePath) {
 
 function parseArgs(argv) {
 	const opts = { flavorDir: null, listfile: null, out: null };
-	const arenas = [];
+	const mapNames = [];
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i];
 		if (a === '--flavor-dir') opts.flavorDir = argv[++i];
 		else if (a === '--listfile') opts.listfile = argv[++i];
 		else if (a === '--out') opts.out = argv[++i];
 		else if (a.startsWith('--')) throw new Error(`Unknown option: ${a}`);
-		else arenas.push(a);
+		else mapNames.push(a);
 	}
-	return { opts, arenas };
+	return { opts, mapNames };
 }
 
 function printUsage() {
-	console.error('Usage: node gen_arena_wmo_tiles.js --flavor-dir <dir with world/maps/<arena>/*_obj0.adt and extracted world/wmo/... WMOs> --listfile <community-listfile.csv> --out <out-file.lua> <ArenaDirectoryName> [<ArenaDirectoryName> ...]');
+	console.error('Usage: node gen_wmo_tiles.js --flavor-dir <dir with world/maps/<map>/*_obj0.adt and extracted world/wmo/... WMOs> --listfile <community-listfile.csv> --out <out-file.lua> <MapDirectoryName> [<MapDirectoryName> ...]');
 }
 
 async function main() {
-	let opts, arenas;
+	let opts, mapNames;
 	try {
-		({ opts, arenas } = parseArgs(process.argv.slice(2)));
+		({ opts, mapNames } = parseArgs(process.argv.slice(2)));
 	} catch (e) {
 		console.error(e.message);
 		printUsage();
 		process.exit(1);
 	}
 
-	if (!opts.flavorDir || !opts.listfile || !opts.out || arenas.length === 0) {
+	if (!opts.flavorDir || !opts.listfile || !opts.out || mapNames.length === 0) {
 		printUsage();
 		process.exit(1);
 	}
 
-	// Gather every candidate MODF nameId across all requested arenas first,
+	// Gather every candidate MODF nameId across all requested maps first,
 	// so the (large) listfile only needs one streaming pass.
 	//
-	// Deliberately NOT gated on whether the arena's own outdoor terrain
-	// already has real baked minimap tiles -- an arena can have both (e.g.
+	// Deliberately NOT gated on whether the map's own outdoor terrain
+	// already has real baked minimap tiles -- a map can have both (e.g.
 	// Orgrimmar Arena: outdoor tiles extract fine on their own AND its WMO
 	// has its own baked group tiles too) and both are wanted: the outdoor
 	// tiles are the always-shown base map, the WMO tiles are what the
@@ -174,17 +179,17 @@ async function main() {
 	// group tiles can. (An earlier version of this script skipped
 	// generating WMO tiles whenever outdoor art already existed, treating
 	// the two as redundant -- wrong; reverted.)
-	const placementsByArena = {};
+	const placementsByMap = {};
 	const wantedNameIds = new Set();
-	for (const arena of arenas) {
-		const mapDir = path.join(opts.flavorDir, 'world', 'maps', arena);
+	for (const mapName of mapNames) {
+		const mapDir = path.join(opts.flavorDir, 'world', 'maps', mapName);
 		if (!fs.existsSync(mapDir)) {
-			console.error(`WARNING: ${arena} -- no world/maps/${arena} dir in --flavor-dir, skipping`);
-			placementsByArena[arena] = [];
+			console.error(`WARNING: ${mapName} -- no world/maps/${mapName} dir in --flavor-dir, skipping`);
+			placementsByMap[mapName] = [];
 			continue;
 		}
 		const placements = findModfPlacements(mapDir);
-		placementsByArena[arena] = placements;
+		placementsByMap[mapName] = placements;
 		for (const p of placements) wantedNameIds.add(p.nameId);
 	}
 
@@ -209,10 +214,10 @@ async function main() {
 		}
 	}
 
-	let fullOutput = "-- GENERATED FILE -- do not hand-edit, regenerate with scripts/gen_arena_wmo_tiles.js\n"
+	let fullOutput = "-- GENERATED FILE -- do not hand-edit, regenerate with scripts/gen_wmo_tiles.js\n"
 		+ "-- and replace this file wholesale. See scripts/README.md for details.\n"
 		+ "--\n"
-		+ "-- Minimap tiles for the WMO structure actually placed on an arena whose\n"
+		+ "-- Minimap tiles for the WMO structure actually placed on a map whose\n"
 		+ "-- own outdoor terrain has no baked minimap art (see this script's own\n"
 		+ "-- header for the full explanation and the coordinate derivation).\n"
 		+ "-- {fileID, x1, x2, y1, y2, height} per tile, x1/y1 = max, x2/y2 = min\n"
@@ -228,21 +233,21 @@ async function main() {
 		+ "-- WMO-minimap-tile baking convention (see gotchas.md) -- the\n"
 		+ "-- rendering side (TerrainWorldMap.lua) does NOT need to apply any\n"
 		+ "-- extra rotation of its own, only the matching texture-content\n"
-		+ "-- rotation (TWM_ArenaWMO_EnsureTextures' SetTexCoord). Entries are\n"
+		+ "-- rotation (TWM_WMOOverlay_EnsureTextures' SetTexCoord). Entries are\n"
 		+ "-- emitted in ascending height order (lowest first) so the addon's\n"
 		+ "-- own draw order stacks higher tiles visually on top, and so the\n"
 		+ "-- height-cutoff slider (TerrainWorldMap.lua) has a stable order to\n"
 		+ "-- hide from the top down.\n\n"
-		+ "Twm_ArenaWMOTiles = {\n";
+		+ "Twm_WMOTiles = {\n";
 
-	for (const arena of arenas) {
+	for (const mapName of mapNames) {
 		// Placements are pre-sorted by their own height too, purely so
 		// groupBoxes below is computed in a predictable order across
 		// multiple placements -- the actual output order
-		// guarantee comes from the arenaTiles.sort() by (per-group) height
+		// guarantee comes from the mapTiles.sort() by (per-group) height
 		// after the collection loop, below.
-		const placements = [...placementsByArena[arena]].sort((a, b) => a.pos[1] - b.pos[1]);
-		const arenaTiles = [];
+		const placements = [...placementsByMap[mapName]].sort((a, b) => a.pos[1] - b.pos[1]);
+		const mapTiles = [];
 
 		for (const p of placements) {
 			const wmoPath = idToPath[p.nameId];
@@ -254,7 +259,7 @@ async function main() {
 
 			const rotMag = Math.max(...p.rot.map(Math.abs));
 			if (rotMag > ROT_EPSILON) {
-				console.error(`  (skipping ${arena}'s ${wmoPath} -- has minimap tiles but a real rotation (${p.rot.map(x => x.toFixed(2))}), not supported yet)`);
+				console.error(`  (skipping ${mapName}'s ${wmoPath} -- has minimap tiles but a real rotation (${p.rot.map(x => x.toFixed(2))}), not supported yet)`);
 				continue;
 			}
 
@@ -264,7 +269,7 @@ async function main() {
 			for (const g of groupNums) {
 				const groupPath = path.join(opts.flavorDir, wmoPath.replace(/\.wmo$/i, `_${String(g).padStart(3, '0')}.wmo`));
 				if (!fs.existsSync(groupPath)) {
-					console.error(`  (skipping ${arena}'s ${wmoPath} group ${g} -- ${groupPath} not extracted)`);
+					console.error(`  (skipping ${mapName}'s ${wmoPath} group ${g} -- ${groupPath} not extracted)`);
 					continue;
 				}
 				groupBoxes[g] = groupBoundingBox(groupPath);
@@ -370,7 +375,7 @@ async function main() {
 				// needs NO extra rotation step at all now -- it just
 				// reads Big coordinates the same direct way it always
 				// has. The texture CONTENT still needs its own 90-degree
-				// rotation (TWM_ArenaWMO_EnsureTextures' SetTexCoord) --
+				// rotation (TWM_WMOOverlay_EnsureTextures' SetTexCoord) --
 				// that's a separate concern (what each tile's own pixels
 				// show), unaffected by this.
 				const rotLocalX1 = -localY1, rotLocalX2 = -localY2;
@@ -394,7 +399,7 @@ async function main() {
 				// value and defeat the height-cutoff slider's purpose for
 				// exactly the arenas that actually have multiple levels.
 				const groupHeightCenter = (box.min[2] + box.max[2]) / 2;
-				arenaTiles.push({
+				mapTiles.push({
 					fileID: t.fileID,
 					x1: Math.max(bigXa, bigXb), x2: Math.min(bigXa, bigXb),
 					y1: Math.max(bigYa, bigYb), y2: Math.min(bigYa, bigYb),
@@ -403,16 +408,16 @@ async function main() {
 			}
 		}
 
-		console.error(`${arena}: ${arenaTiles.length} WMO minimap tiles placed`);
-		if (arenaTiles.length === 0) continue;
+		console.error(`${mapName}: ${mapTiles.length} WMO minimap tiles placed`);
+		if (mapTiles.length === 0) continue;
 
 		// Sort by height ascending -- necessary (not just the placement-level
 		// pre-sort above) now that height is per-group: a single placement's
 		// groups can themselves span the whole height range.
-		arenaTiles.sort((a, b) => a.height - b.height);
+		mapTiles.sort((a, b) => a.height - b.height);
 
-		fullOutput += `    ["${arena}"] = {\n`;
-		for (const t of arenaTiles)
+		fullOutput += `    ["${mapName}"] = {\n`;
+		for (const t of mapTiles)
 			fullOutput += `        {${t.fileID}, ${t.x1}, ${t.x2}, ${t.y1}, ${t.y2}, ${t.height}},\n`;
 		fullOutput += '    },\n';
 	}

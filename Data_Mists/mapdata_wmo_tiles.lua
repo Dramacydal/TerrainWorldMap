@@ -1,7 +1,7 @@
--- GENERATED FILE -- do not hand-edit, regenerate with scripts/gen_arena_wmo_tiles.js
+-- GENERATED FILE -- do not hand-edit, regenerate with scripts/gen_wmo_tiles.js
 -- and replace this file wholesale. See scripts/README.md for details.
 --
--- Minimap tiles for the WMO structure actually placed on an arena whose
+-- Minimap tiles for the WMO structure actually placed on a map whose
 -- own outdoor terrain has no baked minimap art (see this script's own
 -- header for the full explanation and the coordinate derivation).
 -- {fileID, x1, x2, y1, y2, height} per tile, x1/y1 = max, x2/y2 = min
@@ -17,13 +17,13 @@
 -- WMO-minimap-tile baking convention (see gotchas.md) -- the
 -- rendering side (TerrainWorldMap.lua) does NOT need to apply any
 -- extra rotation of its own, only the matching texture-content
--- rotation (TWM_ArenaWMO_EnsureTextures' SetTexCoord). Entries are
+-- rotation (TWM_WMOOverlay_EnsureTextures' SetTexCoord). Entries are
 -- emitted in ascending height order (lowest first) so the addon's
 -- own draw order stacks higher tiles visually on top, and so the
 -- height-cutoff slider (TerrainWorldMap.lua) has a stable order to
 -- hide from the top down.
 
-Twm_ArenaWMOTiles = {
+Twm_WMOTiles = {
     ["DalaranArena"] = {
         {248002, 893.1205698649101, 765.1205698649101, 1384.572687784832, 1256.572687784832, 20.614027976989746},
         {312454, 765.1205698649101, 637.1205698649101, 1384.572687784832, 1256.572687784832, 20.614027976989746},

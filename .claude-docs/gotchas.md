@@ -356,7 +356,7 @@ rows are now click-through.
 
 ## Don't blindly reapply this addon's "Big-X = world-Y, Big-Y = world-X" convention to a MODF-derived position
 
-`gen_arena_wmo_tiles.js` first computed a WMO placement's Big coordinates
+`gen_wmo_tiles.js` first computed a WMO placement's Big coordinates
 as `Big-X = MAP_ORIGIN - World.Y, Big-Y = MAP_ORIGIN - World.X` — copying
 the cross-swap convention used everywhere else in this addon (e.g.
 `gen_mapareas.js`'s header). This looked plausible (still landed inside
@@ -390,7 +390,7 @@ Y)` — confirmed earlier (Dalaran Sewers' own placement:
 `position=(16278.01, 6.17, 15765.27)`, the tiny middle value is obviously
 height). `MOGP`'s own bounding box (WMO group file chunk) is a plain
 `C3Vector`, `(X, Y, Z=height)` — the STANDARD order, NOT the same
-reordering MODF uses. `gen_arena_wmo_tiles.js` originally read MOGP's
+reordering MODF uses. `gen_wmo_tiles.js` originally read MOGP's
 index 2 for local Y (copying MODF's convention onto MOGP by mistake) —
 this silently produced tiles that still landed inside the arena's own
 (coarse) `Twm_mapareas` box, so the earlier "validated against the known
@@ -405,7 +405,7 @@ struct's own documented axis order separately — never assume they match.**
 
 ## WMO-tile world position: the final formula, and the reusable lessons behind it
 
-`gen_arena_wmo_tiles.js`'s local→world formula for WMO minimap tiles (rotation≈0
+`gen_wmo_tiles.js`'s local→world formula for WMO minimap tiles (rotation≈0
 placements only), current/correct state:
 
 1. `local.X = box.min[0] + blockX*128`, `local.Y_raw = box.min[1] + blockY*128`
@@ -537,9 +537,9 @@ because Windows filesystem paths are case-insensitive, a script that reads
 its arena argument straight off the extracted folder listing and both (a)
 uses it to build a filesystem path AND (b) writes it verbatim as a Lua
 table key runs to completion with no error, but produces a table keyed
-with the wrong case — `Twm_ArenaWMOTiles[frame.opt.Map]` (exact,
+with the wrong case — `Twm_WMOTiles[frame.opt.Map]` (exact,
 case-sensitive Lua string match) then always misses. Confirmed this
-happened for `gen_arena_wmo_tiles.js`'s first run (args
+happened for `gen_wmo_tiles.js`'s first run (args
 `dalaranarena orgrimmararena`, silently wrong keys — no WMO tiles or
 checkbox ever appeared in-game, no error anywhere). Fix: always pass this
 script the map key exactly as it appears as a `Twm_mapareas`/`Twm_ArenaNames`
@@ -562,7 +562,7 @@ instead of trying to escape it — XML comments have no escape mechanism.
 
 ## Draw order among same-layer, same-sublevel textures is undefined -- don't rely on creation order
 
-The arena WMO overlay (`TWM_ArenaWMO_Update`) originally relied on
+The arena WMO overlay (`TWM_WMOOverlay_Update`) originally relied on
 `vf:CreateTexture(nil, "OVERLAY")` call order to stack a higher-height WMO
 tile visually on top of a lower one -- textures created later were assumed
 to draw on top, matching how the rest of this addon's own pooled-texture
@@ -581,7 +581,7 @@ hold.
 
 ## `Slider:SetReverseValues` doesn't exist at all -- confused with `StatusBar:SetReverseFill`
 
-Used once, for the arena WMO height-cutoff slider (`TWM_ArenaWMO_EnsureHeightSlider`,
+Used once, for the arena WMO height-cutoff slider (`TWM_WMOOverlay_EnsureHeightSlider`,
 `TerrainWorldMap.lua`), to try to flip a vertical `Slider`'s default
 max-at-bottom layout to the more natural min-at-bottom/max-at-top. Crashed
 live: `attempt to call a nil value`. Initially assumed (wrongly, without

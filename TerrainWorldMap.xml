@@ -324,8 +324,8 @@
 	</Button>
 
 	<!-- Only shown (TerrainWorldMap.lua) when the current map has
-	     Twm_ArenaWMOTiles data; most maps never will. -->
-	<CheckButton name="TWMFrameShowArenaWMOButton" parent="TWMFrameViewFrame" inherits="UICheckButtonTemplate" hidden="true">
+	     Twm_WMOTiles data; most maps never will. -->
+	<CheckButton name="TWMFrameShowWMOOverlayButton" parent="TWMFrameViewFrame" inherits="UICheckButtonTemplate" hidden="true">
 		<Size>
 			<AbsDimension x="24" y="24"/>
 		</Size>
@@ -339,10 +339,10 @@
 		<Scripts>
 			<OnLoad>
 				self:SetFrameLevel(self:GetFrameLevel() + 4);
-				_G[self:GetName().."Label"]:SetText(TWM_OPTIONS_SHOW_ARENA_WMO);
+				_G[self:GetName().."Label"]:SetText(TWM_OPTIONS_SHOW_WMO_OVERLAY);
 			</OnLoad>
 			<OnClick>
-				TWMFrameShowArenaWMOButton_OnClick(self);
+				TWMFrameShowWMOOverlayButton_OnClick(self);
 			</OnClick>
 		</Scripts>
 		<Layers>
