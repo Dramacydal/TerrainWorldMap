@@ -725,6 +725,45 @@ WMOs but all with real rotation (skipped with a warning each).
   computation internally) or just inspecting where a given AreaID
   actually sits.
 
+- **`preview_wmo_tiles.js`** — standalone diagnostic tool, not part of the
+  pipeline above and not run against every map. Composites one map's WMO
+  minimap tiles (step 10's `Twm_WMOTiles` source data, before it's written
+  to Lua) into a single PNG, colored and numbered per WMO group, so a new
+  candidate map or a change to the shared placement math can be sanity-
+  checked by eye before touching the addon's shipped Lua data:
+  ```bash
+  node preview_wmo_tiles.js --flavor-dir <dir> --listfile <community-listfile.csv> --out <out.png> <MapDirectoryName>
+  ```
+  Needs `npm install` in this folder first (adds `@wowserhq/format` for BLP
+  decoding and `pngjs` for PNG writing, on top of `gen_wmo_tiles.js`'s own
+  `csv-parse`). Reuses `gen_wmo_tiles.js`'s exact placement formula (Y-flip,
+  90-degree local rotation, MODF translation, Big-coordinate conversion),
+  plus one placement source `gen_wmo_tiles.js` doesn't have yet: a WDT-level
+  MODF ("pure WMO dungeon", `MPHD.flags & 0x1` — see `.claude-docs/
+  gotchas.md`'s "Detecting a pure WMO dungeon" entry), tried automatically
+  whenever a map has no per-ADT MODF entries at all (e.g. Stockade). A
+  rendering-only detail this script needs that `gen_wmo_tiles.js` doesn't
+  (that one never touches pixel data, only writes `{fileID, box}` for
+  `TerrainWorldMap.lua`'s own `tex:SetTexture`/`SetWidth`/`SetHeight` to
+  stretch at render time): a WMO-group minimap BLP is cropped by Blizzard to
+  its real content size, not always 256x256 (confirmed: Stockade's 26 groups
+  range from 64x64 to 256x256) — placed left+bottom-anchored inside the
+  nominal 256x256 block cell (`wow.export`'s `src/js/wmo-minimap.js`,
+  `composite_tile`) before this script's own 90-degree content rotation.
+  Skips a placement with real rotation, same as `gen_wmo_tiles.js` (the yaw
+  transform isn't implemented in either script yet).
+
+  `--with-adt-tiles` additionally composites the map's own real, baked
+  OUTDOOR minimap tiles (`world/minimaps/<map>/map<col>_<row>.blp`, box per
+  tile via the same col/row -> Big-coordinate mapping as
+  `TWM_Mini2Big_Coord`) underneath the WMO layer — ground truth for a map
+  that has both (confirmed on Orgrimmar Arena: the WMO tile lands exactly on
+  the real arena floor, no visible gap). The same offline technique this
+  addon's own WMO-overlay feature was originally debugged with (see
+  `.claude-docs/gotchas.md`'s "WMO-tile world position" entry) — use it
+  before relying on an in-game screenshot for a map that has real terrain to
+  check against (e.g. Shadowfang Keep).
+
 ## When to re-run
 
 Re-run for a flavor when: its `.build.info` version changes, `mapdata_*.lua`

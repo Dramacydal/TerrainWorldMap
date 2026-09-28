@@ -713,6 +713,18 @@ function TWMFrameTemplate:OnLoad()
     viewframe:RegisterForDrag("RightButton","LeftButton");
     viewframe:EnableMouseWheel(true);
 
+    -- Dedicated solid-black fill behind the tile grid, shown through
+    -- whichever cells have no live-zone texture (see SetLocation's
+    -- "no live zone" branch). BACKGROUND layer on `self`, same frame as
+    -- the map tiles themselves (ARTWORK) -- that guarantees it always
+    -- renders strictly below them, unlike TWMFrame's own chrome backdrop
+    -- (SetBackdropColor in TWMFrame_OnLoadExtra), which is a different,
+    -- unrelated region and turned out NOT to reliably show through here.
+    local emptyBg = self:CreateTexture(nil, "BACKGROUND");
+    emptyBg:SetColorTexture(0, 0, 0, 1);
+    emptyBg:SetPoint("TOPLEFT", viewframe, "TOPLEFT", 0, 0);
+    emptyBg:SetPoint("BOTTOMRIGHT", viewframe, "BOTTOMRIGHT", 0, 0);
+
     TWMPoints_RegisterFrame(self:GetName());
 
     self.update_time = 0;
@@ -1462,7 +1474,12 @@ function TWMFrameTemplate:SetZoom(z, nocenter, skipPointsRefresh)
     self.wzoom_real = math.ceil(vfw/z)+1;
     self.hzoom_real = math.ceil(vfh/z)+1;
 
-    if(z > 32 and (z > vfh or z > vfw)) then
+    -- Max zoom: at least HALF a tile must still fit in the viewport on
+    -- both axes (z <= 2*vfh and z <= 2*vfw), not a full one -- a real tile
+    -- (533.33 world units) is plenty wide for this to still show useful
+    -- detail even that zoomed in. Was `z > vfh or z > vfw` (a whole tile
+    -- had to fit); doubling the right-hand side is the whole change.
+    if(z > 32 and (z > vfh*2 or z > vfw*2)) then
         return self:SetZoom(z-4);
     end
     local lastzoom = self.opt.Zoom;
@@ -1522,6 +1539,69 @@ function TWMFrameTemplate:GetZoom()
     return self.opt and self.opt.Zoom or 256;
 end
 
+-- Builds the ordered list of texture-pool slots needed along ONE axis
+-- (columns for X, rows for Y) to cover the viewport at the current zoom
+-- and pan offset. Slot 1 always starts flush against the viewport's own
+-- edge, cropped on its OWN leading side by `panPx` (however much of that
+-- tile has already been scrolled past); every following slot is a full
+-- tile UNLESS it's the last one needed, which is cropped on its trailing
+-- side to whatever remains. Produces exactly as many slots as are
+-- actually needed: 1 if a single tile (possibly bigger than the
+-- viewport, frame-clipped -- see TWMFrameViewTemplate's SetClipsChildren)
+-- already covers everything, up to `normalCount` (the pre-existing
+-- floor()-based `wzoom`/`hzoom`) if none of them need the one spare
+-- pre-allocated slot, or exactly `normalCount + 1` (using `extraIndex`,
+-- the pre-existing `wzoom_real`/`hzoom_real`) if they do.
+--
+-- Positions are pixel offsets from the viewport's own TOPLEFT ("rightward
+-- distance" for X, "downward distance" for Y -- callers negate the Y one
+-- when calling SetPoint, matching WoW's own positive-Y-is-up convention;
+-- X needs no such flip), tracked as a running sum of each earlier slot's
+-- own size -- NOT the closed form `zoom*(k-1)-panPx` a first pass at this
+-- used: that matches slot 1's own SIZE (zoom-panPx) but not its POSITION
+-- (always exactly 0, flush against the viewport edge, regardless of
+-- panPx -- confirmed against the old scheme's own "upper-left corner"
+-- code, which special-cased its position as a literal `(0,0)` for
+-- exactly this reason). The running sum
+-- naturally gives slot 1 position 0 (nothing summed yet) while still
+-- reproducing the closed form exactly for every slot after it.
+--
+-- Replaces the old fixed "corner + middle-run + edge-line + one spare
+-- slot" scheme, which hard-assumed at least 2 DISTINCT slots always
+-- existed per axis (slot 1 and a DIFFERENT slot `normalCount`) -- an
+-- assumption a big enough zoom breaks (a single tile can be bigger than
+-- the whole viewport, collapsing what used to be 2+ distinct slots into
+-- 1; confirmed live: the old code wrote "left corner" cropping into a
+-- slot, then unconditionally overwrote the SAME slot with "right corner"
+-- cropping right after, since both used to be different slots but now
+-- weren't). Building an explicit list first, then assigning texture
+-- slots from it, handles 1, 2, or N slots uniformly, by construction,
+-- with no risk of two different branches writing into the same pooled
+-- texture object.
+local function TWM_BuildAxisSlots(viewportSize, zoomStep, panPx, fracStart, normalCount, extraIndex)
+    local slots = {};
+    local remaining = viewportSize;
+    local pos = 0;
+    local k = 1;
+    while(remaining > 0) do
+        local isFirst = (k == 1);
+        local available = isFirst and (zoomStep - panPx) or zoomStep;
+        local size = math.min(remaining, available);
+        local uMin = isFirst and fracStart or 0;
+        slots[k] = {
+            index = (k <= normalCount) and k or extraIndex,
+            pos = pos,
+            size = size,
+            uMin = uMin,
+            uMax = uMin + size/zoomStep,
+        };
+        pos = pos + size;
+        remaining = remaining - size;
+        k = k + 1;
+    end
+    return slots;
+end
+
 function TWMFrameTemplate:SetLocation(x,y,forceupdate,forcePointsUpdate)
     local zx, zy, mymap;
     local framename = self:GetName();
@@ -1576,8 +1656,14 @@ function TWMFrameTemplate:SetLocation(x,y,forceupdate,forcePointsUpdate)
                     TWM_SetTileTexture(tex, TWM_GetTileTexture(mymap, v[hx][hy][1]), TWM_GetTileFilter());
                     tex:SetVertexColor(1,1,1,1);
                 else
-                    tex:SetTexture("Interface\\Buttons\\WHITE8X8");
-                    tex:SetVertexColor(0,0,0,1);
+                    -- No live zone here -- leave the tile transparent
+                    -- instead of manually painting it black. self.emptyBg
+                    -- (TWMFrameTemplate:OnLoad) sits on this same frame's
+                    -- BACKGROUND layer, below these tiles' own ARTWORK
+                    -- layer, so an empty (no-texture) cell shows that
+                    -- black through on its own -- no need to paint it a
+                    -- second time here.
+                    tex:SetTexture(nil);
                 end
 
                 -- debug: label this tile with its grid coordinate and the
@@ -1598,213 +1684,38 @@ function TWMFrameTemplate:SetLocation(x,y,forceupdate,forcePointsUpdate)
         end
     end
 
-    -- Do offset and clipping (:SetTexCoord and :SetHeight/Width)
-    -- We do the most thinking about border textures 
+    -- Do offset and clipping (:SetTexCoord and :SetHeight/Width) --
+    -- see TWM_BuildAxisSlots' own header comment for the full design.
+    local colSlots = TWM_BuildAxisSlots(vf:GetWidth(), zoom, px, x-zx, wzoom, wzoom_real);
+    local rowSlots = TWM_BuildAxisSlots(vf:GetHeight(), zoom, py, y-zy, hzoom, hzoom_real);
 
-    local bottomh = vf:GetHeight()-zoom*(hzoom-2)-(zoom-py);
-    local rightw = vf:GetWidth()-zoom*(wzoom-2)-(zoom-px);
-    local needbottom_extra = false;
-    local needright_extra = false;
-    local old_bottomh, old_rightw;
-    if(bottomh > zoom) then
-        needbottom_extra = true;
-        old_bottomh = bottomh;
-        bottomh = zoom;
-    end
-    if(rightw > zoom) then
-        needright_extra = true;
-        old_rightw = rightw;
-        rightw = zoom;
-    end
-
-    -- center textures (easy)
-    for w = 2,wzoom-1 do
-        for h = 2,hzoom-1 do
-            twm_raw_setoff(texturelayout[w][h],vfname,px,py);
+    local usedCols, usedRows = {}, {};
+    for _, col in ipairs(colSlots) do
+        for _, row in ipairs(rowSlots) do
+            local tex = texturelayout[col.index][row.index];
+            tex:SetTexCoord(col.uMin, col.uMax, row.uMin, row.uMax);
+            tex:SetWidth(col.size);
+            tex:SetHeight(row.size);
+            tex:ClearAllPoints();
+            tex:SetPoint("TOPLEFT", vfname, "TOPLEFT", col.pos, -row.pos);
+            tex:Show();
         end
+        usedCols[col.index] = true;
+    end
+    for _, row in ipairs(rowSlots) do
+        usedRows[row.index] = true;
     end
 
-    -- Upper left corner
-    texturelayout[1][1]:SetTexCoord( (x-zx), 1, (y-zy), 1);
-    texturelayout[1][1]:SetHeight( zoom-py);
-    texturelayout[1][1]:SetWidth( zoom-px);
-    twm_raw_setoff(texturelayout[1][1],vfname,0,0);
-
-    -- Upper right corner
-    if(px ~= 0 or wzoom ~= wzoom_real) then
-        texturelayout[wzoom][1]:Show();
-        texturelayout[wzoom][1]:SetTexCoord( 0, rightw/zoom, (y-zy), 1);
-        texturelayout[wzoom][1]:SetHeight( zoom-py);
-        texturelayout[wzoom][1]:SetWidth(rightw);
-        twm_raw_setoff(texturelayout[wzoom][1],vfname,px,0);
-    else
-        texturelayout[wzoom][1]:Hide();
-    end
-
-    -- Lower left corner
-    if(py ~= 0  or wzoom ~= wzoom_real) then
-        texturelayout[1][hzoom]:Show();
-        texturelayout[1][hzoom]:SetTexCoord( (x-zx), 1, 0, bottomh/zoom);
-        texturelayout[1][hzoom]:SetWidth( zoom-px);
-        texturelayout[1][hzoom]:SetHeight(bottomh);
-        twm_raw_setoff(texturelayout[1][hzoom],vfname,0,py);
-    else
-        texturelayout[1][hzoom]:Hide();
-    end
-
-    -- lower right corner
-    if((py ~= 0 and px ~= 0) or wzoom ~= wzoom_real) then
-        texturelayout[wzoom][hzoom]:Show();
-        texturelayout[wzoom][hzoom]:SetTexCoord( 0, rightw/zoom, 0, bottomh/zoom);
-        texturelayout[wzoom][hzoom]:SetHeight(bottomh);
-        texturelayout[wzoom][hzoom]:SetWidth(rightw);
-        twm_raw_setoff(texturelayout[wzoom][hzoom],vfname,px,py);
-    else
-        texturelayout[wzoom][hzoom]:Hide();
-    end
-
-    -- top line
-    for h = 2,wzoom-1 do
-        texturelayout[h][1]:SetTexCoord( 0, 1, (y-zy), 1);
-        texturelayout[h][1]:SetHeight( zoom-py);
-        twm_raw_setoff(texturelayout[h][1],vfname,px,0);
-    end
-
-    -- bottom line
-    if(py ~= 0 or wzoom ~= wzoom_real) then
-        for h = 2,wzoom-1 do
-            texturelayout[h][hzoom]:Show();
-            texturelayout[h][hzoom]:SetTexCoord( 0, 1, 0, bottomh/zoom);
-            texturelayout[h][hzoom]:SetHeight(bottomh);
-            twm_raw_setoff(texturelayout[h][hzoom],vfname, px,py);
-        end
-    else
-        for h = 2,wzoom-1 do
-            texturelayout[h][hzoom]:Hide();
-        end
-    end
-
-    -- left line
-    for h = 2,hzoom-1 do
-        texturelayout[1][h]:SetTexCoord( (x-zx), 1, 0, 1);
-        texturelayout[1][h]:SetWidth( zoom-px);
-        twm_raw_setoff(texturelayout[1][h],vfname,0,py);
-    end
-
-    -- right line
-    if(px ~= 0 or wzoom ~= wzoom_real) then
-        for h = 2,hzoom-1 do
-            texturelayout[wzoom][h]:Show();
-            texturelayout[wzoom][h]:SetTexCoord( 0, rightw/zoom, 0, 1);
-            texturelayout[wzoom][h]:SetWidth(rightw);
-            twm_raw_setoff(texturelayout[wzoom][h],vfname,px,py);
-        end
-    else
-        for h = 2,hzoom-1 do
-            texturelayout[wzoom][h]:Hide();
-        end
-    end
-
-    -- if our zoom is not a multiple of our size, we have a little extra we
-    -- need to worry about :X
-    if(wzoom_real ~= wzoom) then
-        if(needright_extra) then
-            rightw = (old_rightw-zoom);
-        end
-
-        -- This whole column loop is about row hzoom_real specifically being
-        -- a genuinely EXTRA row beyond the normal grid. When hzoom_real ==
-        -- hzoom, there's no such extra row -- row hzoom_real IS row hzoom,
-        -- already fully drawn by the corner/bottom-line code above, and
-        -- must not be touched (let alone hidden) here.
-        if(hzoom_real ~= hzoom) then
-            if(needbottom_extra) then
-                bottomh = (old_bottomh-zoom);
-
-                -- The true last (bottom-clipped) column within this loop's range
-                -- (1..wzoom_real-1, the true rightmost column wzoom_real is
-                -- handled separately below): wzoom_real-1 only if that's a real
-                -- "extra" column this frame (needright_extra); otherwise it's
-                -- plain wzoom, which can be LESS than wzoom_real-1 when
-                -- wzoom_real was structurally allocated but isn't needed now.
-                local lastCol = needright_extra and (wzoom_real-1) or wzoom;
-
-                for h = 1,wzoom_real-1 do
-                    if(h > lastCol) then
-                        texturelayout[h][hzoom_real]:Hide();
-                    else
-                        texturelayout[h][hzoom_real]:SetHeight(bottomh);
-                        if(h == 1) then
-                            texturelayout[h][hzoom_real]:SetTexCoord( (x-zx), 1, 0, bottomh/zoom);
-                            texturelayout[h][hzoom_real]:SetWidth(zoom-px);
-                            twm_raw_setoff(texturelayout[h][hzoom_real],vfname,0,py);
-                        elseif(h == lastCol and not needright_extra) then
-                            -- lastCol is genuinely the right edge here (wzoom)
-                            -- only when there's no further column beyond it --
-                            -- rightw was already reassigned above to the OTHER
-                            -- column's (wzoom_real) leftover when needright_extra
-                            -- is true, so it must not be used for this column then.
-                            texturelayout[h][hzoom_real]:SetWidth(rightw);
-                            texturelayout[h][hzoom_real]:SetTexCoord( 0, rightw/zoom, 0, bottomh/zoom);
-                            twm_raw_setoff(texturelayout[h][hzoom_real],vfname,px,py);
-                        else
-                            texturelayout[h][hzoom_real]:SetWidth(zoom);
-                            texturelayout[h][hzoom_real]:SetTexCoord( 0, 1, 0, bottomh/zoom);
-                            twm_raw_setoff(texturelayout[h][hzoom_real],vfname,px,py);
-                        end
-                        texturelayout[h][hzoom_real]:Show();
-                    end
-                end
-
-            else
-                for h = 1,wzoom_real-1 do
-                    texturelayout[h][hzoom_real]:Hide();
-                end
+    -- Every pooled slot this call's column/row lists don't cover gets
+    -- explicitly hidden -- happens whenever wzoom_real/hzoom_real (SetZoom
+    -- always allocates one spare column and one spare row defensively)
+    -- aren't actually needed at the current pan offset/zoom.
+    for hw = 1, wzoom_real do
+        for hh = 1, hzoom_real do
+            if(not (usedCols[hw] and usedRows[hh])) then
+                texturelayout[hw][hh]:Hide();
             end
         end
-
-        -- Same guard, other axis: when wzoom_real == wzoom, column wzoom_real
-        -- IS column wzoom, already fully drawn by the corner/right-line code
-        -- above -- must not be touched here.
-        if(wzoom_real ~= wzoom) then
-            if(needright_extra) then
-                -- The true last (bottom-clipped) row is hzoom_real only if
-                -- genuinely needed this frame (needbottom_extra); otherwise
-                -- it's plain hzoom, which can be LESS than hzoom_real-1 when
-                -- hzoom_real was structurally allocated but isn't needed
-                -- now -- anything beyond it must be hidden instead of
-                -- wrongly treated as a full-height middle row.
-                local lastRow = needbottom_extra and hzoom_real or hzoom;
-
-                for h = 1,hzoom_real do
-                    if(h > lastRow) then
-                        texturelayout[wzoom_real][h]:Hide();
-                    else
-                        texturelayout[wzoom_real][h]:SetWidth(rightw);
-                        texturelayout[wzoom_real][h]:Show();
-                        if(h == 1) then
-                            texturelayout[wzoom_real][h]:SetTexCoord( 0, rightw/zoom, (y-zy), 1);
-                            texturelayout[wzoom_real][h]:SetHeight(zoom-py);
-                            twm_raw_setoff(texturelayout[wzoom_real][h],vfname,px,0);
-                        elseif(h == lastRow) then
-                            texturelayout[wzoom_real][h]:SetHeight(bottomh);
-                            texturelayout[wzoom_real][h]:SetTexCoord( 0, rightw/zoom, 0, bottomh/zoom);
-                            twm_raw_setoff(texturelayout[wzoom_real][h],vfname,px,py);
-                        else
-                            texturelayout[wzoom_real][h]:SetHeight(zoom);
-                            texturelayout[wzoom_real][h]:SetTexCoord( 0, rightw/zoom, 0, 1);
-                            twm_raw_setoff(texturelayout[wzoom_real][h],vfname,px,py);
-                        end
-                    end
-
-                end
-            else
-                for h = 1,hzoom_real do
-                    texturelayout[wzoom_real][h]:Hide();
-                end
-            end
-        end
-
     end
 
     -- Debug tile grid ("/twm debug"): a yellow border on every currently-
@@ -1836,11 +1747,14 @@ function TWMFrameTemplate:SetLocation(x,y,forceupdate,forcePointsUpdate)
             -- that visible sub-rect's center drifts away from the tile's
             -- true, full-size center as more of it gets cropped off,
             -- reading as the label "pushing away" from the map's edge.
-            -- Computed directly instead, from the same TOPLEFT formula
-            -- twm_raw_setoff uses for a full (uncropped) tile at this grid
-            -- slot, so the label always sits at its tile's one true
-            -- center regardless of how much of the tile is actually
-            -- cropped into view.
+            -- Computed directly instead, as this grid slot's own FULL
+            -- (uncropped) tile center -- deliberately NOT the same
+            -- position math TWM_BuildAxisSlots uses for rendering (that
+            -- one clamps slot 1 to the viewport's own edge, by design);
+            -- the label wants the tile's true nominal center even when
+            -- that's partly or fully off-screen, so it always sits at
+            -- its tile's one true center regardless of how much of the
+            -- tile is actually cropped into view.
             if(tex.debugLabel) then
                 if(TWM_DebugTiles and tex:IsShown()) then
                     local centerX = zoom*(hw-1) - px + zoom/2;
@@ -1991,13 +1905,6 @@ function TWMFrameTemplate:OnWorldMapUpdateU(u)
     end
 end
 
-function twm_raw_setoff(texture, parent, px, py) 
-    local zoom = _G[parent]:GetParent().opt.Zoom
-    texture:ClearAllPoints();
-    texture:SetPoint("TOPLEFT", parent,
-            "TOPLEFT", (zoom)*(texture.hx-1) - px,
-            -(zoom)*(texture.hy-1) + py);
-end
 
 twm_lastdragx, twm_lastdragy = nil, nil;
 function TWMFrameViewFrame_OnDrag(self)
