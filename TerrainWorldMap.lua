@@ -160,6 +160,72 @@ function TWM_ToggleTileDebug()
     print(TWM_DebugTiles and TWM_DEBUG_TILES_ON or TWM_DEBUG_TILES_OFF);
 end
 
+-- Lazily creates 4 thin border-strip textures for a pooled tile texture,
+-- tracing its own current rect. Anchored with TWO points each (both
+-- relevant corners of `tex`, not just one + an explicit size), so once set
+-- up they keep following `tex`'s own position/size automatically through
+-- every future pan/zoom/resize -- no per-call update code needed here at
+-- all, unlike the tile texture itself (whose SetPoint/SetWidth/SetHeight
+-- the many branches above recompute by hand every call).
+-- `color` (an {r,g,b} table) is applied every call, not just at creation
+-- -- cheap, and correct even if a pooled `tex` slot gets reused later for
+-- something that wants a different color (e.g. a different WMO tile
+-- index after the map changes).
+local TWM_TILE_DEBUG_BORDER_PX = 2;
+local TWM_TILE_DEBUG_BORDER_YELLOW = {1, 1, 0};
+function TWM_EnsureTileDebugBorder(vf, tex, color)
+    color = color or TWM_TILE_DEBUG_BORDER_YELLOW;
+
+    if(not tex.debugBorder) then
+        local border = {};
+        for _, side in ipairs({"top", "bottom", "left", "right"}) do
+            local btex = vf:CreateTexture(nil, "OVERLAY", nil, 7);
+            btex:SetTexture("Interface\\Buttons\\WHITE8X8");
+            border[side] = btex;
+        end
+
+        border.top:SetPoint("TOPLEFT", tex, "TOPLEFT", 0, 0);
+        border.top:SetPoint("TOPRIGHT", tex, "TOPRIGHT", 0, 0);
+        border.top:SetHeight(TWM_TILE_DEBUG_BORDER_PX);
+
+        border.bottom:SetPoint("BOTTOMLEFT", tex, "BOTTOMLEFT", 0, 0);
+        border.bottom:SetPoint("BOTTOMRIGHT", tex, "BOTTOMRIGHT", 0, 0);
+        border.bottom:SetHeight(TWM_TILE_DEBUG_BORDER_PX);
+
+        border.left:SetPoint("TOPLEFT", tex, "TOPLEFT", 0, 0);
+        border.left:SetPoint("BOTTOMLEFT", tex, "BOTTOMLEFT", 0, 0);
+        border.left:SetWidth(TWM_TILE_DEBUG_BORDER_PX);
+
+        border.right:SetPoint("TOPRIGHT", tex, "TOPRIGHT", 0, 0);
+        border.right:SetPoint("BOTTOMRIGHT", tex, "BOTTOMRIGHT", 0, 0);
+        border.right:SetWidth(TWM_TILE_DEBUG_BORDER_PX);
+
+        tex.debugBorder = border;
+    end
+
+    local border = tex.debugBorder;
+    border.top:SetVertexColor(color[1], color[2], color[3], 1);
+    border.bottom:SetVertexColor(color[1], color[2], color[3], 1);
+    border.left:SetVertexColor(color[1], color[2], color[3], 1);
+    border.right:SetVertexColor(color[1], color[2], color[3], 1);
+    return border;
+end
+
+function TWM_HideTileDebugBorder(tex)
+    if(not tex.debugBorder) then return; end
+    tex.debugBorder.top:Hide();
+    tex.debugBorder.bottom:Hide();
+    tex.debugBorder.left:Hide();
+    tex.debugBorder.right:Hide();
+end
+
+function TWM_ShowTileDebugBorder(border)
+    border.top:Show();
+    border.bottom:Show();
+    border.left:Show();
+    border.right:Show();
+end
+
 -- Whether a map tile has real terrain, per this client's own WDT data
 -- (Twm_WDTValidTiles, mapdata_tiles.lua -- ground truth extracted from
 -- world/maps/<continent>/<continent>.wdt's rootADT field, since a tile's
@@ -296,6 +362,24 @@ end
 -- every other (non-nil) comparison.
 local TWM_WMO_OVERLAY_HEIGHT_EPSILON = 0.05;
 
+-- Debug ("/twm debug"): a colored border per WMO tile, so overlapping/
+-- adjacent tiles can be told apart on sight. Color is picked from this
+-- small fixed pool purely by draw order (the same rank `i` that already
+-- drives SetDrawLayer's sublevel above) -- cycling via modulo once the
+-- tile count exceeds the pool, rather than trying to keep every tile's
+-- color unique forever (real placements have at most a handful of tiles;
+-- see gen_wmo_tiles.js's own comments for the highest count seen so far).
+local TWM_WMO_DEBUG_COLOR_POOL = {
+    {1, 0, 0},     -- red
+    {0, 1, 0},     -- green
+    {0.2, 0.4, 1}, -- blue
+    {1, 1, 0},     -- yellow
+    {1, 0, 1},     -- magenta
+    {1, 1, 1},     -- white
+    {1, 0.5, 0},   -- orange
+    {0, 1, 1},     -- cyan
+};
+
 function TWM_WMOOverlay_Update(frame)
     local lm = frame:GetName();
     local vf = _G[lm.."ViewFrame"];
@@ -305,6 +389,7 @@ function TWM_WMOOverlay_Update(frame)
         if(frame.wmoOverlayTextures) then
             for _, tex in ipairs(frame.wmoOverlayTextures) do
                 tex:Hide();
+                TWM_HideTileDebugBorder(tex);
             end
         end
         return;
@@ -321,6 +406,7 @@ function TWM_WMOOverlay_Update(frame)
 
         if(cutoff and height and height > cutoff + TWM_WMO_OVERLAY_HEIGHT_EPSILON) then
             tex:Hide();
+            TWM_HideTileDebugBorder(tex);
         else
             local fileID, bx1, bx2, by1, by2 = tile[1], tile[2], tile[3], tile[4], tile[5];
             local mx1, my1 = TWM_Big2Mini_Coord(bx1, by1);
@@ -342,11 +428,19 @@ function TWM_WMOOverlay_Update(frame)
             tex:SetWidth((right-left)*z);
             tex:SetHeight((bottom-top)*z);
             tex:Show();
+
+            if(TWM_DebugTiles) then
+                local color = TWM_WMO_DEBUG_COLOR_POOL[((i - 1) % #TWM_WMO_DEBUG_COLOR_POOL) + 1];
+                TWM_ShowTileDebugBorder(TWM_EnsureTileDebugBorder(vf, tex, color));
+            else
+                TWM_HideTileDebugBorder(tex);
+            end
         end
     end
 
     for i = #tiles+1, #textures do
         textures[i]:Hide();
+        TWM_HideTileDebugBorder(textures[i]);
     end
 end
 
@@ -1395,6 +1489,7 @@ function TWMFrameTemplate:SetZoom(z, nocenter, skipPointsRefresh)
         if(extratex.debugLabel) then
             extratex.debugLabel:Hide();
         end
+        TWM_HideTileDebugBorder(extratex);
         textureno = textureno + 1;
     end
 
@@ -1486,18 +1581,18 @@ function TWMFrameTemplate:SetLocation(x,y,forceupdate,forcePointsUpdate)
                 end
 
                 -- debug: label this tile with its grid coordinate and the
-                -- live zone name the client reports at that spot.
+                -- live zone name the client reports at that spot. Only the
+                -- TEXT is set here (cheap to skip when nothing changed) --
+                -- position and Show/Hide are handled once, unconditionally,
+                -- at the end of this function (see the comment there for
+                -- why: both used to be wrong when handled only here).
                 if(TWM_DebugTiles) then
                     if(not tex.debugLabel) then
                         tex.debugLabel = vf:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge");
-                        tex.debugLabel:SetPoint("CENTER", tex, "CENTER");
                         tex.debugLabel:SetJustifyH("CENTER");
                     end
 
                     tex.debugLabel:SetText(tilekey.."\n"..(livezone or "|cffff4040(none)|r"));
-                    tex.debugLabel:Show();
-                elseif(tex.debugLabel) then
-                    tex.debugLabel:Hide();
                 end
             end
         end
@@ -1710,6 +1805,54 @@ function TWMFrameTemplate:SetLocation(x,y,forceupdate,forcePointsUpdate)
             end
         end
 
+    end
+
+    -- Debug tile grid ("/twm debug"): a yellow border on every currently-
+    -- shown pooled tile texture, real map art or the plain black "no live
+    -- zone" filler alike -- keyed on whether the pooled texture itself is
+    -- shown, not on whether it has real art, so it covers both. A single
+    -- pass over the whole pool, run every call (not just on content
+    -- refresh), since panning/zooming/resizing can change which cells are
+    -- shown/hidden and how they're cropped without necessarily touching
+    -- their tile art.
+    for hw = 1, wzoom_real do
+        for hh = 1, hzoom_real do
+            local tex = texturelayout[hw][hh];
+            if(TWM_DebugTiles and tex:IsShown()) then
+                TWM_ShowTileDebugBorder(TWM_EnsureTileDebugBorder(vf, tex));
+            else
+                TWM_HideTileDebugBorder(tex);
+            end
+
+            -- debugLabel's TEXT is set above (content-refresh only); its
+            -- position and Show/Hide belong here instead, for two reasons:
+            -- (1) `tex` itself can Show/Hide on EVERY call (edge/corner
+            -- tiles do, as panning slides them in/out), not just when
+            -- content refreshes, so gating the label's own Show/Hide on
+            -- content-refresh-only left it stale/stuck relative to its own
+            -- tile. (2) anchoring the label to `tex`'s own CENTER anchored
+            -- it to whatever's currently VISIBLE of that tile -- for a
+            -- cropped edge/corner tile (only partially panned into view),
+            -- that visible sub-rect's center drifts away from the tile's
+            -- true, full-size center as more of it gets cropped off,
+            -- reading as the label "pushing away" from the map's edge.
+            -- Computed directly instead, from the same TOPLEFT formula
+            -- twm_raw_setoff uses for a full (uncropped) tile at this grid
+            -- slot, so the label always sits at its tile's one true
+            -- center regardless of how much of the tile is actually
+            -- cropped into view.
+            if(tex.debugLabel) then
+                if(TWM_DebugTiles and tex:IsShown()) then
+                    local centerX = zoom*(hw-1) - px + zoom/2;
+                    local centerY = -zoom*(hh-1) + py - zoom/2;
+                    tex.debugLabel:ClearAllPoints();
+                    tex.debugLabel:SetPoint("CENTER", vf, "TOPLEFT", centerX, centerY);
+                    tex.debugLabel:Show();
+                else
+                    tex.debugLabel:Hide();
+                end
+            end
+        end
     end
 
     -- set zone text
