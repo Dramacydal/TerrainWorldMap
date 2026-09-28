@@ -169,6 +169,39 @@ function toNativeCell(img) {
 	return cell;
 }
 
+// Forward: native content-rotated pixel (dxi,dyi) -> Big-space point, for a
+// tile carrying {localX1, localY1, cosT, sinT, posX, posZ} (yaw pre-baked
+// into cosT/sinT, 0/1 for a non-rotated placement). Derived by parameterizing
+// gen_wmo_tiles.js's own per-corner formula continuously across the whole
+// 256x256 cell instead of just its two corners, then inserting one more
+// rotation (by the placement's real MODF yaw) between the fixed 90-degree
+// baking rotation and the MODF-position translation -- yaw rotates the
+// WHOLE placement as a rigid body, same as it rotates everything else MODF
+// places.
+function forwardBigPoint(t, dxi, dyi) {
+	const rotLocalX = -(t.localY1 + (256 - dxi) / 2);
+	const rotLocalY = t.localX1 + dyi / 2;
+	const finalLocalX = rotLocalX * t.cosT - rotLocalY * t.sinT;
+	const finalLocalY = rotLocalX * t.sinT + rotLocalY * t.cosT;
+	const worldX = t.posX + finalLocalX, worldY = t.posZ + finalLocalY;
+	return [MAP_ORIGIN - worldX, MAP_ORIGIN - worldY];
+}
+
+// Inverse of the above: Big-space point -> native content-rotated pixel
+// (dxi,dyi), fractional (caller rounds/range-checks). Used to rasterize a
+// yaw-rotated tile without leaving gaps (forward-mapping single source
+// pixels into a rotated destination misses pixels at non-90-degree angles).
+function inverseDxiDyi(t, bigX, bigY) {
+	const worldX = MAP_ORIGIN - bigX, worldY = MAP_ORIGIN - bigY;
+	const finalLocalX = worldX - t.posX, finalLocalY = worldY - t.posZ;
+	// R^-1 = R^T for a rotation matrix.
+	const rotLocalX = finalLocalX * t.cosT + finalLocalY * t.sinT;
+	const rotLocalY = -finalLocalX * t.sinT + finalLocalY * t.cosT;
+	const dxi = 256 + 2 * rotLocalX + 2 * t.localY1;
+	const dyi = 2 * (rotLocalY - t.localX1);
+	return [dxi, dyi];
+}
+
 function groupColor(g) {
 	const hue = (g * 47) % 360;
 	const h = hue / 60, x = 1 - Math.abs(h % 2 - 1);
@@ -188,7 +221,7 @@ const DIGITS = {
 };
 
 function parseArgs(argv) {
-	const opts = { flavorDir: null, listfile: null, out: null, withAdtTiles: false };
+	const opts = { flavorDir: null, listfile: null, out: null, withAdtTiles: false, noOutlines: false, bg: [20, 20, 20] };
 	const mapNames = [];
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i];
@@ -196,6 +229,8 @@ function parseArgs(argv) {
 		else if (a === '--listfile') opts.listfile = argv[++i];
 		else if (a === '--out') opts.out = argv[++i];
 		else if (a === '--with-adt-tiles') opts.withAdtTiles = true;
+		else if (a === '--no-outlines') opts.noOutlines = true;
+		else if (a === '--bg') opts.bg = argv[++i].split(',').map(Number);
 		else if (a.startsWith('--')) throw new Error(`Unknown option: ${a}`);
 		else mapNames.push(a);
 	}
@@ -203,7 +238,7 @@ function parseArgs(argv) {
 }
 
 function printUsage() {
-	console.error('Usage: node preview_wmo_tiles.js --flavor-dir <dir> --listfile <community-listfile.csv> --out <out.png> [--with-adt-tiles] <MapDirectoryName>');
+	console.error('Usage: node preview_wmo_tiles.js --flavor-dir <dir> --listfile <community-listfile.csv> --out <out.png> [--with-adt-tiles] [--no-outlines] [--bg r,g,b] <MapDirectoryName>');
 }
 
 async function main() {
@@ -250,11 +285,15 @@ async function main() {
 		const wmoPath = idToPath[p.nameId];
 		if (!wmoPath) { console.error(`  (nameId ${p.nameId} not found in listfile, skipping)`); continue; }
 
-		const rotMag = Math.max(...p.rot.map(Math.abs));
-		if (rotMag > ROT_EPSILON) {
-			console.error(`  (skipping ${wmoPath} -- real rotation ${p.rot.map(x => x.toFixed(2))}, not supported yet)`);
+		// Yaw (rot[1], same axis as position's own height component) is
+		// supported; pitch/roll aren't (confirmed: every real placement
+		// checked so far is yaw-only -- see scripts/README.md's Step 10).
+		const pitchRollMag = Math.max(Math.abs(p.rot[0]), Math.abs(p.rot[2]));
+		if (pitchRollMag > ROT_EPSILON) {
+			console.error(`  (skipping ${wmoPath} -- real pitch/roll ${p.rot.map(x => x.toFixed(2))}, not supported)`);
 			continue;
 		}
+		if (Math.abs(p.rot[1]) > ROT_EPSILON) console.log(`  ${wmoPath}: yaw ${p.rot[1].toFixed(2)} degrees`);
 
 		const wmoDir = path.join(opts.flavorDir, path.dirname(wmoPath));
 		const wmoBase = path.basename(wmoPath, '.wmo');
@@ -279,31 +318,39 @@ async function main() {
 		const trueGlobalMinY = Math.min(...Object.values(groupBoxes).map(b => Math.min(b.min[1], b.max[1])));
 		const trueGlobalMaxY = Math.max(...Object.values(groupBoxes).map(b => Math.max(b.min[1], b.max[1])));
 
+		// Negated: confirmed against Shadowfang Keep's real ADT terrain AND
+		// in-game (rot[1]=68.5, matches at -68.5, not +68.5). The Y-flip
+		// this local space already went through is a REFLECTION (negates
+		// one axis, determinant -1); composed with the 90-degree baking
+		// rotation (a pure rotation, determinant +1), the whole "rotLocal"
+		// frame is a mirror image of the model's own true local space --
+		// applying a rotation inside a mirrored frame reverses its sense,
+		// so the placement's real yaw has to be negated to land correctly
+		// once expressed in this already-mirrored coordinate system.
+		const yawRad = -p.rot[1] * Math.PI / 180;
+		const cosT = Math.cos(yawRad), sinT = Math.sin(yawRad);
+
 		for (const t of tiles) {
 			const box = groupBoxes[t.groupNum];
 			if (!box) continue;
 			const localX1 = Math.min(box.min[0], box.max[0]) + t.blockX * TILE_UNITS;
-			const localX2 = localX1 + TILE_UNITS;
 			const localY1raw = Math.min(box.min[1], box.max[1]) + t.blockY * TILE_UNITS;
 			const localY1 = (trueGlobalMinY + trueGlobalMaxY) - localY1raw - TILE_UNITS;
-			const localY2 = localY1 + TILE_UNITS;
 
-			const rotLocalX1 = -localY1, rotLocalX2 = -localY2;
-			const rotLocalY1 = localX1, rotLocalY2 = localX2;
-
-			const worldXa = p.pos[0] + rotLocalX1, worldXb = p.pos[0] + rotLocalX2;
-			const worldYa = p.pos[2] + rotLocalY1, worldYb = p.pos[2] + rotLocalY2;
-
-			const bigXa = MAP_ORIGIN - worldXa, bigXb = MAP_ORIGIN - worldXb;
-			const bigYa = MAP_ORIGIN - worldYa, bigYb = MAP_ORIGIN - worldYb;
-
-			mapTiles.push({
+			const tile = {
 				groupNum: t.groupNum,
 				filePath: path.join(minimapDir, t.file),
-				x1: Math.max(bigXa, bigXb), x2: Math.min(bigXa, bigXb),
-				y1: Math.max(bigYa, bigYb), y2: Math.min(bigYa, bigYb),
+				localX1, localY1, cosT, sinT, posX: p.pos[0], posZ: p.pos[2],
 				height: p.pos[1] + (box.min[2] + box.max[2]) / 2,
-			});
+			};
+			// The tile's 4 true corners (a rotated rectangle when yaw != 0)
+			// -- used for the canvas extent, the outline, and the label.
+			tile.corners = [[0, 0], [256, 0], [256, 256], [0, 256]].map(([dxi, dyi]) => forwardBigPoint(tile, dxi, dyi));
+			tile.x1 = Math.max(...tile.corners.map(c => c[0]));
+			tile.x2 = Math.min(...tile.corners.map(c => c[0]));
+			tile.y1 = Math.max(...tile.corners.map(c => c[1]));
+			tile.y2 = Math.min(...tile.corners.map(c => c[1]));
+			mapTiles.push(tile);
 		}
 	}
 
@@ -327,8 +374,9 @@ async function main() {
 	const H = Math.ceil((maxY - minY) * PPU) + PAD * 2;
 	console.log(`canvas ${W}x${H}`);
 
+	const [bgR, bgG, bgB] = opts.bg;
 	const png = new PNG({ width: W, height: H });
-	for (let i = 0; i < png.data.length; i += 4) { png.data[i] = 20; png.data[i + 1] = 20; png.data[i + 2] = 20; png.data[i + 3] = 255; }
+	for (let i = 0; i < png.data.length; i += 4) { png.data[i] = bgR; png.data[i + 1] = bgG; png.data[i + 2] = bgB; png.data[i + 3] = 255; }
 
 	function bigToPixel(bx, by) {
 		return [(maxX - bx) * PPU + PAD, (maxY - by) * PPU + PAD];
@@ -348,6 +396,13 @@ async function main() {
 	function drawNumber(x0, y0, n, scale, r, g, b) {
 		const s = String(n);
 		for (let i = 0; i < s.length; i++) drawDigit(x0 + i * (3 * scale + scale), y0, parseInt(s[i], 10), scale, r, g, b);
+	}
+	function drawLine(x0, y0, x1, y1, r, g, b) {
+		const steps = Math.max(1, Math.round(Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0))));
+		for (let i = 0; i <= steps; i++) {
+			const t = i / steps;
+			setPx(Math.round(x0 + (x1 - x0) * t), Math.round(y0 + (y1 - y0) * t), r, g, b);
+		}
 	}
 
 	// Real ADT terrain first, as a backdrop -- no rotation, no alpha (opaque
@@ -378,44 +433,63 @@ async function main() {
 	for (const t of paintOrder) {
 		const raw = loadBlpImage(t.filePath);
 		const cell = toNativeCell(raw);
-		t.rawW = raw.width; t.rawH = raw.height;
 
-		// bigToPixel is monotonically decreasing in (bx,by), and x1/y1 are
-		// each corner's own MAX big-coordinate -- so this is already the
-		// pixel-space top-left corner, no min() needed.
-		const [left0, top0] = bigToPixel(t.x1, t.y1);
-		const left = Math.round(left0), top = Math.round(top0);
+		// Pixel-space bounding rect of the tile's own (possibly rotated)
+		// quad, from its 4 real corners -- iterate only this, not the whole
+		// canvas.
+		const pixCorners = t.corners.map(([bx, by]) => bigToPixel(bx, by));
+		const left = Math.max(0, Math.floor(Math.min(...pixCorners.map(c => c[0]))));
+		const right = Math.min(W - 1, Math.ceil(Math.max(...pixCorners.map(c => c[0]))));
+		const top = Math.max(0, Math.floor(Math.min(...pixCorners.map(c => c[1]))));
+		const bottom = Math.min(H - 1, Math.ceil(Math.max(...pixCorners.map(c => c[1]))));
 
-		// 90-degree CW content rotation (matches TWM_WMOOverlay_EnsureTextures'
-		// SetTexCoord(0,1, 1,1, 0,0, 1,0)) against the assembled native cell.
-		for (let dyi = 0; dyi < 256; dyi++) for (let dxi = 0; dxi < 256; dxi++) {
-			const sx = dyi, sy = 255 - dxi;
-			const si = (sy * 256 + sx) * 4;
-			const a = cell[si + 3] / 255;
-			if (a <= 0) continue;
-			const dx = left + dxi, dy = top + dyi;
-			if (dx < 0 || dx >= W || dy < 0 || dy >= H) continue;
-			const di = (dy * W + dx) * 4;
-			png.data[di] = cell[si] * a + png.data[di] * (1 - a);
-			png.data[di + 1] = cell[si + 1] * a + png.data[di + 1] * (1 - a);
-			png.data[di + 2] = cell[si + 2] * a + png.data[di + 2] * (1 - a);
-			png.data[di + 3] = 255;
+		// Inverse mapping (canvas pixel -> native content-rotated pixel) --
+		// required once yaw can be non-zero: forward-scattering single
+		// source pixels into a rotated destination leaves gaps at any angle
+		// that isn't a multiple of 90 degrees.
+		for (let py = top; py <= bottom; py++) {
+			for (let px = left; px <= right; px++) {
+				const bigX = maxX - (px - PAD) / PPU, bigY = maxY - (py - PAD) / PPU;
+				const [dxiF, dyiF] = inverseDxiDyi(t, bigX, bigY);
+				if (dxiF < 0 || dxiF >= 256 || dyiF < 0 || dyiF >= 256) continue;
+				// Matches TWM_WMOOverlay_EnsureTextures' content rotation
+				// (SetTexCoord(0,1, 1,1, 0,0, 1,0)): native(sx,sy) <- (dyi, 255-dxi).
+				// Both clamped on BOTH ends: dxiF/dyiF are checked < 256 above,
+				// but e.g. dxiF=255.6 still rounds to 256, and 255-256=-1 --
+				// an unclamped negative sy silently read as NaN alpha (NaN<=0
+				// is false, so it wasn't skipped) and wrote a stray black
+				// pixel, tracing a straight line (dxiF's own 255.5 boundary,
+				// identical across every tile sharing this rotation) across
+				// the whole canvas.
+				const sx = Math.max(0, Math.min(255, Math.round(dyiF)));
+				const sy = Math.max(0, Math.min(255, 255 - Math.round(dxiF)));
+				const si = (sy * 256 + sx) * 4;
+				const a = cell[si + 3] / 255;
+				if (a <= 0) continue;
+				const di = (py * W + px) * 4;
+				png.data[di] = cell[si] * a + png.data[di] * (1 - a);
+				png.data[di + 1] = cell[si + 1] * a + png.data[di + 1] * (1 - a);
+				png.data[di + 2] = cell[si + 2] * a + png.data[di + 2] * (1 - a);
+				png.data[di + 3] = 255;
+			}
 		}
 	}
 
-	// Thin per-group outline (real image footprint, top-left anchored) + a
-	// number label -- the rotation swaps which raw dimension becomes the
-	// canvas width vs height (see toNativeCell's left+bottom anchor: tracing
-	// dest(dxi,dyi) <- native(dyi, 255-dxi) shows canvas width = rawH,
-	// canvas height = rawW).
-	for (const t of paintOrder) {
-		const [px0, py0] = bigToPixel(t.x1, t.y1);
-		const left = Math.round(px0), top = Math.round(py0);
-		const right = left + t.rawH - 1, bottom = top + t.rawW - 1;
-		const [cr, cg, cb] = groupColor(t.groupNum);
-		for (let x = left; x <= right; x++) { setPx(x, top, cr, cg, cb); setPx(x, bottom, cr, cg, cb); }
-		for (let y = top; y <= bottom; y++) { setPx(left, y, cr, cg, cb); setPx(right, y, cr, cg, cb); }
-		drawNumber(left + 2, top + 2, t.groupNum, 2, 255, 255, 0);
+	// Thin per-group outline (the tile's real, possibly-rotated quad, not
+	// its axis-aligned bounding box) + a number label at its first corner.
+	// Skippable (--no-outlines) -- with dozens of overlapping groups (a real
+	// dungeon interior, e.g. Shadowfang's 73), the outlines alone can hide
+	// the actual content they're meant to help read.
+	if (!opts.noOutlines) {
+		for (const t of paintOrder) {
+			const pixCorners = t.corners.map(([bx, by]) => bigToPixel(bx, by));
+			const [cr, cg, cb] = groupColor(t.groupNum);
+			for (let i = 0; i < 4; i++) {
+				const [x0, y0] = pixCorners[i], [x1, y1] = pixCorners[(i + 1) % 4];
+				drawLine(x0, y0, x1, y1, cr, cg, cb);
+			}
+			drawNumber(Math.round(pixCorners[0][0]) + 2, Math.round(pixCorners[0][1]) + 2, t.groupNum, 2, 255, 255, 0);
+		}
 	}
 
 	fs.writeFileSync(opts.out, PNG.sync.write(png));
