@@ -413,13 +413,17 @@ placements only), current/correct state:
    `C3Vector` (NOT the same axis order as `MODF.position`/`rotation`, which are
    `(X,height,Y)` — index 1 is the real horizontal Y, index 2 is height).
    `blockX`/`blockY` read directly against `box[0]`/`box[1]`, no swap.
-2. Y-flip: compute `globalMaxLocalY = max(local.Y_raw + 128)` across **every
-   tile of every group in the placement combined**, then
-   `local.Y = (globalMaxLocalY - 128) - local.Y_raw`. Must be ONE shared value
-   for the whole placement, never per-group — a per-group max can be
-   numerically identical between groups (block counts coincide) while still
-   being anchored to a different absolute point per group, silently breaking
-   their relative alignment even though within-group adjacency looks fine.
+2. Y-flip: compute `trueGlobalMinY`/`trueGlobalMaxY` — the min/max of every
+   GROUP's own real `box.min[1]`/`box.max[1]` used by this placement (group-
+   level, continuous geometry, NOT block-quantized, NOT per-tile), then
+   `local.Y = (trueGlobalMinY + trueGlobalMaxY) - local.Y_raw - 128`. Must be
+   ONE shared value for the whole placement, never per-group — a per-group
+   reference can be numerically identical between groups (block counts
+   coincide) while still being anchored to a different absolute point per
+   group, silently breaking their relative alignment even though within-group
+   adjacency looks fine. Must also be the group's TRUE bbox edge, not a
+   block-quantized one — see step 4 for why that distinction is itself worth
+   ~14 units of real, measured error.
 3. 90°-CW orientation fix: Blizzard's own WMO-group minimap baking pipeline
    is rotated 90° from world axes (a real, fixed property — also true for
    WMO dungeon interiors, see the entry above). Apply
@@ -428,32 +432,53 @@ placements only), current/correct state:
    (tried both a computed centroid and the placement's real anchor; both
    worked but are unnecessary, since rotating `local` directly is provably
    identical and needs no runtime pivot at all).
-4. **Re-anchor the Y-flip onto the placement's own true range, not the
-   canvas's implicit zero.** Step 2's flip formula is a faithful, verbatim
-   port of wow.export's real `compute_minimap_layout()` — confirmed by
-   reading its actual GitHub source, not a paraphrase. But that function
-   builds a `canvas_y` PIXEL coordinate, valid only for arranging tiles
-   relative to EACH OTHER on a composited image — wow.export's own,
-   separate `build_world_meta()` (the actual real-world-position function)
-   does NOT use `canvas_y` at all; it reads the raw, unflipped value
-   directly (`world = -model`). Treating `canvas_y` as if it were a real
-   local coordinate re-anchors the whole placement onto the canvas's own
-   arbitrary zero — a bug invisible to every relative/adjacency check
-   (confirmed against wow.export, confirmed gapless) since it shifts
-   everything by the same amount, and only showing up against independent
-   ground truth: Orgrimmar Arena's WMO overlay, compared pixel-for-pixel
-   against its own real ADT-baked minimap tile (which draws the identical
-   building), sat next to it rather than on top of it — a large, pure,
-   single-axis offset. Fixed by adding back `trueMinLocalY` (the true
-   minimum raw local Y across every tile of every group in the placement)
-   to step 2's result. This is one GLOBAL constant added equally to every
-   tile, so it cannot change any already-verified relative arrangement
-   (Dalaran's own ~21.575-unit group-to-group offset, matching wow.export's
-   real output, is unaffected by construction — adding the same number to
-   both groups doesn't change their difference) — it only corrects the
-   assembly's absolute position. Verified by re-rendering the Orgrimmar
-   overlay-vs-real-ADT-tile comparison: the WMO overlay now sits almost
-   exactly on the real building (previously it barely touched it).
+4. **Two rounds of re-anchoring were needed to get step 2 onto the
+   placement's own true range, not an implicit zero or a quantized
+   approximation of it** — both invisible to every relative/adjacency
+   check, only found via one arena's rare independent ground truth
+   (Orgrimmar Arena also has real ADT-baked outdoor minimap tiles for the
+   SAME building its WMO overlay draws — a pixel-for-pixel comparison
+   between the two was the only thing that surfaced either bug):
+   - **Round 1**: step 2's flip started as a faithful, verbatim port of
+     wow.export's real `compute_minimap_layout()` (confirmed by reading its
+     actual GitHub source, not a paraphrase) — `local.Y = (globalMaxLocalY
+     - 128) - local.Y_raw`, where `globalMaxLocalY = max(local.Y_raw+128)`
+     across every tile. But that function builds a `canvas_y` PIXEL
+     coordinate, valid only for arranging tiles relative to EACH OTHER on a
+     composited image — wow.export's own, separate `build_world_meta()`
+     (the actual real-world-position function) does NOT use `canvas_y` at
+     all; it reads the raw, unflipped value directly (`world = -model`).
+     Treating `canvas_y` as if it were a real local coordinate re-anchors
+     the whole placement onto the canvas's own arbitrary zero — confirmed
+     as a real, large (~160-unit), single-axis offset against Orgrimmar's
+     real minimap tile. First fix: add back `trueMinLocalY` (the minimum
+     RAW, still block-quantized, local Y across the placement) — reduced
+     the error to ~14-40 units (measurement-method-dependent), a big
+     improvement but not zero.
+   - **Round 2**: that remaining ~14 units turned out to be a second,
+     smaller instance of the exact same mistake, one level down —
+     `globalMaxLocalY`/`trueMinLocalY` are both built from block-quantized
+     `local.Y_raw` values (`box.min[1] + blockY*128`), not the group's own
+     TRUE, continuous bbox edge. A group's real geometry need not exactly
+     fill a whole number of 128-unit blocks (Orgrimmar's own group spans
+     241.6 real units of Y but reads as 2 full blocks = 256 units — a
+     14.4-unit slack). wow.export's own `max_y` inherits this same slack
+     (its `build_world_meta` uses the SAME block-quantized `max_y` from
+     `compute_minimap_layout`, so wow.export never has to notice), but this
+     addon has ground truth wow.export doesn't — so it doesn't have to
+     inherit wow.export's imprecision here. Fixed by using each involved
+     GROUP's own real `box.min[1]`/`box.max[1]` (not per-tile, not block-
+     quantized) for the shared reference — see step 2's final form.
+   Both rounds are one GLOBAL constant/reference shared across the whole
+   placement, so neither could ever disturb Dalaran's already-verified
+   ~21.575-unit group-to-group offset (confirmed numerically, exactly
+   preserved, after each round, before shipping either). Verified after
+   round 2 by re-rendering the Orgrimmar overlay-vs-real-ADT-tile
+   comparison and measuring the gap directly (color-thresholded pixel
+   scan across 5 rows, not eyeballed): ~14 units before round 2, ~3-5
+   units after (down at the noise floor of the measurement method itself)
+   — visually, the WMO overlay now fully covers the real building with no
+   visible gap anywhere.
 5. `World = MODF.position + local` (plain addition). NOT subtraction —
    wow.export's own source comment "for a global wmo at the wdt origin,
    model->world is a straight negate" describes a different special case (a

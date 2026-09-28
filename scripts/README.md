@@ -622,22 +622,35 @@ that). This script finds WMO placements and their tiles directly — no
 - `local.Y` gets a flip shared across the WHOLE placement (not per group —
   see gotchas.md for why that distinction matters): `local.Y_raw =
   bbox.minY + blockY*128` for every tile of every group in the placement,
-  `globalMaxLocalY = max(local.Y_raw + 128)` across all of them combined,
-  then `local.Y = (globalMaxLocalY - 128 - local.Y_raw) + trueMinLocalY`,
-  where `trueMinLocalY = min(local.Y_raw)` across the same combined set.
-  That last `+ trueMinLocalY` matters: the flip itself is a faithful port
-  of wow.export's real `compute_minimap_layout()`, but that function builds
-  a presentation-only CANVAS coordinate (valid for arranging tiles relative
-  to each other, not as a real local coordinate) — without re-anchoring it
-  onto the placement's own true range, the whole assembly silently lands on
-  the canvas's own arbitrary zero instead of its real position. Since it's
-  one constant added equally to every tile, it can't disturb the
-  already-verified relative arrangement between groups (confirmed: Dalaran's
-  own ~21.575-unit group-to-group offset is unchanged by it) — it only
-  fixes the absolute position, confirmed by comparing Orgrimmar Arena's WMO
-  overlay directly, pixel-for-pixel, against its own real ADT-baked tile of
-  the identical building (previously offset by ~160 units on one axis,
-  matching perfectly after this fix).
+  `trueGlobalMinY`/`trueGlobalMaxY` = the min/max of every involved GROUP's
+  own real `box.min[1]`/`box.max[1]` (group-level, continuous geometry —
+  NOT block-quantized, NOT per-tile), then `local.Y = (trueGlobalMinY +
+  trueGlobalMaxY) - local.Y_raw - 128`.
+  This exact form took two rounds to get right, both invisible to every
+  relative/adjacency check and only found via Orgrimmar Arena's rare
+  independent ground truth (it also has real ADT-baked outdoor minimap
+  tiles for the SAME building its WMO overlay draws, so the two can be
+  compared pixel-for-pixel — most arenas have no such check available).
+  Round 1: the flip started as a faithful port of wow.export's real
+  `compute_minimap_layout()`, but that function builds a presentation-only
+  CANVAS coordinate (valid for arranging tiles relative to each other, not
+  as a real local coordinate) — using it unmodified re-anchors the whole
+  placement onto the canvas's own arbitrary zero (confirmed: ~160 units off
+  against Orgrimmar's real tile). Round 2: even after re-anchoring onto the
+  placement's own minimum, that minimum was still built from block-
+  quantized `local.Y_raw` values, not the group's true bbox edge — a
+  group's real geometry need not exactly fill a whole number of 128-unit
+  blocks (Orgrimmar's own group spans 241.6 real units but reads as 2 full
+  blocks = 256, a 14.4-unit slack; wow.export's own `build_world_meta`
+  inherits the same slack from its own `max_y`, so wow.export never has to
+  notice — but this addon has ground truth wow.export doesn't). Both
+  rounds are one GLOBAL reference shared across the whole placement, so
+  neither could disturb the already-verified relative arrangement between
+  groups (confirmed: Dalaran's own ~21.575-unit group-to-group offset is
+  exactly unchanged by either). Final residual after both fixes, measured
+  against Orgrimmar's real tile (color-thresholded pixel scan, not
+  eyeballed): ~3-5 units — down from ~160, and visually a full, gapless
+  overlap.
 - Local coordinates then get a fixed 90°-clockwise rotation —
   `(local.X, local.Y) -> (-local.Y, local.X)` — correcting for a real
   property of Blizzard's own WMO-minimap-tile baking convention (also true

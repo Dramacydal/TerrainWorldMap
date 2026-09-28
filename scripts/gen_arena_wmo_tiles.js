@@ -306,39 +306,42 @@ async function main() {
 			}).filter(Boolean);
 			if (rawTiles.length === 0) continue;
 
-			const globalMaxLocalY = Math.max(...rawTiles.map(rt => rt.localY1raw + TILE_UNITS));
-			// wow.export's own real compute_minimap_layout() computes this
-			// same flip (`canvas_y = (max_y-256) - absY`, adapted above to
-			// model units as `globalMaxLocalY-128-localY_raw`) -- but that
-			// function builds a CANVAS/PIXEL coordinate, valid only for
-			// arranging tiles relative to EACH OTHER on a composited image.
-			// wow.export's OWN separate world-position function,
-			// build_world_meta(), does NOT use canvas_y at all -- it reads
-			// the raw, UNFLIPPED absY directly (`world = -model`). Verified
-			// by reading wow.export's real source directly (git clone,
-			// src/js/wmo-minimap.js): using canvas_y as if it were a real
-			// local-model coordinate re-centers the WHOLE placement onto a
-			// wrong absolute reference (the canvas's own 0-based frame)
-			// while still preserving correct RELATIVE tile-to-tile
-			// arrangement -- exactly the kind of bug invisible to every
-			// adjacency check, only showing up against real ground truth
-			// (confirmed live: Orgrimmar's WMO overlay sat next to, not on
-			// top of, its own real ADT-baked minimap tile -- pure
-			// horizontal offset, matching this axis exactly).
-			// Fixed by re-anchoring canvas_y back onto the placement's own
-			// TRUE combined range (adding back its own true minimum,
-			// `trueMinLocalY`) instead of the canvas's arbitrary zero.
-			// This is a single GLOBAL constant added equally to every tile
-			// of every group, so it cannot change any already-verified
-			// relative arrangement (Dalaran's own group-to-group offset,
-			// ~21.575 units, matching wow.export's real output, is
-			// unaffected by construction) -- it only corrects the
-			// assembly's absolute position.
-			const trueMinLocalY = Math.min(...rawTiles.map(rt => rt.localY1raw));
+			// wow.export's own real compute_minimap_layout() computes a
+			// Y-flip using `max_y = max(absY + 256)` -- i.e. the largest
+			// BLOCK-quantized edge, not the group's own true (continuous)
+			// bounding-box edge. That's fine for wow.export's own purpose
+			// (arranging blocks on a canvas, and its own build_world_meta
+			// world-position sidecar inherits the same quantization, so it
+			// never has to matter to them) -- but a group's real geometry
+			// need not exactly fill a whole number of 128-unit blocks (e.g.
+			// Orgrimmar's own group spans 241.6 units of real Y but reads
+			// as 2 full blocks = 256 units, a 14.4-unit slack), so blindly
+			// reusing the block-quantized max re-anchors the WHOLE result
+			// with that same slack baked in as a constant absolute error.
+			// This addon, unlike wow.export, HAS independent ground truth
+			// to check against for one arena (Orgrimmar also has real
+			// ADT-baked outdoor minimap tiles for the same building) -- a
+			// pixel-for-pixel comparison against that confirmed this exact
+			// slack as a real, measurable offset (Orgrimmar's WMO overlay
+			// sat consistently ~14 units off from its own real minimap
+			// tile, unoccluded-edge-measured across 5 rows). Fixed by
+			// reflecting around the group geometry's OWN true combined
+			// range instead of the block-quantized one: `trueGlobalMinY`/
+			// `trueGlobalMaxY` are the min/max of every GROUP's own real
+			// bbox Y bounds used by this placement (not per-tile, not
+			// block-quantized). This is still ONE shared reference for the
+			// whole placement (never per-group -- a per-group reference is
+			// the earlier, already-reverted mistake, see gotchas.md), so it
+			// cannot change any already-verified relative arrangement
+			// (Dalaran's own ~21.575-unit group-to-group offset is
+			// unaffected by construction, confirmed numerically before
+			// shipping this).
+			const trueGlobalMinY = Math.min(...Object.values(groupBoxes).map(b => Math.min(b.min[1], b.max[1])));
+			const trueGlobalMaxY = Math.max(...Object.values(groupBoxes).map(b => Math.max(b.min[1], b.max[1])));
 
 			for (const { t, box, localX1, localY1raw } of rawTiles) {
 				const localX2 = localX1 + TILE_UNITS;
-				const localY1 = (globalMaxLocalY - TILE_UNITS - localY1raw) + trueMinLocalY;
+				const localY1 = (trueGlobalMinY + trueGlobalMaxY) - localY1raw - TILE_UNITS;
 				const localY2 = localY1 + TILE_UNITS;
 
 				// Blizzard's own WMO-group minimap baking pipeline has a
