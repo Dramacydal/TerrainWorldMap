@@ -50,6 +50,58 @@ Twm_poi_areas["NetherstormBG"] = {
     {3872, "Fel Reaver Ruins", 1783.33, 2050.00},
     {3869, "Mage Tower", 1766.67, 2266.67},
 }
+Twm_poi_areas["NorthrendBG"] = {
+    {4609, "Courtyard of the Ancients", -105.86, 894.59},
+    {4605, "Gate of the Blue Sapphire", -215.00, 1445.00},
+    {4606, "Gate of the Green Emerald", 110.42, 1422.92},
+    {4607, "Gate of the Purple Amethyst", 81.37, 1222.55},
+    {4604, "Gate of the Red Sun", -221.11, 1232.22},
+    {4608, "Gate of the Yellow Moon", -124.36, 1065.38},
+    {4610, "Landing Beach", -27.69, 1577.15},
+}
+Twm_poi_areas["IsleofConquest"] = {
+    {4753, "Alliance Keep", -827.33, 324.22},
+    {4749, "Docks", -300.00, 783.33},
+    {4750, "Hangar", -1133.33, 700.00},
+    {4752, "Horde Keep", -766.67, 1233.33},
+    {4741, "Isle of Conquest No Man's Land", -2358.45, 734.87},
+    {4748, "Quarry", -1165.46, 248.07},
+    {4751, "Refinery", -439.71, 1316.18},
+    {4747, "Workshop", -733.33, 783.33},
+}
+Twm_poi_areas["CataclysmCTF"] = {
+    {5775, "Dragonmaw Stronghold", 302.05, 1636.76},
+    {5776, "Wildhammer Stronghold", 297.95, 2096.12},
+}
+Twm_poi_areas["STV_Mine_BG"] = {
+    {6126, "Silvershard Mines", 266.67, 800.00},
+}
+Twm_poi_areas["Gilneas_BG_2"] = {
+    {5683, "Beneath The Double Rainbow", 833.33, 900.00},
+    {5468, "Gilnean Coast", 1016.94, 1126.86},
+    {5454, "Gilnean Stronghold", 1376.67, 887.33},
+    {5453, "Horde Landing", 942.91, 1441.49},
+    {5450, "Lighthouse", 1266.67, 1016.67},
+    {5452, "Mines", 952.78, 1247.22},
+    {5457, "The Overlook", 1122.73, 1134.85},
+    {5451, "Waterworks", 967.46, 946.83},
+}
+Twm_poi_areas["EyeoftheStorm2.0"] = {
+    {5800, "Blood Elf Tower", 1400.00, 2066.67},
+    {5802, "Draenei Ruins", 1366.67, 2300.00},
+    {5803, "Fel Reaver Ruins", 1750.00, 2066.67},
+    {5804, "Mage Tower", 1750.00, 2300.00},
+}
+Twm_poi_areas["ValleyOfPower"] = {
+    {6061, "Temple of Kotmogu", 1166.67, 1783.33},
+    {6136, "Temple of Kotmogu", 1483.33, 1783.33},
+}
+Twm_poi_areas["GoldRushBG"] = {
+    {6736, "Deepwind Gorge", 483.83, 114.60},
+    {6737, "Deepwind Gorge", 622.95, -337.73},
+    {6753, "Deepwind Gorge", 813.64, -71.21},
+    {6754, "Deepwind Gorge", 167.95, -255.13},
+}
 Twm_poi_areas["WintergraspEpic"] = {
     {14299, "Central Bridge", 2847.78, 4617.78},
     {14287, "Dragonblight", 1916.67, 3883.33},

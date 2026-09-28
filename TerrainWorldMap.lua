@@ -212,11 +212,13 @@ function TWM_EnsureTileDebugBorder(vf, tex, color)
 end
 
 function TWM_HideTileDebugBorder(tex)
-    if(not tex.debugBorder) then return; end
-    tex.debugBorder.top:Hide();
-    tex.debugBorder.bottom:Hide();
-    tex.debugBorder.left:Hide();
-    tex.debugBorder.right:Hide();
+    if(tex.debugBorder) then
+        tex.debugBorder.top:Hide();
+        tex.debugBorder.bottom:Hide();
+        tex.debugBorder.left:Hide();
+        tex.debugBorder.right:Hide();
+    end
+    TWM_HideWMODebugCorners(tex);
 end
 
 function TWM_ShowTileDebugBorder(border)
@@ -224,6 +226,64 @@ function TWM_ShowTileDebugBorder(border)
     border.bottom:Show();
     border.left:Show();
     border.right:Show();
+end
+
+-- A WMO tile's own 4 real (possibly yawed) corners, drawn via Line
+-- (point-to-point, arbitrary angle -- see FlightPaths.lua's own use of
+-- Frame:CreateLine for the same reason) instead of the 4-strip Texture
+-- border above, which only auto-tracks an axis-aligned rect. Deliberately
+-- NOT re-deriving the corners from cx/cy/width/height/yawDeg here -- the
+-- data already carries the real corners (gen_wmo_tiles.js) precisely so
+-- this debug view doesn't depend on the same rotation math it exists to
+-- double-check.
+function TWM_EnsureWMODebugCorners(vf, tex, color)
+    color = color or TWM_TILE_DEBUG_BORDER_YELLOW;
+    if(not tex.debugCorners) then
+        local lines = {};
+        for i = 1, 4 do
+            -- OVERLAY sublevel 7 -- reserved exclusively for these lines;
+            -- tile textures below are clamped to sublevel 6 at most (see
+            -- TWM_WMOOverlay_Update) specifically so nothing else ever
+            -- shares this sublevel. (HIGHLIGHT was tried here instead of a
+            -- reserved sublevel, but HIGHLIGHT only renders while the frame
+            -- is moused over -- wrong layer for this.)
+            lines[i] = vf:CreateLine(nil, "OVERLAY", nil, 7);
+            lines[i]:SetThickness(TWM_TILE_DEBUG_BORDER_PX);
+        end
+        tex.debugCorners = lines;
+    end
+    for _, line in ipairs(tex.debugCorners) do
+        line:SetColorTexture(color[1], color[2], color[3], 1);
+    end
+    return tex.debugCorners;
+end
+
+function TWM_HideWMODebugCorners(tex)
+    if(not tex.debugCorners) then return; end
+    for _, line in ipairs(tex.debugCorners) do
+        line:Hide();
+    end
+end
+
+-- corners = {bigX1,bigY1, bigX2,bigY2, bigX3,bigY3, bigX4,bigY4} (Big
+-- coordinates, already in the tile's own real corner order -- consecutive
+-- pairs are adjacent corners, so edges are 1-2, 2-3, 3-4, 4-1). Shows each
+-- line itself -- no separate TWM_ShowWMODebugCorners needed.
+function TWM_PositionWMODebugCorners(lines, vf, corners, Lx, Ly, z)
+    local pts = {};
+    for i = 1, 4 do
+        local bx, by = corners[i * 2 - 1], corners[i * 2];
+        local mx, my = TWM_Big2Mini_Coord(bx, by);
+        pts[i] = { (mx - Lx) * z, (Ly - my) * z };
+    end
+    for i = 1, 4 do
+        local a, b = pts[i], pts[i % 4 + 1];
+        local line = lines[i];
+        line:ClearAllPoints();
+        line:SetStartPoint("TOPLEFT", vf, a[1], a[2]);
+        line:SetEndPoint("TOPLEFT", vf, b[1], b[2]);
+        line:Show();
+    end
 end
 
 -- Whether a map tile has real terrain, per this client's own WDT data
@@ -402,38 +462,71 @@ function TWM_WMOOverlay_Update(frame)
 
     for i, tile in ipairs(tiles) do
         local tex = textures[i];
-        local height = tile[6];
+        local zval = tile[7];
 
-        if(cutoff and height and height > cutoff + TWM_WMO_OVERLAY_HEIGHT_EPSILON) then
+        if(cutoff and zval and zval > cutoff + TWM_WMO_OVERLAY_HEIGHT_EPSILON) then
             tex:Hide();
             TWM_HideTileDebugBorder(tex);
         else
-            local fileID, bx1, bx2, by1, by2 = tile[1], tile[2], tile[3], tile[4], tile[5];
-            local mx1, my1 = TWM_Big2Mini_Coord(bx1, by1);
-            local mx2, my2 = TWM_Big2Mini_Coord(bx2, by2);
-
-            local left, right = math.min(mx1, mx2), math.max(mx1, mx2);
-            local top, bottom = math.min(my1, my2), math.max(my1, my2);
+            -- {fileID, cx, cy, width, height, yawDeg, z} -- see
+            -- scripts/gen_wmo_tiles.js's header for the tuple shape and the
+            -- yawDeg sign derivation. width/height are the tile's true
+            -- on-screen (map-space) footprint, i.e. the RAW BLP's own
+            -- width/height converted to map units (unswapped -- confirmed by
+            -- construction: each is a hypot between two corners differing in
+            -- only one local axis, and rotation preserves that magnitude
+            -- regardless of yaw).
+            local fileID, cx, cy, w, h, yawDeg = tile[1], tile[2], tile[3], tile[4], tile[5], tile[6];
+            local mx, my = TWM_Big2Mini_Coord(cx, cy);
+            local mw, mh = w/MINI2BIGX, h/MINI2BIGY;
+            -- TWM_WMOOverlay_EnsureTextures' fixed SetTexCoord(0,1, 1,1,
+            -- 0,0, 1,0) doesn't just rotate the displayed content 90 degrees
+            -- -- it also TRANSPOSES which frame axis samples which raw-image
+            -- axis (frame width <- raw image's own HEIGHT/V axis, frame
+            -- height <- raw image's own WIDTH/U axis). Invisible for years
+            -- because every tile used to be a full, always-square 256x256
+            -- block (mw == mh); the first non-square (real BLP-cropped) tile
+            -- -- Tol'Viron Arena's bridge -- is what exposed it: the
+            -- Line-based debug border (built straight from world-space
+            -- corners, untouched by this) matched, but the actual texture
+            -- content was stretched into the wrong (unswapped) box. Swap
+            -- here to match SetTexCoord's own transpose.
+            mw, mh = mh, mw;
 
             -- Explicit sublevel from this tile's rank in the (ascending-
             -- height-sorted) list -- the reliable way to stack a higher
             -- tile above a lower one; see this function's header comment
             -- for why relying on draw/creation order alone doesn't work.
-            -- Sublevel range is only [-8,7] (16 steps); real maps have
-            -- far fewer tiles than that, so clamping is just a safety net.
-            tex:SetDrawLayer("OVERLAY", math.max(-8, math.min(7, i - 9)));
+            -- Capped at 6, not 7 -- sublevel 7 is reserved for the debug
+            -- border lines (TWM_EnsureWMODebugCorners), so they always draw
+            -- above every tile regardless of tile count or draw order.
+            tex:SetDrawLayer("OVERLAY", math.max(-8, math.min(6, i - 9)));
             tex:SetTexture(fileID);
             tex:ClearAllPoints();
-            tex:SetPoint("TOPLEFT", vf, "TOPLEFT", (left-Lx)*z, (Ly-top)*z);
-            tex:SetWidth((right-left)*z);
-            tex:SetHeight((bottom-top)*z);
+            tex:SetPoint("CENTER", vf, "TOPLEFT", (mx-Lx)*z, (Ly-my)*z);
+            tex:SetWidth(mw*z);
+            tex:SetHeight(mh*z);
+            -- Negated relative to yawDeg: the mini->screen Y conversion
+            -- ((Ly-my)*z, the only asymmetric/reflecting step in the whole
+            -- Big->screen chain) inverts the direction of any further
+            -- rotation applied after it. yawDeg was already negated once so
+            -- the tile's CORNERS (computed before that reflection, then
+            -- carried through it) land in the right place; SetRotation
+            -- rotates the texture directly in already-reflected screen
+            -- space, so it needs the opposite sign to end up matching those
+            -- same corners.
+            tex:SetRotation(math.rad(-(yawDeg or 0)), {x = 0.5, y = 0.5});
             tex:Show();
 
             if(TWM_DebugTiles) then
+                -- Drawn from the tile's own real corners (tile[8..15]),
+                -- independent of the SetPoint/SetRotation call above -- see
+                -- TWM_PositionWMODebugCorners' own header for why.
                 local color = TWM_WMO_DEBUG_COLOR_POOL[((i - 1) % #TWM_WMO_DEBUG_COLOR_POOL) + 1];
-                TWM_ShowTileDebugBorder(TWM_EnsureTileDebugBorder(vf, tex, color));
+                local lines = TWM_EnsureWMODebugCorners(vf, tex, color);
+                TWM_PositionWMODebugCorners(lines, vf, { tile[8], tile[9], tile[10], tile[11], tile[12], tile[13], tile[14], tile[15] }, Lx, Ly, z);
             else
-                TWM_HideTileDebugBorder(tex);
+                TWM_HideWMODebugCorners(tex);
             end
         end
     end

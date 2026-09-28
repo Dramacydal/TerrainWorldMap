@@ -202,6 +202,17 @@ function inverseDxiDyi(t, bigX, bigY) {
 	return [dxi, dyi];
 }
 
+// Big-space point for an arbitrary (rotLocalX, rotLocalY) pair -- the same
+// rotate+translate+Big-convert tail as forwardBigPoint, factored out so real
+// (possibly-cropped) tile corners can be computed directly, gen_wmo_tiles.js
+// style, instead of only via the fixed-256-native-cell parameterization.
+function toBigPoint(t, rotLocalX, rotLocalY) {
+	const finalLocalX = rotLocalX * t.cosT - rotLocalY * t.sinT;
+	const finalLocalY = rotLocalX * t.sinT + rotLocalY * t.cosT;
+	const worldX = t.posX + finalLocalX, worldY = t.posZ + finalLocalY;
+	return [MAP_ORIGIN - worldX, MAP_ORIGIN - worldY];
+}
+
 function groupColor(g) {
 	const hue = (g * 47) % 360;
 	const h = hue / 60, x = 1 - Math.abs(h % 2 - 1);
@@ -264,10 +275,18 @@ async function main() {
 		source = 'WDT-level MODF (pure WMO map)';
 	}
 	if (placements.length === 0) {
-		console.error(`${mapName}: no MODF placement found (neither per-ADT nor WDT-level)`);
-		process.exit(1);
+		// Not fatal with --with-adt-tiles -- a map with no WMO minimap-tile
+		// placement at all (ordinary open-world/battleground terrain, no
+		// WMO overlay feature involved) can still be previewed from just
+		// its real outdoor ADT minimap tiles below.
+		if (opts.withAdtTiles) console.error(`${mapName}: no MODF placement found (neither per-ADT nor WDT-level) -- rendering outdoor ADT tiles only`);
+		else {
+			console.error(`${mapName}: no MODF placement found (neither per-ADT nor WDT-level)`);
+			process.exit(1);
+		}
+	} else {
+		console.log(`${mapName}: ${placements.length} placement(s) via ${source}`);
 	}
-	console.log(`${mapName}: ${placements.length} placement(s) via ${source}`);
 
 	// Resolve each placement's nameId to a WMO path, one listfile pass.
 	const wantedNameIds = new Set(placements.map(p => p.nameId));
@@ -333,19 +352,42 @@ async function main() {
 		for (const t of tiles) {
 			const box = groupBoxes[t.groupNum];
 			if (!box) continue;
+			const filePath = path.join(minimapDir, t.file);
+			const raw = loadBlpImage(filePath); // loaded once, reused for painting below
+
 			const localX1 = Math.min(box.min[0], box.max[0]) + t.blockX * TILE_UNITS;
 			const localY1raw = Math.min(box.min[1], box.max[1]) + t.blockY * TILE_UNITS;
+			// Rendering anchor -- deliberately UNCHANGED (full nominal 128-unit
+			// box, gen_wmo_tiles.js's pre-crop-fix formula). forwardBigPoint/
+			// inverseDxiDyi map the whole fixed 256x256 native cell (real
+			// content left+bottom-anchored inside it by toNativeCell, alpha=0
+			// elsewhere) to this same full box, so pixel painting is already
+			// correct regardless of crop -- no stretch happens here, unlike
+			// TerrainWorldMap.lua's tex:SetWidth/SetHeight, so this anchor must
+			// stay full-size for the inverse-mapping lookup to stay valid.
 			const localY1 = (trueGlobalMinY + trueGlobalMaxY) - localY1raw - TILE_UNITS;
 
 			const tile = {
 				groupNum: t.groupNum,
-				filePath: path.join(minimapDir, t.file),
+				filePath, raw,
 				localX1, localY1, cosT, sinT, posX: p.pos[0], posZ: p.pos[2],
 				height: p.pos[1] + (box.min[2] + box.max[2]) / 2,
 			};
-			// The tile's 4 true corners (a rotated rectangle when yaw != 0)
-			// -- used for the canvas extent, the outline, and the label.
-			tile.corners = [[0, 0], [256, 0], [256, 256], [0, 256]].map(([dxi, dyi]) => forwardBigPoint(tile, dxi, dyi));
+
+			// Real-content (possibly-cropped) box, gen_wmo_tiles.js style --
+			// same two anchors (localX1, localY2) it keeps fixed, shrinking the
+			// far edges to the real BLP size instead of always TILE_UNITS. Used
+			// ONLY for the canvas extent, the outline, and the label -- i.e. the
+			// debug-border ground truth -- not for pixel painting (see above).
+			const localY2s = (trueGlobalMinY + trueGlobalMaxY) - localY1raw;
+			const localX2s = localX1 + raw.width / PPU;
+			const localY1s = localY2s - raw.height / PPU;
+			tile.corners = [
+				toBigPoint(tile, -localY1s, localX1),
+				toBigPoint(tile, -localY2s, localX1),
+				toBigPoint(tile, -localY2s, localX2s),
+				toBigPoint(tile, -localY1s, localX2s),
+			];
 			tile.x1 = Math.max(...tile.corners.map(c => c[0]));
 			tile.x2 = Math.min(...tile.corners.map(c => c[0]));
 			tile.y1 = Math.max(...tile.corners.map(c => c[1]));
@@ -354,16 +396,17 @@ async function main() {
 		}
 	}
 
-	if (mapTiles.length === 0) {
-		console.error(`${mapName}: nothing left to render`);
-		process.exit(1);
-	}
-	console.log(`${mapTiles.length} tiles across ${new Set(mapTiles.map(t => t.groupNum)).size} groups`);
+	console.log(`${mapTiles.length} WMO tile(s) across ${new Set(mapTiles.map(t => t.groupNum)).size} group(s)`);
 
 	const adtTiles = opts.withAdtTiles ? findAdtMinimapTiles(opts.flavorDir, mapName) : [];
 	if (opts.withAdtTiles) {
 		if (adtTiles.length === 0) console.error(`  (--with-adt-tiles: no real ADT minimap tiles found for ${mapName})`);
 		else console.log(`${adtTiles.length} real ADT minimap tiles found (backdrop)`);
+	}
+
+	if (mapTiles.length === 0 && adtTiles.length === 0) {
+		console.error(`${mapName}: nothing left to render`);
+		process.exit(1);
 	}
 
 	const PAD = 32;
@@ -431,8 +474,7 @@ async function main() {
 	const paintOrder = [...mapTiles].sort((a, b) => a.height - b.height);
 
 	for (const t of paintOrder) {
-		const raw = loadBlpImage(t.filePath);
-		const cell = toNativeCell(raw);
+		const cell = toNativeCell(t.raw);
 
 		// Pixel-space bounding rect of the tile's own (possibly rotated)
 		// quad, from its 4 real corners -- iterate only this, not the whole

@@ -13,15 +13,51 @@
 // see gotchas.md's "Detecting a pure WMO dungeon" entry) is NOT yet
 // implemented, only the naming/generality groundwork is done for now.
 //
-// SCOPE: only WMO placements with zero rotation (MODF.rotation all three
-// components ~0) are supported -- model->world for those is a plain
-// translation, no rotation matrix needed. A placement with real rotation
-// (confirmed to exist on other arenas, e.g. Ruins of Lordaeron, Tol'Viron
-// Arena -- yaw-only, i.e. only the rotation's middle component is ever
-// nonzero in every real case checked, never pitch/roll) is skipped with a
-// warning; the yaw transform isn't implemented yet since there's no way to
-// visually validate it against real anything (no rotated WMO's placement
-// has been visually confirmed correct in this addon's own history).
+// SCOPE: yaw (MODF.rotation[1]) is supported; pitch/roll aren't -- every
+// real placement checked so far (a broad sample: arenas, Shadowfang Keep,
+// ~20 WDT-only dungeons/raids) is yaw-only, never pitch/roll, so a
+// placement with real pitch/roll is skipped with a warning rather than
+// guessed at.
+//
+// Since a tile is no longer necessarily axis-aligned once yaw is nonzero,
+// Twm_WMOTiles' own tuple shape changed from an axis-aligned box
+// {fileID, x1, x2, y1, y2, height} to a center+size+angle one, plus the real
+// corners: {fileID, cx, cy, width, height, yawDeg, z, c1x,c1y, c2x,c2y,
+// c3x,c3y, c4x,c4y} -- see the output writer below and
+// TerrainWorldMap.lua's TWM_WMOOverlay_Update (Texture:SetPoint/SetRotation
+// for the tile itself, Line-based debug border from the corners) for the
+// reader side. width/height/z keep the same meaning as before (z is the
+// world-height value the cutoff slider reads), just shifted by one field
+// for yawDeg. The 4 corners are redundant with cx/cy/width/height/yawDeg --
+// kept anyway so the debug border can draw the tile's true outline directly
+// instead of re-deriving it from those in Lua a second time.
+//
+// yawDeg is written out as -MODF.rotation[1] -- the SAME value already used
+// (as radians) to rotate local coordinates in the position formula below,
+// not a separately re-derived angle. Justified by tracing that formula's
+// own downstream effect on the screen, algebraically, instead of counting
+// reflections by eye (an earlier pass at this comment did that and got it
+// wrong): position ultimately becomes a screen anchor offset via
+// `mini = Big/(-MINI2BIGX) + 32` (TWM_Big2Mini_Coord, a uniform scale --
+// same factor both axes) then `screenX = (mini_x-Lx)*z, screenY = (Ly-mini_y)*z`
+// (TWM_WMOOverlay_Update) -- carrying a local-space point (rlx,rly) through
+// both, screenX ends up proportional to +finalLocalX but screenY to
+// -finalLocalY (the two per-axis constants end up with opposite sign,
+// unlike X). Since finalLocalX = rlx*cosT-rly*sinT, finalLocalY =
+// rlx*sinT+rly*cosT (this same file's rotation step, T = -MODF.rotation[1]
+// in radians), that sign flip on Y alone turns the standard
+// counterclockwise rotation matrix into a CLOCKWISE one once expressed in
+// (screenX,screenY) -- i.e. this pipeline already draws the position
+// clockwise for positive T, so Texture:SetRotation needs that identical T
+// to keep the drawn CONTENT turning the same way, assuming SetRotation's
+// own positive-radians convention is also "clockwise on screen" (the usual
+// one, but not yet confirmed for this client specifically).
+//
+// NOT yet live-tested (this addon doesn't have a dungeon/raid dropdown
+// category yet to view Shadowfang through) -- Tol'Viron Arena (already
+// dropdown-selectable, real yaw, real decorative WMOs) is the nearest live
+// test available; flip the sign in the output writer below (one line) if
+// its WMO layer looks mirrored/backwards in-game.
 //
 // Coordinate derivation (verified against this map's own already-computed
 // Twm_mapareas box, itself from valid-tile extent -- see gen_arenas.js):
@@ -61,14 +97,32 @@
 // (copying MODF's axis order onto MOGP by mistake) -- this produced tiles
 // that still landed inside the map's own Twm_mapareas box (too coarse a
 // check to catch a per-group axis mixup) but visibly misplaced in-game.
-// Nominal (non-cropped) tile size is used for every block regardless of
-// whether the real baked content is smaller -- the BLP's own alpha channel
-// already handles that (see the alpha-aware compositing note in
-// gotchas.md), so there's no need to read exact crop dimensions here.
+// A WMO-group minimap BLP is cropped by Blizzard to its real content size,
+// not always 256x256 (confirmed: sizes as small as 32x32 exist, e.g.
+// Tol'Viron Arena's pirate-ship bridge). This script used to assume nominal
+// (non-cropped) tile size for every block regardless of the real file size,
+// reasoning the BLP's own alpha channel would handle the difference --
+// WRONG: alpha only controls transparency, not scale. TerrainWorldMap.lua's
+// tex:SetWidth/SetHeight STRETCHES whatever the real file is to fill the
+// given box, so sizing that box to the nominal 128-unit block regardless of
+// a smaller real file distorts/smears the content (confirmed live: Tol'Viron
+// Arena's bridge, every tile 32-64px on a side, looked exactly like this).
+// Real per-tile width/height (read from each BLP's own header below) fixes
+// this -- see the per-tile loop's own comment for the corner-math change
+// this implies.
 
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
+const { Blp } = require('@wowserhq/format');
+
+// Real (possibly cropped) pixel dimensions straight from the BLP header --
+// no full pixel decode needed, just width/height.
+function blpDimensions(filePath) {
+	const blp = new Blp();
+	blp.load(fs.readFileSync(filePath));
+	return { width: blp.width, height: blp.height };
+}
 
 function chunkID(a, b, c, d) { return (a.charCodeAt(0) << 24) | (b.charCodeAt(0) << 16) | (c.charCodeAt(0) << 8) | d.charCodeAt(0); }
 const ID_MODF = chunkID('M', 'O', 'D', 'F');
@@ -209,7 +263,7 @@ async function main() {
 			const m = p.match(/^(.*)_(\d+)_(\d+)_(\d+)\.blp$/);
 			if (m) {
 				const [, stem, groupNum, blockX, blockY] = m;
-				(tilesByStem[stem] = tilesByStem[stem] || []).push({ groupNum: parseInt(groupNum, 10), blockX: parseInt(blockX, 10), blockY: parseInt(blockY, 10), fileID: id });
+				(tilesByStem[stem] = tilesByStem[stem] || []).push({ groupNum: parseInt(groupNum, 10), blockX: parseInt(blockX, 10), blockY: parseInt(blockY, 10), fileID: id, listfilePath: p });
 			}
 		}
 	}
@@ -220,24 +274,29 @@ async function main() {
 		+ "-- Minimap tiles for the WMO structure actually placed on a map whose\n"
 		+ "-- own outdoor terrain has no baked minimap art (see this script's own\n"
 		+ "-- header for the full explanation and the coordinate derivation).\n"
-		+ "-- {fileID, x1, x2, y1, y2, height} per tile, x1/y1 = max, x2/y2 = min\n"
-		+ "-- (same box convention as Twm_mapareas). height is MODF.position[1]\n"
-		+ "-- (the placement's own world height) PLUS that specific tile's own\n"
-		+ "-- WMO GROUP's height-axis center -- a single WMO placement can have\n"
-		+ "-- groups at meaningfully different real heights (e.g. a raised\n"
-		+ "-- walkway/balcony vs. the main floor below it), so height is tracked\n"
-		+ "-- per group, not just per placement. x1/x2/y1/y2 already include a\n"
-		+ "-- fixed 90-degree clockwise rotation (applied to LOCAL coordinates,\n"
-		+ "-- before they ever become a world/Big position -- see the per-tile\n"
-		+ "-- loop below) that corrects for a real property of Blizzard's own\n"
-		+ "-- WMO-minimap-tile baking convention (see gotchas.md) -- the\n"
-		+ "-- rendering side (TerrainWorldMap.lua) does NOT need to apply any\n"
-		+ "-- extra rotation of its own, only the matching texture-content\n"
-		+ "-- rotation (TWM_WMOOverlay_EnsureTextures' SetTexCoord). Entries are\n"
-		+ "-- emitted in ascending height order (lowest first) so the addon's\n"
-		+ "-- own draw order stacks higher tiles visually on top, and so the\n"
-		+ "-- height-cutoff slider (TerrainWorldMap.lua) has a stable order to\n"
-		+ "-- hide from the top down.\n\n"
+		+ "-- {fileID, cx, cy, width, height, yawDeg, z} per tile -- cx/cy is the\n"
+		+ "-- tile's own center (Big coordinates), width/height its real size\n"
+		+ "-- (Big-coordinate units, i.e. already through the fixed 90-degree\n"
+		+ "-- baking rotation below), yawDeg the angle TerrainWorldMap.lua feeds\n"
+		+ "-- straight to Texture:SetRotation (already sign-corrected for this\n"
+		+ "-- addon's own coordinate conventions -- see this file's header), and\n"
+		+ "-- z is MODF.position[1] (the placement's own world height) PLUS that\n"
+		+ "-- specific tile's own WMO GROUP's height-axis center -- a single WMO\n"
+		+ "-- placement can have groups at meaningfully different real heights\n"
+		+ "-- (e.g. a raised walkway/balcony vs. the main floor below it), so z\n"
+		+ "-- is tracked per group, not just per placement. Was a plain\n"
+		+ "-- axis-aligned {fileID, x1, x2, y1, y2, height} box before yaw support\n"
+		+ "-- -- a rotated tile isn't axis-aligned, so center+size+angle replaced\n"
+		+ "-- it; TerrainWorldMap.lua's TWM_WMOOverlay_Update reads this shape.\n"
+		+ "-- Entries are emitted in ascending z order (lowest first) so the\n"
+		+ "-- addon's own draw order stacks higher tiles visually on top, and so\n"
+		+ "-- the height-cutoff slider (TerrainWorldMap.lua) has a stable order\n"
+		+ "-- to hide from the top down. Trailing {c1x,c1y, c2x,c2y, c3x,c3y,\n"
+		+ "-- c4x,c4y} (8 more fields, Big coordinates) are the tile's own real 4\n"
+		+ "-- corners, redundant with cx/cy/width/height/yawDeg but computed\n"
+		+ "-- directly (not re-derived from those) -- TWM_DebugTiles draws the\n"
+		+ "-- outline from these via Line, point-to-point, not by re-rotating\n"
+		+ "-- anything in Lua a second time.\n\n"
 		+ "Twm_WMOTiles = {\n";
 
 	for (const mapName of mapNames) {
@@ -257,10 +316,22 @@ async function main() {
 			const tiles = tilesByStem[stem];
 			if (!tiles || tiles.length === 0) continue; // no minimap art baked for this WMO at all
 
-			const rotMag = Math.max(...p.rot.map(Math.abs));
-			if (rotMag > ROT_EPSILON) {
-				console.error(`  (skipping ${mapName}'s ${wmoPath} -- has minimap tiles but a real rotation (${p.rot.map(x => x.toFixed(2))}), not supported yet)`);
+			const pitchRollMag = Math.max(Math.abs(p.rot[0]), Math.abs(p.rot[2]));
+			if (pitchRollMag > ROT_EPSILON) {
+				console.error(`  (skipping ${mapName}'s ${wmoPath} -- has minimap tiles but a real pitch/roll (${p.rot.map(x => x.toFixed(2))}), not supported)`);
 				continue;
+			}
+			const yawRad = -p.rot[1] * Math.PI / 180;
+			const cosT = Math.cos(yawRad), sinT = Math.sin(yawRad);
+			// rotLocal (already past the fixed 90-degree baking step) ->
+			// Big-coordinate point, rotating by this placement's own real
+			// yaw right before translating by MODF.position -- see this
+			// file's header for the sign derivation.
+			function toBig(rotLocalX, rotLocalY) {
+				const finalLocalX = rotLocalX * cosT - rotLocalY * sinT;
+				const finalLocalY = rotLocalX * sinT + rotLocalY * cosT;
+				const worldX = p.pos[0] + finalLocalX, worldY = p.pos[2] + finalLocalY;
+				return [MAP_ORIGIN - worldX, MAP_ORIGIN - worldY];
 			}
 
 			// One group file per distinct groupNum referenced by its tiles.
@@ -345,9 +416,28 @@ async function main() {
 			const trueGlobalMaxY = Math.max(...Object.values(groupBoxes).map(b => Math.max(b.min[1], b.max[1])));
 
 			for (const { t, box, localX1, localY1raw } of rawTiles) {
-				const localX2 = localX1 + TILE_UNITS;
-				const localY1 = (trueGlobalMinY + trueGlobalMaxY) - localY1raw - TILE_UNITS;
-				const localY2 = localY1 + TILE_UNITS;
+				// Real crop size (see this file's header) replaces the
+				// nominal TILE_UNITS for THIS tile's own span. X: localX1 is
+				// the raw (unreflected) near edge regardless, so just add
+				// the real width. Y: localY1raw's reflection (localY2 below)
+				// is unaffected by crop size -- only the FAR edge's
+				// reflection changes, using the real height instead of
+				// always TILE_UNITS (the old code's shortcut, "reflect the
+				// near edge, add back TILE_UNITS", assumed a constant far
+				// edge; a real crop's far edge isn't always TILE_UNITS away
+				// from the near one anymore).
+				let realW = TILE_UNITS * PPU, realH = TILE_UNITS * PPU; // 256x256 fallback
+				const blpPath = path.join(opts.flavorDir, t.listfilePath);
+				if (fs.existsSync(blpPath)) {
+					const dim = blpDimensions(blpPath);
+					realW = dim.width; realH = dim.height;
+				} else {
+					console.error(`  (warning: ${mapName}'s ${t.listfilePath} not extracted locally -- assuming full 256x256, size may be wrong)`);
+				}
+
+				const localX2 = localX1 + realW / PPU;
+				const localY2 = (trueGlobalMinY + trueGlobalMaxY) - localY1raw;
+				const localY1 = localY2 - realH / PPU;
 
 				// Blizzard's own WMO-group minimap baking pipeline has a
 				// fixed, non-arbitrary 90-degree rotation relative to world
@@ -371,21 +461,22 @@ async function main() {
 				// concrete numeric example: a point 10 units in +local.X
 				// lands 10 units below the anchor on screen after this
 				// substitution, i.e. "3 o'clock" -> "6 o'clock", genuinely
-				// clockwise). The rendering side (TerrainWorldMap.lua)
-				// needs NO extra rotation step at all now -- it just
-				// reads Big coordinates the same direct way it always
-				// has. The texture CONTENT still needs its own 90-degree
-				// rotation (TWM_WMOOverlay_EnsureTextures' SetTexCoord) --
-				// that's a separate concern (what each tile's own pixels
-				// show), unaffected by this.
-				const rotLocalX1 = -localY1, rotLocalX2 = -localY2;
-				const rotLocalY1 = localX1, rotLocalY2 = localX2;
-
-				const worldXa = p.pos[0] + rotLocalX1, worldXb = p.pos[0] + rotLocalX2;
-				const worldYa = p.pos[2] + rotLocalY1, worldYb = p.pos[2] + rotLocalY2;
-
-				const bigXa = MAP_ORIGIN - worldXa, bigXb = MAP_ORIGIN - worldXb;
-				const bigYa = MAP_ORIGIN - worldYa, bigYb = MAP_ORIGIN - worldYb;
+				// clockwise). The texture CONTENT still needs its own
+				// 90-degree rotation (TWM_WMOOverlay_EnsureTextures'
+				// SetTexCoord) -- that's a separate concern (what each
+				// tile's own pixels show), unaffected by this.
+				//
+				// Real yaw applies right after this fixed 90-degree step and
+				// right before translating by MODF.position (toBig, defined
+				// above) -- same slot the fixed step itself occupies, just
+				// an additional rotation on top. Evaluated at all 4 corners
+				// now, not 2 -- a yawed tile is no longer axis-aligned, so a
+				// 2-corner diagonal can't describe it (see this file's
+				// header for the tuple shape + sign).
+				const c1 = toBig(-localY1, localX1);
+				const c2 = toBig(-localY2, localX1);
+				const c3 = toBig(-localY2, localX2);
+				const c4 = toBig(-localY1, localX2);
 
 				// Per-GROUP height, not just the placement's own MODF.position[1]
 				// -- a single WMO placement can have groups at meaningfully
@@ -401,9 +492,21 @@ async function main() {
 				const groupHeightCenter = (box.min[2] + box.max[2]) / 2;
 				mapTiles.push({
 					fileID: t.fileID,
-					x1: Math.max(bigXa, bigXb), x2: Math.min(bigXa, bigXb),
-					y1: Math.max(bigYa, bigYb), y2: Math.min(bigYa, bigYb),
-					height: p.pos[1] + groupHeightCenter,
+					cx: (c1[0] + c2[0] + c3[0] + c4[0]) / 4,
+					cy: (c1[1] + c2[1] + c3[1] + c4[1]) / 4,
+					width: Math.hypot(c4[0] - c1[0], c4[1] - c1[1]),
+					height: Math.hypot(c2[0] - c1[0], c2[1] - c1[1]),
+					yawDeg: -p.rot[1],
+					z: p.pos[1] + groupHeightCenter,
+					// The real 4 corners too (Big coordinates), so
+					// TerrainWorldMap.lua's debug border can draw the tile's
+					// TRUE rotated outline directly (Line, point-to-point) --
+					// not re-derive it from cx/cy/width/height/yawDeg a
+					// second time via a rotation formula that could disagree
+					// (this whole feature exists because that kind of
+					// re-derivation went wrong once already; don't repeat
+					// it for the one thing meant to check it).
+					corners: [c1, c2, c3, c4],
 				});
 			}
 		}
@@ -414,11 +517,13 @@ async function main() {
 		// Sort by height ascending -- necessary (not just the placement-level
 		// pre-sort above) now that height is per-group: a single placement's
 		// groups can themselves span the whole height range.
-		mapTiles.sort((a, b) => a.height - b.height);
+		mapTiles.sort((a, b) => a.z - b.z);
 
 		fullOutput += `    ["${mapName}"] = {\n`;
-		for (const t of mapTiles)
-			fullOutput += `        {${t.fileID}, ${t.x1}, ${t.x2}, ${t.y1}, ${t.y2}, ${t.height}},\n`;
+		for (const t of mapTiles) {
+			const corners = t.corners.map(c => `${c[0]}, ${c[1]}`).join(', ');
+			fullOutput += `        {${t.fileID}, ${t.cx}, ${t.cy}, ${t.width}, ${t.height}, ${t.yawDeg}, ${t.z}, ${corners}},\n`;
+		}
 		fullOutput += '    },\n';
 	}
 	fullOutput += '}\n';

@@ -25,23 +25,30 @@
 
 const fs = require('fs');
 const { parseCsvFile: parseCsv, findCsv } = require('./csv');
-const { INSTANCE_TYPE_BATTLEGROUND, UI_MAP_TYPE_ZONE, UI_MAP_TYPE_ORPHAN } = require('./dbc_enums');
+const { INSTANCE_TYPE_BATTLEGROUND } = require('./dbc_enums');
 
 // A standalone battleground: Map.csv row with ParentMapID=-1 (top-level),
 // MapType=1, InstanceType=INSTANCE_TYPE_BATTLEGROUND -- same shape as
 // gen_mapareas.js's continent filter, just the PvP InstanceType instead of
 // the open-world one.
-function findBattlegrounds(mapRows, assignRows, uiMapType) {
+function findBattlegrounds(mapRows, assignRows) {
 	const battlegrounds = [];
 
 	for (const mapRow of mapRows) {
 		if (mapRow.ParentMapID !== '-1' || mapRow.MapType !== '1' || mapRow.InstanceType !== INSTANCE_TYPE_BATTLEGROUND)
 			continue;
 
-		// UiMap Type for a battleground's own zone row is UI_MAP_TYPE_ZONE
-		// (same as any regular outdoor zone) on Vanilla/TBC/Mists, but
-		// UI_MAP_TYPE_ORPHAN on WoW: Forever/Camelot.
-		const zoneRows = assignRows.filter(r => r.MapID === mapRow.ID && (uiMapType[r.UiMapID] === UI_MAP_TYPE_ZONE || uiMapType[r.UiMapID] === UI_MAP_TYPE_ORPHAN));
+		// Every UiMapAssignment row for this MapID, no UiMap.Type filter --
+		// the Map.csv filter above already uniquely identifies this as a
+		// real standalone battleground, and every one checked so far has
+		// its own single, self-consistent Type across all its rows anyway
+		// (UI_MAP_TYPE_ZONE=3 on Vanilla/TBC/Mists, UI_MAP_TYPE_ORPHAN=6 on
+		// WoW: Forever/Camelot, UI_MAP_TYPE_DUNGEON=4 for Silvershard Mines
+		// specifically -- Blizzard nests it like a dungeon since it's an
+		// underground instance). Whitelisting each Type as it's discovered
+		// is exactly how Silvershard Mines got silently missed before,
+		// so don't filter on it at all.
+		const zoneRows = assignRows.filter(r => r.MapID === mapRow.ID);
 		if (zoneRows.length === 0)
 			continue;
 
@@ -106,13 +113,9 @@ function main() {
 	}
 
 	const mapRows = parseCsv(findCsv(opts.flavorDir, 'Map.'));
-	const uiMapRows = parseCsv(findCsv(opts.flavorDir, 'UiMap.'));
 	const assignRows = parseCsv(findCsv(opts.flavorDir, 'UiMapAssignment.'));
 
-	const uiMapType = {};
-	for (const r of uiMapRows) uiMapType[r.ID] = r.Type;
-
-	const battlegrounds = findBattlegrounds(mapRows, assignRows, uiMapType);
+	const battlegrounds = findBattlegrounds(mapRows, assignRows);
 	console.error(`${battlegrounds.length} battlegrounds found:`, battlegrounds.map(b => `${b.key} (${b.name}, MapID=${b.mapID}, UiMapID=${b.uiMapID})`));
 
 	// stdout: case-sensitive Directory names, for parse_wdt.js's trailing

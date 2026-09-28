@@ -17,6 +17,7 @@ Data_TBC\mapdata_continents.lua
 Data_TBC\mapdata_poi.lua
 Data_TBC\mapdata_battlegrounds.lua
 Data_TBC\mapdata_arenas.lua
+Data_TBC\mapdata_wmo_tiles.lua
 Data_TBC\mapdata_poi_areas.lua
 Data_TBC\mapdata_poi_battlegrounds_areas.lua
 Data_TBC\mapdata_poi_graveyards.lua

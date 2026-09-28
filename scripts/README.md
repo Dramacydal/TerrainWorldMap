@@ -486,9 +486,16 @@ continents (`Map.csv` row with `ParentMapID=-1`, `MapType=1`), just
 separate "whole map" `UiMapAssignment` root row (`Type=2`/`System=0`/`AreaID=0`)
 — it's just one Zone row directly (unioned if a battleground ever has more
 than one), which doubles as both the `[0]` box **and** the position-tracking
-`UiMapID`. That Zone row's own `UiMap.Type` value is `3` on Vanilla/TBC/Mists
-(same as any regular outdoor zone) but `6` on WoW: Forever/Camelot (its own
-distinct PvP-zone type there) — the script matches either.
+`UiMapID`. Every `UiMapAssignment` row for the battleground's `MapID` is
+taken, with **no `UiMap.Type` filter** — the structural Map.csv filter above
+already uniquely identifies a real battleground, and every one checked so
+far has its own single, self-consistent `Type` across all its rows anyway
+(`3`/`UI_MAP_TYPE_ZONE` on Vanilla/TBC/Mists, `6`/`UI_MAP_TYPE_ORPHAN` on
+WoW: Forever/Camelot, `4`/`UI_MAP_TYPE_DUNGEON` for Silvershard Mines
+specifically — Blizzard nests it like a dungeon since it's an underground
+instance). An earlier version of this script whitelisted `Type` values
+instead of just matching on `MapID`, which is exactly how Silvershard Mines
+got silently missed for a while — don't reintroduce that.
 
 A `Map.csv` row matching the structural filter but with zero matching
 `UiMapAssignment` rows (checked, not just assumed) has no map data to
@@ -522,7 +529,13 @@ node parse_wdt.js --flavor-dir C:\wow-data\wow_anniversary --out Data_TBC/mapdat
 `gen_battlegrounds.js` to pick up any new ones):
 - **Vanilla**: PVPZone01 (Alterac Valley), PVPZone03 (Warsong Gulch), PVPZone04 (Arathi Basin)
 - **TBC**: the above + NetherstormBG (Eye of the Storm)
-- **Mists**: the above + WintergraspEpic (Wintergrasp), `2755` (Battle for Tol Barad)
+- **Mists**: the above + NorthrendBG (Strand of the Ancients), IsleofConquest
+  (Isle of Conquest), CataclysmCTF (Twin Peaks), STV_Mine_BG (Silvershard
+  Mines), Gilneas_BG_2 (The Battle for Gilneas), EyeoftheStorm2.0 (Rated Eye
+  of the Storm), ValleyOfPower (Temple of Kotmogu), GoldRushBG (Deepwind
+  Gorge), WintergraspEpic (Wintergrasp), `2755` (Battle for Tol Barad) — 14
+  total (was last regenerated missing 8 of these; the DBC snapshot had
+  simply moved on without a re-run)
 - **Forever**: PVPZone01/03/04 + `2997` (Darkspear Islands) — no Eye of the Storm/Wintergrasp/Tol Barad in this build yet
 
 ## Step 9 — `gen_arenas.js`: arena maps (`Twm_ArenaNames`, `Twm_mapareas`)
@@ -706,15 +719,39 @@ that). This script finds WMO placements and their tiles directly — no
   slider (shown only when a map's tiles actually span more than one
   height) — see `.claude-docs/architecture.md`'s Arenas section.
 
-**Generated so far**: every arena in every flavor has been run through this
-script at least once. Only Mists' `DalaranArena` (6 tiles) and
-`OrgrimmarArena` (6 tiles) produce any output. Everything else produces 0:
-TBC's Nagrand Arena/Blade's Edge Arena/Forever's Hyjal Crater have no
-qualifying WMO placement at all (no console warning even); TBC's/Mists'
-Ruins of Lordaeron and Mists' Tol'Viron Arena/Tiger's Peak have qualifying
-WMOs but all with real rotation (skipped with a warning each).
+**Generated so far** (yaw/rotation support landed since the note below was
+first written -- re-audit with `audit_wmo_extraction.js` rather than trust
+old "skipped, real rotation" claims, several turned out to just be
+un-extracted): `Data_Mists/mapdata_wmo_tiles.lua` has `DalaranArena` (6
+tiles), `OrgrimmarArena` (6 tiles), `TolVirArena` (37 tiles, real yaw),
+`PVPLordaeron` (46 tiles across 11 groups -- the arena building itself plus
+several reused Duskwood village buildings and dungeon fragments as
+decoration, all real yaw). `Data_TBC/mapdata_wmo_tiles.lua` has the same
+`PVPLordaeron` (identical underlying assets, 46 tiles). Everything else
+produces 0, genuinely (no baked minimap tiles exist for these WMOs at all,
+confirmed via the listfile, not an extraction gap): TBC's/Mists' Nagrand
+Arena, Blade's Edge Arena, Mists' Tiger's Peak (`ShadoPanArena`), Forever's
+Hyjal Crater.
 
 ## Other scripts
+
+- **`audit_wmo_extraction.js`** — standalone diagnostic tool, not part of the
+  pipeline above. For one or more maps, lists every real `MODF` placement
+  that has ANY baked WMO minimap tile at all (checked against the community
+  listfile, independent of local extraction state) and reports exactly
+  which local files (root/group `.wmo`, minimap `.blp`) are still missing:
+  ```bash
+  node audit_wmo_extraction.js <flavor-dir> <community-listfile.csv> <MapDirectoryName> [<MapDirectoryName> ...]
+  ```
+  Written after `gen_wmo_tiles.js` silently produced 0 tiles for a couple of
+  arenas that turned out to have real, un-extracted WMO structure (Ruins of
+  Lordaeron on both TBC and Mists) — `gen_wmo_tiles.js` itself only warns
+  about a missing GROUP file once it already knows a WMO has baked tiles,
+  it says nothing when the WMO's root/all groups are missing outright (the
+  `if (!tiles...) continue` and un-extracted-root cases are silent by
+  design, to avoid spamming a warning for every ordinary undecorated
+  placement) — this script exists specifically to catch that gap without
+  reading `gen_wmo_tiles.js`'s own source by hand each time.
 
 - **`gen_area_centroids.js`** — standalone diagnostic tool, not part of the
   pipeline above. Dumps every AreaID's centroid for a continent
