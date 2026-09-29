@@ -359,6 +359,31 @@ if(Twm_ArenaNames) then
     end
 end
 
+-- TWM_DUNGEONS/TWM_RAIDS/TWM_SCENARIOS -- same shape and same reason as
+-- TWM_ARENAS above (Twm_DungeonNames/Twm_RaidNames/Twm_ScenarioNames come
+-- from scripts/gen_instance_maps.js; Scenarios only exists on Mists, the
+-- only flavor with any UI_MAP_TYPE_SCENARIO Map rows).
+if(Twm_DungeonNames) then
+    TWM_DUNGEONS = {};
+    for _, e in ipairs(Twm_DungeonNames) do
+        TWM_DUNGEONS[TWM_ResolveLocaleName(e.name)] = {e.key};
+    end
+end
+
+if(Twm_RaidNames) then
+    TWM_RAIDS = {};
+    for _, e in ipairs(Twm_RaidNames) do
+        TWM_RAIDS[TWM_ResolveLocaleName(e.name)] = {e.key};
+    end
+end
+
+if(Twm_ScenarioNames) then
+    TWM_SCENARIOS = {};
+    for _, e in ipairs(Twm_ScenarioNames) do
+        TWM_SCENARIOS[TWM_ResolveLocaleName(e.name)] = {e.key};
+    end
+end
+
 -- "Show WMO Layers" overlay: a few maps (arenas so far -- Dalaran Sewers,
 -- Orgrimmar -- see Twm_WMOTiles, Data_<Flavor>/mapdata_wmo_tiles.lua,
 -- scripts/gen_wmo_tiles.js; the same system will apply to dungeons/raids
@@ -1090,9 +1115,10 @@ function TWM_GetSortedBattlegroundNames()
     return names;
 end
 
--- TWM_ARENAS never gets built above (stays nil) for a flavor with no
--- arenas (Vanilla, no Twm_ArenaNames at all) -- guarded the same way
--- TWM_GetSortedBattlegroundNames is.
+-- TWM_ARENAS/TWM_DUNGEONS/TWM_RAIDS/TWM_SCENARIOS never get built above
+-- (stay nil) for a flavor/category with no entries (e.g. Vanilla has no
+-- Twm_ArenaNames at all; only Mists has Twm_ScenarioNames) -- all four
+-- guarded the same way.
 function TWM_GetSortedArenaNames()
     local names = {};
     if(TWM_ARENAS) then
@@ -1104,13 +1130,43 @@ function TWM_GetSortedArenaNames()
     return names;
 end
 
--- Top-level dropdown is now a category tree (Continents/Dungeons/Raids/
--- Battlegrounds, MoP will add Scenarios) instead of a flat continent list --
--- Dungeons/Raids/Battlegrounds are deliberately empty placeholders for now,
--- ahead of the dungeon-interior map rendering feature they're meant to lead
--- into (see .claude-docs/gotchas.md's WMO-minimap-tile entries for where
--- that stands). Continents keeps working exactly as before, just one level
--- deeper -- TWMFrameDropDownButton_OnClick's use of GetID() as an index into
+function TWM_GetSortedDungeonNames()
+    local names = {};
+    if(TWM_DUNGEONS) then
+        for h in pairs(TWM_DUNGEONS) do
+            tinsert(names, h);
+        end
+        table.sort(names);
+    end
+    return names;
+end
+
+function TWM_GetSortedRaidNames()
+    local names = {};
+    if(TWM_RAIDS) then
+        for h in pairs(TWM_RAIDS) do
+            tinsert(names, h);
+        end
+        table.sort(names);
+    end
+    return names;
+end
+
+function TWM_GetSortedScenarioNames()
+    local names = {};
+    if(TWM_SCENARIOS) then
+        for h in pairs(TWM_SCENARIOS) do
+            tinsert(names, h);
+        end
+        table.sort(names);
+    end
+    return names;
+end
+
+-- Top-level dropdown is a category tree (Continents/Dungeons/Raids/
+-- Scenarios/Battlegrounds/Arenas) instead of a flat continent list --
+-- Continents keeps working exactly as before, just one level deeper --
+-- TWMFrameDropDownButton_OnClick's use of GetID() as an index into
 -- TWM_GetSortedMapNames() still works unchanged, since a submenu's buttons
 -- are numbered from 1 within that submenu, same as they were at the top
 -- level before this change.
@@ -1121,12 +1177,20 @@ function TWMFrameDropDown_Initialize()
         info = {text = TWM_CATEGORY_CONTINENTS, hasArrow = true, notCheckable = true, value = "continents"};
         UIDropDownMenu_AddButton(info, level);
 
-        -- Hidden for now -- no entries yet.
-        --info = {text = TWM_CATEGORY_DUNGEONS, hasArrow = true, notCheckable = true, value = "dungeons"};
-        --UIDropDownMenu_AddButton(info, level);
+        if(TWM_DUNGEONS) then
+            info = {text = TWM_CATEGORY_DUNGEONS, hasArrow = true, notCheckable = true, value = "dungeons"};
+            UIDropDownMenu_AddButton(info, level);
+        end
 
-        --info = {text = TWM_CATEGORY_RAIDS, hasArrow = true, notCheckable = true, value = "raids"};
-        --UIDropDownMenu_AddButton(info, level);
+        if(TWM_RAIDS) then
+            info = {text = TWM_CATEGORY_RAIDS, hasArrow = true, notCheckable = true, value = "raids"};
+            UIDropDownMenu_AddButton(info, level);
+        end
+
+        if(TWM_SCENARIOS) then
+            info = {text = TWM_CATEGORY_SCENARIOS, hasArrow = true, notCheckable = true, value = "scenarios"};
+            UIDropDownMenu_AddButton(info, level);
+        end
 
         info = {text = TWM_CATEGORY_BATTLEGROUNDS, hasArrow = true, notCheckable = true, value = "battlegrounds"};
         UIDropDownMenu_AddButton(info, level);
@@ -1172,8 +1236,37 @@ function TWMFrameDropDown_Initialize()
             };
             UIDropDownMenu_AddButton(info, level);
         end
+    elseif(UIDROPDOWNMENU_MENU_VALUE == "dungeons") then
+        local currentMap = _G["TWMFrame"].opt.Map;
+        for i,h in ipairs(TWM_GetSortedDungeonNames()) do
+            info = {
+                    text = h;
+                    func = TWMFrameDropDownButton_Dungeon_OnClick;
+                    checked = (TWM_DUNGEONS[h][1] == currentMap);
+            };
+            UIDropDownMenu_AddButton(info, level);
+        end
+    elseif(UIDROPDOWNMENU_MENU_VALUE == "raids") then
+        local currentMap = _G["TWMFrame"].opt.Map;
+        for i,h in ipairs(TWM_GetSortedRaidNames()) do
+            info = {
+                    text = h;
+                    func = TWMFrameDropDownButton_Raid_OnClick;
+                    checked = (TWM_RAIDS[h][1] == currentMap);
+            };
+            UIDropDownMenu_AddButton(info, level);
+        end
+    elseif(UIDROPDOWNMENU_MENU_VALUE == "scenarios") then
+        local currentMap = _G["TWMFrame"].opt.Map;
+        for i,h in ipairs(TWM_GetSortedScenarioNames()) do
+            info = {
+                    text = h;
+                    func = TWMFrameDropDownButton_Scenario_OnClick;
+                    checked = (TWM_SCENARIOS[h][1] == currentMap);
+            };
+            UIDropDownMenu_AddButton(info, level);
+        end
     end
-    -- "dungeons"/"raids": no entries yet.
 end
 
 function TWMFrameDropDownButton_OnClick(self)
@@ -1197,6 +1290,30 @@ function TWMFrameDropDownButton_Arena_OnClick(self)
         local h = TWM_GetSortedArenaNames()[i];
         if(h) then
             return _G["TWMFrame"]:SelectMap(TWM_ARENAS[h][1]);
+        end
+end
+
+function TWMFrameDropDownButton_Dungeon_OnClick(self)
+        local i = self:GetID();
+        local h = TWM_GetSortedDungeonNames()[i];
+        if(h) then
+            return _G["TWMFrame"]:SelectMap(TWM_DUNGEONS[h][1]);
+        end
+end
+
+function TWMFrameDropDownButton_Raid_OnClick(self)
+        local i = self:GetID();
+        local h = TWM_GetSortedRaidNames()[i];
+        if(h) then
+            return _G["TWMFrame"]:SelectMap(TWM_RAIDS[h][1]);
+        end
+end
+
+function TWMFrameDropDownButton_Scenario_OnClick(self)
+        local i = self:GetID();
+        local h = TWM_GetSortedScenarioNames()[i];
+        if(h) then
+            return _G["TWMFrame"]:SelectMap(TWM_SCENARIOS[h][1]);
         end
 end
 
@@ -1311,6 +1428,21 @@ function TWMFrameTemplate:SetMap(mapname)
         end
         for i,h in ipairs(TWM_GetSortedArenaNames()) do
             if(TWM_ARENAS[h][1] == mapname) then
+                UIDropDownMenu_SetText(mapdropdown,h);
+            end
+        end
+        for i,h in ipairs(TWM_GetSortedDungeonNames()) do
+            if(TWM_DUNGEONS[h][1] == mapname) then
+                UIDropDownMenu_SetText(mapdropdown,h);
+            end
+        end
+        for i,h in ipairs(TWM_GetSortedRaidNames()) do
+            if(TWM_RAIDS[h][1] == mapname) then
+                UIDropDownMenu_SetText(mapdropdown,h);
+            end
+        end
+        for i,h in ipairs(TWM_GetSortedScenarioNames()) do
+            if(TWM_SCENARIOS[h][1] == mapname) then
                 UIDropDownMenu_SetText(mapdropdown,h);
             end
         end

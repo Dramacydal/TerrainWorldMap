@@ -9,6 +9,7 @@ const path = require('path');
 const readline = require('readline');
 
 function chunkID(a, b, c, d) { return (a.charCodeAt(0) << 24) | (b.charCodeAt(0) << 16) | (c.charCodeAt(0) << 8) | d.charCodeAt(0); }
+const ID_MPHD = chunkID('M', 'P', 'H', 'D');
 const ID_MODF = chunkID('M', 'O', 'D', 'F');
 
 function findModfPlacements(mapDir) {
@@ -38,6 +39,31 @@ function findModfPlacements(mapDir) {
 	return entries;
 }
 
+// Pure-WMO map fallback (no per-ADT MODF at all -- most classic 5-man
+// dungeons/raids) -- same WDT-level MODF + MPHD.flags&0x1 detection as
+// gen_wmo_tiles.js's own findWdtPlacement. Missing this exact case is what
+// made this tool wrongly report Ragefire Chasm/Onyxia's Lair as having no
+// baked WMO tiles at all when they actually do -- don't drop it again.
+function findWdtPlacement(wdtPath) {
+	if (!fs.existsSync(wdtPath)) return [];
+	const buf = fs.readFileSync(wdtPath);
+	let offset = 0;
+	let flags = 0, modf = null;
+	while (offset + 8 <= buf.length) {
+		const magic = buf.readUInt32LE(offset), size = buf.readUInt32LE(offset + 4);
+		const dataStart = offset + 8;
+		if (magic === ID_MPHD) {
+			flags = buf.readUInt32LE(dataStart);
+		} else if (magic === ID_MODF && size >= 64) {
+			const b = dataStart;
+			modf = { nameId: buf.readUInt32LE(b), rot: [buf.readFloatLE(b + 20), buf.readFloatLE(b + 24), buf.readFloatLE(b + 28)] };
+		}
+		offset = dataStart + size;
+	}
+	if (!(flags & 0x1) || !modf) return [];
+	return [modf];
+}
+
 async function main() {
 	const [, , flavorDir, listfilePath, ...mapNames] = process.argv;
 
@@ -61,7 +87,8 @@ async function main() {
 
 	for (const mapName of mapNames) {
 		const mapDir = path.join(flavorDir, 'world', 'maps', mapName);
-		const placements = findModfPlacements(mapDir);
+		let placements = findModfPlacements(mapDir);
+		if (placements.length === 0) placements = findWdtPlacement(path.join(mapDir, `${mapName}.wdt`));
 		const seenWmo = new Set();
 		let anyTiles = false;
 		for (const p of placements) {

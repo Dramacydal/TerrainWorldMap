@@ -72,6 +72,7 @@ TWM_POINTS_SHOWPOINTS_TITLE = "Zeige Punkte";
 TWM_CATEGORY_CONTINENTS = "Kontinente";
 TWM_CATEGORY_DUNGEONS = "Dungeons";
 TWM_CATEGORY_RAIDS = "Schlachtzüge";
+TWM_CATEGORY_SCENARIOS = "Szenarien";
 TWM_CATEGORY_BATTLEGROUNDS = "Schlachtfelder";
 TWM_CATEGORY_ARENAS = "Arenen";
 -- Landmarks would tranlsate to "Landmarken", "wichtige Orte" would be translated to English: "important places"

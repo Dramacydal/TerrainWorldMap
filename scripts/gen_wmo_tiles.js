@@ -6,12 +6,14 @@
 // minimap art (world/minimaps/wmo/.../<name>_<group>_<blockX>_<blockY>.blp,
 // via the same per-WMO-group minimap system as WMO dungeon interiors --
 // see .claude-docs/gotchas.md's "Dungeon/interior minimap tiles" section).
-// Currently only ever run against arena maps (see "Generated so far" in
-// scripts/README.md) -- generalized (naming, no arena-specific hardcodes)
-// so dungeons/raids can reuse this same script later; that extraction
-// scope itself (e.g. handling a WDT-level MODF for pure-WMO instances,
-// see gotchas.md's "Detecting a pure WMO dungeon" entry) is NOT yet
-// implemented, only the naming/generality groundwork is done for now.
+// Generalized (naming, no arena-specific hardcodes) so dungeons/raids can
+// reuse this same script -- including a WDT-level MODF fallback for
+// pure-WMO instances (most classic 5-mans/raids have no real ADT terrain
+// at all, see findWdtPlacement's own header and gotchas.md's "Detecting a
+// pure WMO dungeon" entry), ported from preview_wmo_tiles.js once dungeons
+// actually needed it (confirmed missing: Ragefire Chasm and Onyxia's Lair
+// both silently produced zero tiles despite having real baked minimap art,
+// because only the per-ADT MODF scan existed here before).
 //
 // SCOPE: yaw (MODF.rotation[1]) is supported; pitch/roll aren't -- every
 // real placement checked so far (a broad sample: arenas, Shadowfang Keep,
@@ -125,6 +127,7 @@ function blpDimensions(filePath) {
 }
 
 function chunkID(a, b, c, d) { return (a.charCodeAt(0) << 24) | (b.charCodeAt(0) << 16) | (c.charCodeAt(0) << 8) | d.charCodeAt(0); }
+const ID_MPHD = chunkID('M', 'P', 'H', 'D');
 const ID_MODF = chunkID('M', 'O', 'D', 'F');
 const ID_MOGP = chunkID('M', 'O', 'G', 'P');
 
@@ -164,6 +167,39 @@ function findModfPlacements(mapDir) {
 		}
 	}
 	return entries;
+}
+
+// A "pure WMO" map (no real ADT terrain at all -- most classic 5-man
+// dungeons/raids, e.g. Ragefire Chasm, Onyxia's Lair) places its one global
+// WMO via a WDT-level MODF instead of any per-ADT one, guarded by
+// MPHD.flags & 0x1 (wdt_uses_global_map_obj) -- see .claude-docs/
+// gotchas.md's "Detecting a pure WMO dungeon" entry. Ported from
+// preview_wmo_tiles.js's own findWdtPlacement (validated there first,
+// offline, before landing here) -- this was the one gap the header comment
+// already flagged as "not yet implemented" when yaw support landed.
+function findWdtPlacement(wdtPath) {
+	if (!fs.existsSync(wdtPath)) return [];
+	const buf = fs.readFileSync(wdtPath);
+	let offset = 0;
+	let flags = 0, modf = null;
+	while (offset + 8 <= buf.length) {
+		const magic = buf.readUInt32LE(offset);
+		const size = buf.readUInt32LE(offset + 4);
+		const dataStart = offset + 8;
+		if (magic === ID_MPHD) {
+			flags = buf.readUInt32LE(dataStart);
+		} else if (magic === ID_MODF && size >= 64) {
+			const b = dataStart;
+			modf = {
+				nameId: buf.readUInt32LE(b),
+				pos: [buf.readFloatLE(b + 8), buf.readFloatLE(b + 12), buf.readFloatLE(b + 16)],
+				rot: [buf.readFloatLE(b + 20), buf.readFloatLE(b + 24), buf.readFloatLE(b + 28)],
+			};
+		}
+		offset = dataStart + size;
+	}
+	if (!(flags & 0x1) || !modf) return [];
+	return [modf];
 }
 
 // MOGP chunk's own local bounding box (offset 12 within its data: flags(4)
@@ -242,7 +278,12 @@ async function main() {
 			placementsByMap[mapName] = [];
 			continue;
 		}
-		const placements = findModfPlacements(mapDir);
+		let placements = findModfPlacements(mapDir);
+		if (placements.length === 0) {
+			// No per-ADT MODF at all -- try the WDT-level global placement
+			// (pure-WMO map, no real ADT terrain) before giving up.
+			placements = findWdtPlacement(path.join(mapDir, `${mapName}.wdt`));
+		}
 		placementsByMap[mapName] = placements;
 		for (const p of placements) wantedNameIds.add(p.nameId);
 	}

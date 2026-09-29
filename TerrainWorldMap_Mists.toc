@@ -17,6 +17,9 @@ Data_Mists\mapdata_continents.lua
 Data_Mists\mapdata_poi.lua
 Data_Mists\mapdata_battlegrounds.lua
 Data_Mists\mapdata_arenas.lua
+Data_Mists\mapdata_dungeons.lua
+Data_Mists\mapdata_raids.lua
+Data_Mists\mapdata_scenarios.lua
 Data_Mists\mapdata_wmo_tiles.lua
 Data_Mists\mapdata_poi_areas.lua
 Data_Mists\mapdata_poi_battlegrounds_areas.lua

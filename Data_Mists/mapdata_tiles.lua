@@ -5572,6 +5572,81 @@ Twm_WDTValidTiles["GoldRushBG"] = {
     ["32x33"] = 6665,
 }
 
+Twm_WDTValidTiles["OrgrimmarInstance"] = {
+}
+
+Twm_WDTValidTiles["Shadowfang"] = {
+    ["25x30"] = 209,
+    ["26x30"] = 209,
+    ["27x30"] = 209,
+    ["28x30"] = 209,
+    ["29x30"] = 209,
+    ["25x31"] = 209,
+    ["26x31"] = 209,
+    ["27x31"] = 209,
+    ["28x31"] = 209,
+    ["29x31"] = 209,
+    ["25x32"] = 209,
+    ["26x32"] = 209,
+    ["27x32"] = 209,
+    ["28x32"] = 209,
+    ["29x32"] = 209,
+    ["25x33"] = 209,
+    ["26x33"] = 209,
+    ["27x33"] = 209,
+    ["28x33"] = 209,
+    ["29x33"] = 209,
+    ["25x34"] = 209,
+    ["26x34"] = 209,
+    ["27x34"] = 209,
+    ["28x34"] = 209,
+    ["29x34"] = 209,
+}
+
+Twm_WDTValidTiles["OnyxiaLairInstance"] = {
+}
+
+Twm_WDTValidTiles["PandaFishingVillageScenario"] = {
+    ["34x24"] = true,
+    ["35x24"] = true,
+    ["36x24"] = true,
+    ["37x24"] = true,
+    ["38x24"] = true,
+    ["39x24"] = true,
+    ["34x25"] = true,
+    ["35x25"] = true,
+    ["36x25"] = true,
+    ["37x25"] = true,
+    ["38x25"] = true,
+    ["39x25"] = true,
+    ["34x26"] = true,
+    ["35x26"] = 6209,
+    ["36x26"] = 6209,
+    ["37x26"] = true,
+    ["38x26"] = true,
+    ["39x26"] = true,
+    ["33x27"] = true,
+    ["34x27"] = true,
+    ["35x27"] = 6209,
+    ["36x27"] = 6209,
+    ["37x27"] = true,
+    ["38x27"] = true,
+    ["39x27"] = true,
+    ["33x28"] = true,
+    ["34x28"] = true,
+    ["35x28"] = 6209,
+    ["36x28"] = 6209,
+    ["37x28"] = true,
+    ["38x28"] = true,
+    ["39x28"] = true,
+    ["33x29"] = true,
+    ["34x29"] = true,
+    ["35x29"] = true,
+    ["36x29"] = true,
+    ["37x29"] = true,
+    ["38x29"] = true,
+}
+
 -- Tiles that additionally have a noLiquid_mapXX_YY.blp minimap variant --
 -- the client swaps to this when IsSubmerged() (see Settings.lua's "Draw
 -- underwater" option). Only declared at all when this flavor's data was

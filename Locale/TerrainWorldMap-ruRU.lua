@@ -63,6 +63,7 @@ TWM_POINTS_SHOWPOINTS_TITLE = "Показывать метки";
 TWM_CATEGORY_CONTINENTS = "Континенты";
 TWM_CATEGORY_DUNGEONS = "Подземелья";
 TWM_CATEGORY_RAIDS = "Рейды";
+TWM_CATEGORY_SCENARIOS = "Сценарии";
 TWM_CATEGORY_BATTLEGROUNDS = "Поля боя";
 TWM_CATEGORY_ARENAS = "Арены";
 TWM_POINTS_LANDMARKS = "Достопримечательности";

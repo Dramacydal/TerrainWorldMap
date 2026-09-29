@@ -8,8 +8,9 @@ Pipeline: `init_workdir.ps1` (fetch client data) → `gen_mapareas.js` (zone
 boxes) → `parse_wdt.js` (tile validity + AreaIDs) → `gen_poi_areas.js`
 (sub-area/POI labels) → `gen_poi_graveyards.js` (graveyards) →
 `gen_poi_instances.js` (dungeon/raid entrances) → `gen_poi_flightmasters.js`
-(flight masters + routes) → `gen_battlegrounds.js` (battleground maps, run
-independently of the rest — see its own step below).
+(flight masters + routes) → `gen_battlegrounds.js`/`gen_arenas.js`/
+`gen_instance_maps.js` (battleground/arena/dungeon+raid+scenario maps, each
+run independently of the rest — see their own steps below).
 
 ## Setup
 
@@ -598,12 +599,17 @@ node parse_wdt.js --flavor-dir C:\wow-data\wow_anniversary --out Data_TBC/mapdat
 node gen_wmo_tiles.js --flavor-dir <dir with world/maps/<map>/*_obj0.adt and extracted world/wmo/... WMOs> --listfile <community-listfile.csv> --out <out-file.lua> <MapDirectoryName> [<MapDirectoryName> ...]
 ```
 
-Naming here is deliberately map-generic, not arena-specific — arenas are
-the only maps that use this so far, but the same WMO-minimap-tile system
-also applies to dungeons/raids, meant to be added later (their own
-extraction specifics, e.g. a WDT-level `MODF` for pure-WMO instances —
-see `.claude-docs/gotchas.md`'s "Detecting a pure WMO dungeon" entry — are
-NOT implemented yet, only the generic naming/plumbing below is in place).
+Naming here is deliberately map-generic, not arena-specific — the same
+WMO-minimap-tile system applies equally to arenas, dungeons, and raids.
+Finds placements from a map's own per-ADT `MODF`s first; if a map has none
+at all (most classic 5-man dungeons/raids — a single global WMO, no real
+ADT terrain), falls back to the WDT-level `MODF` instead (guarded by
+`MPHD.flags & 0x1` — see `.claude-docs/gotchas.md`'s "Detecting a pure WMO
+dungeon" entry), same detection `preview_wmo_tiles.js` already had. This
+fallback was missing for a while after yaw support landed (this file's own
+header used to say so) — confirmed the gap the hard way: Ragefire Chasm and
+Onyxia's Lair both silently produced 0 tiles despite having real baked
+minimap art, because only the per-ADT scan existed here at the time.
 
 Some maps have a WMO placement with its own baked group-minimap tiles
 (`world/minimaps/wmo/.../<name>_<group>_<blockX>_<blockY>.blp`, same system
@@ -726,12 +732,20 @@ un-extracted): `Data_Mists/mapdata_wmo_tiles.lua` has `DalaranArena` (6
 tiles), `OrgrimmarArena` (6 tiles), `TolVirArena` (37 tiles, real yaw),
 `PVPLordaeron` (46 tiles across 11 groups -- the arena building itself plus
 several reused Duskwood village buildings and dungeon fragments as
-decoration, all real yaw). `Data_TBC/mapdata_wmo_tiles.lua` has the same
-`PVPLordaeron` (identical underlying assets, 46 tiles). Everything else
-produces 0, genuinely (no baked minimap tiles exist for these WMOs at all,
-confirmed via the listfile, not an extraction gap): TBC's/Mists' Nagrand
-Arena, Blade's Edge Arena, Mists' Tiger's Peak (`ShadoPanArena`), Forever's
-Hyjal Crater.
+decoration, all real yaw), `Shadowfang` (105 tiles -- its own 73-group
+dungeon interior WMO plus ~8 small reused decorative fragments), and, once
+the WDT-level `MODF` fallback landed here (see this step's header),
+`OrgrimmarInstance`/Ragefire Chasm (19 tiles, pure-WMO) and
+`OnyxiaLairInstance`/Onyxia's Lair (11 tiles, pure-WMO). `Data_TBC/
+mapdata_wmo_tiles.lua` has the same `PVPLordaeron` (identical underlying
+assets, 46 tiles). Everything else produces 0, genuinely (no baked minimap
+tiles exist for these WMOs at all, confirmed via the listfile, not an
+extraction gap -- **but this claim is only trustworthy for maps with real
+ADT terrain** (arenas always have some); `audit_wmo_extraction.js` itself
+was missing the WDT-level check until the Ragefire/Onyxia miss above, so
+re-audit a *pure-WMO* dungeon/raid candidate again before trusting an old
+"produces 0" note about one): TBC's/Mists' Nagrand Arena, Blade's Edge
+Arena, Mists' Tiger's Peak (`ShadoPanArena`), Forever's Hyjal Crater.
 
 ## Other scripts
 
@@ -800,6 +814,81 @@ Hyjal Crater.
   `.claude-docs/gotchas.md`'s "WMO-tile world position" entry) — use it
   before relying on an in-game screenshot for a map that has real terrain to
   check against (e.g. Shadowfang Keep).
+
+## Step 11 — `gen_instance_maps.js`: dungeon/raid/scenario maps (`Twm_DungeonNames`/`Twm_RaidNames`/`Twm_ScenarioNames`, `Twm_mapareas`)
+
+```bash
+node gen_instance_maps.js --kind dungeon|raid|scenario --flavor-dir <dir with Map.*.csv> --locales-dir <dir with Map.<locale>.csv per locale> --tiles-file <mapdata_tiles.lua, already regenerated including these Directory names> --listfile <community-listfile.csv> --out <out-file.lua>
+```
+
+One shared script for all three categories (`--kind`), not three separate
+files the way `gen_battlegrounds.js`/`gen_arenas.js` are — unlike those two
+(genuinely different `UiMapAssignment` handling), dungeons/raids/scenarios
+differ from each other only in which `Map.csv` `InstanceType` value selects
+them (`1`/`2`/`5`) and which Lua globals the output populates. Otherwise
+modeled closely on `gen_arenas.js`: per-locale baked names (`--locales-dir`,
+same 11 locales) and a box derived from `--tiles-file` instead of a
+`UiMapAssignment` Region box, for the same reason arenas need one —
+`UiMapAssignment` presence for these is flavor-**inconsistent** (confirmed:
+Ragefire Chasm has 0 rows on Vanilla/Forever but 6 on TBC/Mists, same
+MapID), so there's no single reliable rule to build a box or a live-resolved
+name from it either way, unlike battlegrounds.
+
+**Structural filter is deliberately NOT `MapType=1`**, unlike every other
+generator's own top-level-map filter (`gen_mapareas.js`/`gen_arenas.js`/
+`gen_battlegrounds.js` all use it) — `Map.csv`'s `MapType` column is
+unrelated to `InstanceType` and is not a reliable "is this a real top-level
+map" signal for dungeons specifically (confirmed: Ragefire Chasm's own
+`MapType` is `2`, Shadowfang Keep's is `1`, despite both being ordinary
+`InstanceType=1` dungeons — filtering on it silently drops ~30% of real
+dungeons/raids). `ParentMapID=-1` + `InstanceType` is precise enough alone.
+Non-functional test/scrapped content mixed into these `InstanceType`s is
+filtered by a plain `/unused/i` test on `MapName_lang` (matches "(UNUSED)
+Scenario: ...", "The Depths [UNUSED]", etc., confirmed no false positives
+on real content across a full Mists scan).
+
+**Box derivation has two paths**, tried in order:
+1. Same as `gen_arenas.js`: valid-tile extent from `--tiles-file` (real ADT
+   tile grid — some dungeons/scenarios have one, e.g. Shadowfang Keep,
+   Greenstone Village).
+2. **New — most dungeons/raids have no ADT tile grid at all** (a single
+   global WMO placed via a WDT-level `MODF`, see `.claude-docs/gotchas.md`'s
+   "Detecting a pure WMO dungeon" entry, guarded by `MPHD.flags & 0x1`) —
+   `parse_wdt.js` finds 0 valid tiles for these, not an error, there's
+   nothing there to find. Falls back to that placed WMO's own **`MOHD`
+   chunk bounding box** (root `.wmo` file, fixed 64-byte struct, bbox at
+   offset 36/48 — already the union of every group, no need to touch group
+   files at all), transformed by the same yaw+translate+Big-convert
+   pipeline `gen_wmo_tiles.js`'s header derives (minus that script's own
+   minimap-tile-baking-specific 90-degree content quirk, which is about how
+   Blizzard's tool oriented *textures*, not a property of the WMO's own
+   placed geometry — irrelevant for a plain bounding box). **Does not
+   depend on baked minimap art existing at all** — confirmed necessary,
+   since Vanilla has none for these at all, only the WMO model file itself
+   (`--listfile` resolves the WDT's `MODF.nameId` to that file's path, same
+   as `gen_wmo_tiles.js`).
+
+**Example (Mists test run — see `.claude-docs/gotchas.md` if the numbers
+below stop matching a future re-run):**
+```bash
+node gen_instance_maps.js --kind dungeon --flavor-dir C:\wow-data\wow_classic --locales-dir C:\wow-data\wow_classic\locales --tiles-file Data_Mists/mapdata_tiles.lua --listfile C:\wow-data\CASCConsole\listfile.csv --out Data_Mists/mapdata_dungeons.lua
+```
+
+**Status as of this writing**: only a small validation set has been run
+end-to-end (one map per category, one of each box-derivation path) —
+Shadowfang Keep and Ragefire Chasm (dungeons, tile-extent and pure-WMO
+respectively), Onyxia's Lair (raid, pure-WMO), Greenstone Village (scenario,
+tile-extent) — all on Mists. A full run across every flavor/category is
+**deliberately not done yet**: Mists alone has 84 dungeon + 33 raid + 34
+scenario candidates once `MapType` isn't used to filter, most of which
+(especially dungeons/raids) are pure-WMO and need their own WDT + root
+`.wmo` file extracted locally first (see `init_workdir.ps1`'s own docstring
+— it only fetches continents, not instance maps, so this needs its own
+extraction pass, likely per-map or in one large batched `CASCConsole` regex
+covering every `world/maps/<dir>/<dir>.wdt` + `world/wmo/.../<root>.wmo`
+implicated). Do that as a deliberate next pass, not inline with unrelated
+work — re-run `audit_wmo_extraction.js`-style checks first if unsure what's
+missing.
 
 ## When to re-run
 
