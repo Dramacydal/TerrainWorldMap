@@ -16,10 +16,15 @@
 -- Twm_ScenarioNames is resolved into the actual TWM_SCENARIOS dropdown
 -- table at load time (TerrainWorldMap.lua), same as Twm_ArenaNames/
 -- Twm_flightmasters' name tables -- see this file's own header comment.
+-- `expansion` is Map.csv's own ExpansionID (a string, like every other ID
+-- in this codebase) -- unused by Scenarios' own dropdown today (Mists is
+-- the only flavor with any, always ExpansionID 4), kept for consistency
+-- with Dungeons/Raids' shared generator.
 
 Twm_ScenarioNames = {
     {
         key = "PandaFishingVillageScenario",
+        expansion = "4",
         name = {
             enUS = "Greenstone Village",
             deDE = "Grünstein",

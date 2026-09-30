@@ -29,24 +29,31 @@
 //     masters do.
 
 const fs = require('fs');
+const path = require('path');
 const { parseCsvFile: parseCsv, findCsv } = require('./csv');
 const { INSTANCE_TYPE_ARENA } = require('./dbc_enums');
+const { flavorDir, ensureDb2Csv, envOr, readCandidates } = require('./extract');
+const { skipMaps, isSkipped } = require('./skip_lists');
 
 const MINI2BIG = 1600 / 3; // 533.3333..., matches TerrainWorldMap.lua's MINI2BIGX/Y
 function miniToBig(v) { return (v - 32) * -MINI2BIG; }
 
 // Client locales Map.csv's MapName_lang is fetched for (wago.tools:
-// /db2/Map/csv?product=<product>&locale=<locale>, see --locales-dir) --
+// /db2/Map/csv?product=<product>&locale=<locale>, self-downloaded per locale) --
 // same set gen_poi_flightmasters.js uses for TaxiNodes.
 const LOCALES = ['enUS', 'deDE', 'esES', 'esMX', 'frFR', 'itIT', 'koKR', 'ptBR', 'ruRU', 'zhCN', 'zhTW'];
 
 // A standalone arena: Map.csv row with ParentMapID=-1 (top-level), MapType=1,
 // InstanceType=INSTANCE_TYPE_ARENA -- same structural shape as
 // gen_battlegrounds.js's battleground filter, minus the UiMapAssignment
-// zone-row requirement (arenas have none to require).
-function findArenas(mapRows) {
+// zone-row requirement (arenas have none to require). Also excludes anything
+// hand-listed in skip_lists.js's skipMaps for this flavor -- see that file's
+// own header for what it's for (this was documented there as already
+// applying here, but never actually was until now).
+function findArenas(mapRows, flavor) {
 	return mapRows
 		.filter(r => r.ParentMapID === '-1' && r.MapType === '1' && r.InstanceType === INSTANCE_TYPE_ARENA)
+		.filter(r => !isSkipped(skipMaps, flavor, r.ID))
 		.map(r => ({ key: r.Directory, mapID: r.ID, names: { enUS: r.MapName_lang } }));
 }
 
@@ -74,20 +81,24 @@ function tileBoundsFor(tilesLua, name) {
 }
 
 function parseArgs(argv) {
-	const opts = { flavorDir: null, localesDir: null, tilesFile: null, out: null };
+	const opts = { workDir: null, flavor: null, tilesFile: null, out: null, force: false, proxy: null };
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i];
-		if (a === '--flavor-dir') opts.flavorDir = argv[++i];
-		else if (a === '--locales-dir') opts.localesDir = argv[++i];
+		if (a === '--work-dir') opts.workDir = argv[++i];
+		else if (a === '--flavor') opts.flavor = argv[++i];
 		else if (a === '--tiles-file') opts.tilesFile = argv[++i];
 		else if (a === '--out') opts.out = argv[++i];
+		else if (a === '--force') opts.force = true;
+		else if (a === '--proxy') opts.proxy = argv[++i];
 		else throw new Error(`Unknown option: ${a}`);
 	}
 	return opts;
 }
 
 function printUsage() {
-	console.error('Usage: node gen_arenas.js --flavor-dir <dir with Map.*.csv> --locales-dir <dir with Map.<locale>.csv for each of ' + LOCALES.join('/') + '> --tiles-file <mapdata_tiles.lua, already regenerated including the arena Directory names> --out <out-file.lua>');
+	console.error('Usage: node gen_arenas.js --work-dir <dir> --flavor <product> --tiles-file <mapdata_tiles_arenas.lua, from parse_wdt.js --candidates arenas> --out <out-file.lua> [--force] [--proxy <url>]');
+	console.error('  Requires scripts/gen_candidates.js to have been run first (reads candidates/arenas.json for its own candidate list).');
+	console.error('  Map.<locale>.csv is self-downloaded for each of ' + LOCALES.join('/') + '.');
 }
 
 function main() {
@@ -100,21 +111,41 @@ function main() {
 		process.exit(1);
 	}
 
-	if (!opts.flavorDir || !opts.localesDir || !opts.tilesFile || !opts.out) {
+	opts.workDir = envOr(opts.workDir, 'WORK_DIR');
+	opts.flavor = envOr(opts.flavor, 'FLAVOR');
+	opts.proxy = envOr(opts.proxy, 'PROXY');
+
+	if (!opts.workDir || !opts.flavor || !opts.tilesFile || !opts.out) {
 		printUsage();
 		process.exit(1);
 	}
 
-	const mapRows = parseCsv(findCsv(opts.flavorDir, 'Map.'));
+	const dl = { workDir: opts.workDir, flavor: opts.flavor, force: opts.force, proxy: opts.proxy };
+	ensureDb2Csv({ ...dl, table: 'Map' });
+	for (const locale of LOCALES)
+		ensureDb2Csv({ ...dl, table: 'Map', locale });
+	const flavorDirPath = flavorDir(opts.workDir, opts.flavor);
+	const localesDir = path.join(flavorDirPath, 'locales');
+
+	const mapRows = parseCsv(findCsv(flavorDirPath, 'Map.'));
 	const tilesLua = fs.readFileSync(opts.tilesFile, 'utf8');
 
-	const candidates = findArenas(mapRows);
+	// Candidate discovery/filtering (structural Map.csv filter + skipMaps)
+	// happens exactly once, in gen_candidates.js's own findArenas call --
+	// this script just looks each candidate's own Map.csv row back up by ID
+	// (for its locale-independent fields: Directory/enUS name) instead of
+	// re-running the same filter against Map.csv a second time.
+	const byID = {};
+	for (const r of mapRows) byID[r.ID] = r;
+	const candidates = readCandidates(opts.workDir, opts.flavor, 'arenas').map(c => {
+		const r = byID[c.id];
+		if (!r) {
+			console.error(`WARNING: candidates/arenas.json has ${c.key} (ID=${c.id}) but it's no longer in Map.csv -- stale candidates file? Re-run gen_candidates.js. Skipping.`);
+			return null;
+		}
+		return { key: r.Directory, mapID: r.ID, names: { enUS: r.MapName_lang } };
+	}).filter(Boolean);
 	console.error(`${candidates.length} arena Map rows found:`, candidates.map(a => `${a.key} (${a.names.enUS}, MapID=${a.mapID})`));
-
-	// stdout: case-sensitive Directory names, for parse_wdt.js's trailing
-	// <ContinentName> args (run BEFORE this script, so --tiles-file already
-	// has these).
-	console.log(candidates.map(a => a.key).join(' '));
 
 	// Name_lang for every other locale, keyed by Map ID -- missing locale
 	// files are skipped with a warning rather than a hard failure, same as
@@ -123,7 +154,7 @@ function main() {
 		if (locale === 'enUS') continue;
 		let rows;
 		try {
-			rows = parseCsv(findCsv(opts.localesDir, `Map.${locale}.`));
+			rows = parseCsv(findCsv(localesDir, `Map.${locale}.`));
 		} catch (e) {
 			console.error(`Skipping ${locale}: ${e.message}`);
 			continue;
@@ -187,4 +218,5 @@ function main() {
 	console.error(`\nWritten: ${opts.out}`);
 }
 
-main();
+module.exports = { findArenas };
+if (require.main === module) { main(); }

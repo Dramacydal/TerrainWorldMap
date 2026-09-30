@@ -7,6 +7,7 @@
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
+const { flavorDir, listfilePath, envOr } = require('./extract');
 
 function chunkID(a, b, c, d) { return (a.charCodeAt(0) << 24) | (b.charCodeAt(0) << 16) | (c.charCodeAt(0) << 8) | d.charCodeAt(0); }
 const ID_MPHD = chunkID('M', 'P', 'H', 'D');
@@ -64,12 +65,45 @@ function findWdtPlacement(wdtPath) {
 	return [modf];
 }
 
+function parseArgs(argv) {
+	const opts = { workDir: null, flavor: null };
+	const mapNames = [];
+	for (let i = 0; i < argv.length; i++) {
+		const a = argv[i];
+		if (a === '--work-dir') opts.workDir = argv[++i];
+		else if (a === '--flavor') opts.flavor = argv[++i];
+		else if (a.startsWith('--')) throw new Error(`Unknown option: ${a}`);
+		else mapNames.push(a);
+	}
+	return { opts, mapNames };
+}
+
+function printUsage() {
+	console.error('Usage: node audit_wmo_extraction.js --work-dir <dir> --flavor <product> <MapDirectoryName> [<MapDirectoryName> ...]');
+	console.error('  Read-only: reports what is/isn\'t extracted yet under <work-dir>/<flavor>/, does not extract anything itself.');
+}
+
 async function main() {
-	const [, , flavorDir, listfilePath, ...mapNames] = process.argv;
+	let opts, mapNames;
+	try {
+		({ opts, mapNames } = parseArgs(process.argv.slice(2)));
+	} catch (e) {
+		console.error(e.message);
+		printUsage();
+		process.exit(1);
+	}
+	opts.workDir = envOr(opts.workDir, 'WORK_DIR');
+	opts.flavor = envOr(opts.flavor, 'FLAVOR');
+
+	if (!opts.workDir || !opts.flavor || mapNames.length === 0) {
+		printUsage();
+		process.exit(1);
+	}
+	const flavorDirPath = flavorDir(opts.workDir, opts.flavor);
 
 	const idToPath = {};
 	const tilesByStem = {}; // stem -> [{groupNum, blockX, blockY, fileID, listfilePath}]
-	const rl = readline.createInterface({ input: fs.createReadStream(listfilePath) });
+	const rl = readline.createInterface({ input: fs.createReadStream(listfilePath(opts.workDir)) });
 	for await (const line of rl) {
 		const idx = line.indexOf(';');
 		if (idx === -1) continue;
@@ -86,7 +120,7 @@ async function main() {
 	}
 
 	for (const mapName of mapNames) {
-		const mapDir = path.join(flavorDir, 'world', 'maps', mapName);
+		const mapDir = path.join(flavorDirPath, 'world', 'maps', mapName);
 		let placements = findModfPlacements(mapDir);
 		if (placements.length === 0) placements = findWdtPlacement(path.join(mapDir, `${mapName}.wdt`));
 		const seenWmo = new Set();
@@ -101,7 +135,7 @@ async function main() {
 			anyTiles = true;
 			const groupNums = [...new Set(tiles.map(t => t.groupNum))];
 			console.log(`${mapName}: ${wmoPath} -- yaw ${p.rot[1].toFixed(2)} deg, pitch/roll ${p.rot[0].toFixed(2)}/${p.rot[2].toFixed(2)}, ${tiles.length} tile(s) across groups [${groupNums.join(',')}]`);
-			const wmoDir = path.join(flavorDir, path.dirname(wmoPath));
+			const wmoDir = path.join(flavorDirPath, path.dirname(wmoPath));
 			const wmoBase = path.basename(wmoPath, '.wmo');
 			const rootLocal = fs.existsSync(path.join(wmoDir, `${wmoBase}.wmo`));
 			console.log(`  root .wmo extracted: ${rootLocal}`);
@@ -109,8 +143,8 @@ async function main() {
 				const gp = path.join(wmoDir, `${wmoBase}_${String(g).padStart(3, '0')}.wmo`);
 				console.log(`  group ${g} extracted: ${fs.existsSync(gp)} (${gp})`);
 			}
-			const minimapDir = path.join(flavorDir, path.dirname(wmoPath).replace(/^world[\\/]wmo/, 'world/minimaps/wmo'));
-			const tilesExtracted = tiles.filter(t => fs.existsSync(path.join(flavorDir, t.listfilePath))).length;
+			const minimapDir = path.join(flavorDirPath, path.dirname(wmoPath).replace(/^world[\\/]wmo/, 'world/minimaps/wmo'));
+			const tilesExtracted = tiles.filter(t => fs.existsSync(path.join(flavorDirPath, t.listfilePath))).length;
 			console.log(`  minimap tiles extracted: ${tilesExtracted}/${tiles.length} (dir: ${minimapDir})`);
 		}
 		if (!anyTiles) console.log(`${mapName}: no placement with any baked WMO minimap tile at all`);

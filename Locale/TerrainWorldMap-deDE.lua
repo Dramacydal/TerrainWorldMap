@@ -75,6 +75,14 @@ TWM_CATEGORY_RAIDS = "Schlachtzüge";
 TWM_CATEGORY_SCENARIOS = "Szenarien";
 TWM_CATEGORY_BATTLEGROUNDS = "Schlachtfelder";
 TWM_CATEGORY_ARENAS = "Arenen";
+
+-- Blizzard's own deDE client keeps these untranslated (confirmed via
+-- Achievement_Category game data, not guessed) -- same English titles as enUS.
+TWM_EXPANSION_0 = "Classic";
+TWM_EXPANSION_1 = "The Burning Crusade";
+TWM_EXPANSION_2 = "Wrath of the Lich King";
+TWM_EXPANSION_3 = "Cataclysm";
+TWM_EXPANSION_4 = "Mists of Pandaria";
 -- Landmarks would tranlsate to "Landmarken", "wichtige Orte" would be translated to English: "important places"
 -- I would prefer "wichtige Orte" over "Landmarken"
 TWM_POINTS_LANDMARKS = "wichtige Orte";
@@ -83,6 +91,7 @@ TWM_POINTS_CAPITALS = "Hauptst\195\164dte";
 TWM_POINTS_DUNGEONS = "Dungeons";
 TWM_POINTS_FLIGHTMASTERS = "Flugmeister";
 
+TWM_OPTIONS_SHOW_TERRAIN = "Zeige Gel\195\164nde";
 TWM_OPTIONS_SHOW_WMO_OVERLAY = "Zeige WMO-Ebenen";
 TWM_OPTIONS_SHOW_LANDMARKS = "Zeige wichtige Orte";
 TWM_OPTIONS_SHOW_GRAVEYARDS = "Zeige Friedh\195\182fe";

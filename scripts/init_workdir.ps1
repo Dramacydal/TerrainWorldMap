@@ -1,24 +1,17 @@
 #Requires -Version 7.0
 <#
 .SYNOPSIS
-	Prepares a WORKDIR with everything gen_mapareas.js / parse_wdt.js / gen_poi_instances.js /
-	gen_poi_flightmasters.js need for one WoW product: DB2 CSVs (AreaTable/Map/UiMap/
-	UiMapAssignment/AreaTrigger/TaxiPath/TaxiPathNode), TaxiNodes fetched once per client
-	locale into <productDir>/locales/ (flight masters bake in every locale's name -- see
-	gen_poi_flightmasters.js), and extracted WDT/root-ADT/noLiquid-minimap files.
-
-.PARAMETER Product
-	TACT product code, e.g. wow_classic_era, wow_anniversary, wow_classic (see .build.info).
+	Prepares a WORKDIR with the tools every gen_*.js/parse_wdt.js script needs
+	to self-extract its own data: the CASCConsole tool and the community
+	listfile, both shared across every flavor. Does NOT download any
+	product-specific data (DB2 CSVs, WDT/ADT/WMO files, locale exports) --
+	each script now fetches/extracts exactly what it needs itself into
+	<WorkDir>/<flavor>/ via scripts/extract.js, given --work-dir,
+	--client-dir (or --online) and --flavor.
 
 .PARAMETER WorkDir
-	Root working directory. Gets WorkDir/CASCConsole (tool, shared across products)
-	and WorkDir/<Product> (per-product DB2 CSVs + extracted game files).
-
-.PARAMETER Online
-	Use CASCConsole's online mode (pulls from Blizzard CDN) instead of a local install.
-
-.PARAMETER Storage
-	Path to a local WoW installation root. Required unless -Online is set.
+	Root working directory. Gets WorkDir/CASCConsole (tool + listfile) --
+	every gen_*.js/parse_wdt.js script reads this directly via --work-dir.
 
 .PARAMETER Proxy
 	Optional proxy, passed straight through to curl.exe's -x/--proxy option.
@@ -29,25 +22,14 @@
 	Not hardcoded here on purpose -- this file is git-tracked.
 
 .EXAMPLE
-	./init_workdir.ps1 -Product wow_classic -Online -WorkDir E:\wow-data
+	./init_workdir.ps1 -WorkDir E:\wow-data
 .EXAMPLE
-	./init_workdir.ps1 -Product wow_anniversary -Storage "C:\Program Files\World of Warcraft" -WorkDir E:\wow-data -Proxy socks5h://user:pass@127.0.0.1:8883
+	./init_workdir.ps1 -WorkDir E:\wow-data -Proxy socks5h://user:pass@127.0.0.1:8883
 #>
 [CmdletBinding()]
 param(
 	[Parameter(Mandatory)]
-	[string]$Product,
-
-	[Parameter(Mandatory)]
 	[string]$WorkDir,
-
-	[switch]$Online,
-
-	[string]$Storage,
-
-	[string]$Region = 'eu',
-
-	[string]$Locale = 'enUS',
 
 	# curl.exe -x/--proxy format: scheme://[user:password@]host[:port]
 	[ValidatePattern('^(https?|socks[45]h?)://([^:@/]+:[^:@/]+@)?[^/@]+(:\d+)?$', ErrorMessage = "Proxy must be in curl's --proxy format, e.g. socks5h://user:pass@127.0.0.1:8883")]
@@ -58,32 +40,11 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-if (-not $Online -and [string]::IsNullOrWhiteSpace($Storage)) {
-	throw "Either -Online or -Storage <path to WoW install> must be specified."
-}
-if ($Online -and $Storage) {
-	Write-Warning "-Storage is ignored when -Online is set."
-}
-
 $CASCCONSOLE_URL = 'https://github.com/Dramacydal/CASCExplorer/releases/download/build-latest/CASCConsole.zip'
 $LISTFILE_URL = 'https://github.com/wowdev/wow-listfile/releases/latest/download/community-listfile.csv'
-# TaxiNodes is deliberately NOT in this list -- gen_poi_flightmasters.js needs
-# it fetched once per client locale instead (see the "Localized TaxiNodes"
-# step below), since flight masters bake in every locale's name rather than
-# resolving one live at render time (they have no AreaID/MapID of their own
-# to resolve a name from -- see .claude-docs/architecture.md).
-$DB2_TABLES = @('AreaTable', 'Map', 'UiMap', 'UiMapAssignment', 'AreaTrigger', 'TaxiPath', 'TaxiPathNode')
-# wago.tools locales gen_poi_flightmasters.js's --locales-dir expects one
-# TaxiNodes.<locale>.csv for -- enGB/ptPT aren't fetched separately since
-# wago.tools doesn't export them distinct from enUS/ptBR.
-$TAXINODES_LOCALES = @('enUS', 'deDE', 'esES', 'esMX', 'frFR', 'itIT', 'koKR', 'ptBR', 'ruRU', 'zhCN', 'zhTW')
 
-$scriptsDir = $PSScriptRoot
 $cascDir = Join-Path $WorkDir 'CASCConsole'
-$productDir = Join-Path $WorkDir $Product
-
 New-Item -ItemType Directory -Force -Path $cascDir | Out-Null
-New-Item -ItemType Directory -Force -Path $productDir | Out-Null
 
 $curlProxyArgs = @()
 if ($Proxy) {
@@ -131,77 +92,6 @@ Step "Community listfile" {
 	Invoke-Curl @('-o', $listfilePath, $LISTFILE_URL)
 }
 
-Step "DB2 CSVs (AreaTable/Map/UiMap/UiMapAssignment/AreaTrigger/TaxiPath/TaxiPathNode)" {
-	$haveAll = -not $Force -and ($DB2_TABLES | ForEach-Object {
-		Get-ChildItem -Path $productDir -Filter "$_*.csv" -ErrorAction SilentlyContinue
-	} | Measure-Object).Count -ge $DB2_TABLES.Count
-	if ($haveAll) {
-		Write-Host "    already present, skipping (use -Force to re-download)"
-		return
-	}
-	foreach ($table in $DB2_TABLES) {
-		$url = "https://wago.tools/db2/$table/csv?product=$Product"
-		Invoke-Curl @('-J', '-O', '--output-dir', $productDir, $url)
-	}
-}
-
-Step "Localized TaxiNodes CSVs ($($TAXINODES_LOCALES -join '/'))" {
-	$localesDir = Join-Path $productDir 'locales'
-	New-Item -ItemType Directory -Force -Path $localesDir | Out-Null
-
-	$haveAll = -not $Force -and ($TAXINODES_LOCALES | ForEach-Object {
-		Test-Path (Join-Path $localesDir "TaxiNodes.$_.csv")
-	} | Where-Object { $_ } | Measure-Object).Count -ge $TAXINODES_LOCALES.Count
-	if ($haveAll) {
-		Write-Host "    already present, skipping (use -Force to re-download)"
-		return
-	}
-	foreach ($locale in $TAXINODES_LOCALES) {
-		$outPath = Join-Path $localesDir "TaxiNodes.$locale.csv"
-		$url = "https://wago.tools/db2/TaxiNodes/csv?product=$Product&locale=$locale"
-		Invoke-Curl @('-o', $outPath, $url)
-	}
-}
-
-$continents = $null
-Step "Continent list (gen_mapareas.js)" {
-	$genScript = Join-Path $scriptsDir 'gen_mapareas.js'
-	$lines = & node $genScript $productDir 2>$null
-	if ($LASTEXITCODE -ne 0 -or -not $lines) {
-		throw "gen_mapareas.js failed to produce a continent list -- check DB2 CSVs in $productDir"
-	}
-	$script:continents = ($lines | Select-Object -First 1) -split '\s+' | Where-Object { $_ }
-	Write-Host "    $($continents.Count) continents: $($continents -join ', ')"
-}
-
-$pattern = $null
-Step "Build extraction regex" {
-	$escaped = $continents | ForEach-Object { [regex]::Escape($_) }
-	$contAlt = $escaped -join '|'
-	$script:pattern = "^world/(maps/($contAlt)/([^_/]+\.wdt|\w+_\d+_\d+\.adt)|minimaps/($contAlt)/noliquid_map\d+_\d+\.blp)$"
-	Write-Host "    $pattern"
-}
-
-Step "Extract WDT/ADT/minimap files via CASCConsole" {
-	Push-Location $cascDir
-	try {
-		$cascArgs = @('-m', 'Regexp', '-e', $pattern, '-d', $productDir, '-l', $Locale, '-p', $Product)
-		if ($Online) {
-			$cascArgs += @('-o', 'true')
-		} else {
-			$cascArgs += @('-s', $Storage)
-		}
-		& .\CASCConsole.exe @cascArgs
-		if ($LASTEXITCODE -ne 0) {
-			throw "CASCConsole.exe exited with code $LASTEXITCODE"
-		}
-	} finally {
-		Pop-Location
-	}
-}
-
-$extractedCount = (Get-ChildItem -Path (Join-Path $productDir 'world') -Recurse -File -ErrorAction SilentlyContinue | Measure-Object).Count
 Write-Host ""
-Write-Host "Done. $extractedCount files extracted into $productDir" -ForegroundColor Green
-Write-Host "Pass '$productDir' as --flavor-dir to parse_wdt.js and as the <csv-dir> argument to gen_mapareas.js."
-Write-Host "Pass '$productDir' as --flavor-dir and '$(Join-Path $productDir 'locales')' as --locales-dir to gen_poi_flightmasters.js."
+Write-Host "Done. Tools ready under $cascDir" -ForegroundColor Green
+Write-Host "Pass '$WorkDir' as --work-dir to every gen_*.js/parse_wdt.js script, along with --flavor <product> and --client-dir <path>|--online."

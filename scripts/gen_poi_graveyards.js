@@ -40,10 +40,22 @@
 // yards of each other count as one).
 
 const fs = require('fs');
+const path = require('path');
 const { parseCsvFile, findCsv } = require('./csv');
 const { UI_MAP_TYPE_ZONE, UI_MAP_TYPE_ORPHAN } = require('./dbc_enums');
+const { flavorDir, ensureDb2Csv, downloadFile, envOr } = require('./extract');
 
 const DEDUP_DISTANCE = 15; // yards
+
+// Wowhead serves a separately-scoped snapshot of the Spirit Healer NPC per
+// game-version domain, matching each flavor's own zone geometry (see header
+// comment) -- keyed by the same TACT product code used everywhere else here.
+const WOWHEAD_DOMAIN_BY_FLAVOR = {
+	wow_classic_era: 'classic',
+	wow_anniversary: 'tbc',
+	wow_classic: 'mop-classic',
+	wow_classic_beta: 'forever',
+};
 
 // {areaID: box} for every Zone UiMapAssignment row (UI_MAP_TYPE_ZONE, or
 // UI_MAP_TYPE_ORPHAN on builds that use it -- see gen_mapareas.js),
@@ -162,20 +174,27 @@ function dedupeByDistance(points) {
 }
 
 function parseArgs(argv) {
-	const opts = { wowheadHtml: null, mapareasFile: null, out: null, flavorDir: null };
+	const opts = {
+		workDir: null, flavor: null, wowheadHtml: null, mapareasFile: null, out: null,
+		force: false, proxy: null,
+	};
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i];
-		if (a === '--wowhead-html') opts.wowheadHtml = argv[++i];
+		if (a === '--work-dir') opts.workDir = argv[++i];
+		else if (a === '--flavor') opts.flavor = argv[++i];
+		else if (a === '--wowhead-html') opts.wowheadHtml = argv[++i];
 		else if (a === '--mapareas-file') opts.mapareasFile = argv[++i];
 		else if (a === '--out') opts.out = argv[++i];
-		else if (a === '--flavor-dir') opts.flavorDir = argv[++i];
+		else if (a === '--force') opts.force = true;
+		else if (a === '--proxy') opts.proxy = argv[++i];
 		else throw new Error(`Unknown option: ${a}`);
 	}
 	return opts;
 }
 
 function printUsage() {
-	console.error('Usage: node gen_poi_graveyards.js --wowhead-html <saved Spirit Healer NPC page.html> --mapareas-file <target flavor mapdata_continents.lua> --out <out-file.lua> [--flavor-dir <dir with UiMapAssignment/UiMap/AreaTable.*.csv>]');
+	console.error('Usage: node gen_poi_graveyards.js --work-dir <dir> --flavor <product> --mapareas-file <target flavor mapdata_continents.lua> --out <out-file.lua> [--wowhead-html <saved Spirit Healer NPC page.html>] [--force] [--proxy <url>]');
+	console.error('  --wowhead-html overrides the self-downloaded page (auto-picked by --flavor via ' + Object.keys(WOWHEAD_DOMAIN_BY_FLAVOR).join('/') + ').');
 }
 
 function main() {
@@ -188,12 +207,35 @@ function main() {
 		process.exit(1);
 	}
 
-	if (!opts.wowheadHtml || !opts.mapareasFile || !opts.out) {
+	opts.workDir = envOr(opts.workDir, 'WORK_DIR');
+	opts.flavor = envOr(opts.flavor, 'FLAVOR');
+	opts.proxy = envOr(opts.proxy, 'PROXY');
+
+	if (!opts.workDir || !opts.flavor || !opts.mapareasFile || !opts.out) {
 		printUsage();
 		process.exit(1);
 	}
 
-	const html = fs.readFileSync(opts.wowheadHtml, 'utf8');
+	const dl = { workDir: opts.workDir, flavor: opts.flavor, force: opts.force, proxy: opts.proxy };
+	const flavorDirPath = flavorDir(opts.workDir, opts.flavor);
+
+	let wowheadHtmlPath = opts.wowheadHtml;
+	if (!wowheadHtmlPath) {
+		const domain = WOWHEAD_DOMAIN_BY_FLAVOR[opts.flavor];
+		if (!domain)
+			throw new Error(`No known Wowhead domain for --flavor ${opts.flavor} -- pass --wowhead-html <saved Spirit Healer NPC page.html> manually.`);
+		wowheadHtmlPath = downloadFile(
+			`https://www.wowhead.com/${domain}/npc=6491/spirit-healer`,
+			path.join(flavorDirPath, 'spirit_healer.html'),
+			{ proxy: opts.proxy, force: opts.force, userAgent: 'Mozilla/5.0' },
+		);
+	}
+
+	ensureDb2Csv({ ...dl, table: 'AreaTable' });
+	ensureDb2Csv({ ...dl, table: 'UiMap' });
+	ensureDb2Csv({ ...dl, table: 'UiMapAssignment' });
+
+	const html = fs.readFileSync(wowheadHtmlPath, 'utf8');
 	const mapareasLua = fs.readFileSync(opts.mapareasFile, 'utf8');
 
 	const spawns = parseWowheadMapperData(html);
@@ -205,13 +247,15 @@ function main() {
 		for (const areaID of Object.keys(boxes))
 			areaIndex[areaID] = { contName, box: boxes[areaID] };
 
-	// --flavor-dir lets a sub-area gen_mapareas.js excluded from the zone
-	// dropdown (not a top-level AreaTable entry) still resolve: its own box
-	// comes from raw UiMapAssignment (rawBoxByAreaID), and which output
-	// section it belongs under comes from walking AreaTable's ParentAreaID
-	// chain up to whichever ancestor IS in areaIndex.
-	const rawBoxByAreaID = opts.flavorDir ? loadRawZoneBoxes(opts.flavorDir) : {};
-	const parentOf = opts.flavorDir ? loadAreaParents(opts.flavorDir) : {};
+	// Lets a sub-area gen_mapareas.js excluded from the zone dropdown (not a
+	// top-level AreaTable entry) still resolve: its own box comes from raw
+	// UiMapAssignment (rawBoxByAreaID), and which output section it belongs
+	// under comes from walking AreaTable's ParentAreaID chain up to whichever
+	// ancestor IS in areaIndex. Always available now (AreaTable/UiMap/
+	// UiMapAssignment are self-downloaded above), unlike the old opt-in
+	// --flavor-dir.
+	const rawBoxByAreaID = loadRawZoneBoxes(flavorDirPath);
+	const parentOf = loadAreaParents(flavorDirPath);
 
 	function resolveViaParentChain(areaID) {
 		let id = areaID, guard = 0;
@@ -255,7 +299,7 @@ function main() {
 		matched += byContinent[contName].length;
 	}
 
-	console.error(`${matched} graveyards matched (${viaParentChain} via --flavor-dir's own AreaTable/UiMapAssignment for a sub-area not in --mapareas-file), ${skipped} skipped (AreaID unresolvable), ${mergedAway} merged as same-spot duplicates`);
+	console.error(`${matched} graveyards matched (${viaParentChain} via this flavor's own AreaTable/UiMapAssignment for a sub-area not in --mapareas-file), ${skipped} skipped (AreaID unresolvable), ${mergedAway} merged as same-spot duplicates`);
 
 	let fullOutput = "-- GENERATED FILE -- do not hand-edit, regenerate with scripts/gen_poi_graveyards.js\n"
 		+ "-- and replace this file wholesale. See scripts/README.md for details.\n"

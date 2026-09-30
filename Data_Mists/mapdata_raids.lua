@@ -16,10 +16,14 @@
 -- Twm_RaidNames is resolved into the actual TWM_RAIDS dropdown
 -- table at load time (TerrainWorldMap.lua), same as Twm_ArenaNames/
 -- Twm_flightmasters' name tables -- see this file's own header comment.
+-- `expansion` is Map.csv's own ExpansionID (a string, like every other ID
+-- in this codebase) -- drives the expansion-selection dropdown level
+-- TerrainWorldMap.lua inserts between this category and the actual list.
 
 Twm_RaidNames = {
     {
         key = "OnyxiaLairInstance",
+        expansion = "0",
         name = {
             enUS = "Onyxia's Lair",
             deDE = "Onyxias Hort",

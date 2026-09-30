@@ -4,6 +4,27 @@ tags: [memory/repo, gotcha]
 
 # Gotchas
 
+## The community listfile can list a WMO minimap tile that doesn't exist in this build
+
+`gen_wmo_tiles.js` used to find a WMO's baked minimap tiles by pattern-matching
+filenames in the community listfile (`<stem>_<group>_<blockX>_<blockY>.blp`).
+Razorfen Downs' group 010 (20 tiles) showed up this way and got shipped, but
+those files don't exist in this build's actual CASC archive (0 extracted
+across two attempts, including a full wildcard sweep of the WMO's minimap
+directory) — the listfile is an aggregate across many historical builds, and
+this one apparently dropped them. In-game this rendered as a solid bright
+green tile (`SetTexture` on an unresolvable FileDataID).
+
+Fixed by reading each WMO's real tile list from the `WMOMinimapTexture` DB2
+table instead (`GroupNum, BlockX, BlockY, FileDataID`, keyed by `WMOID`) —
+generated fresh per build, so it can't carry this staleness. `WMOID` is
+**not** a FileDataID (confirmed: Razorfen Downs' root `.wmo` FileDataID is
+109503, but its `WMOMinimapTexture` rows all carry `WMOID=1356`) — it's a
+separate `uint32` field in the WMO root file's own `MOHD` chunk, offset 32
+(right after `ambColor`, right before the bounding box). Switching to this
+source silently fixed the same class of stale tile on 8 other TBC dungeons/
+raids that had never been individually diagnosed.
+
 ## Dungeon/interior minimap tiles are a completely different system from outdoor `mapCC_RR` tiles
 
 Investigated while prototyping a "show a real map inside dungeons" feature (not yet
@@ -615,3 +636,141 @@ Forever's known-issues notes). Fixed with `TWM_IsMouseOverFrame(frame)`
 bare global only if a frame somehow lacks that method — same guarded-API
 pattern as Templates.xml's `SetClipsChildren` check. Use this helper for
 any future hover check instead of either form directly.
+
+## This Classic client's `GlobalStrings.db2` does NOT carry `EXPANSION_NAME<N>` -- don't rely on client globals for expansion names
+
+Needed a localized "Classic"/"The Burning Crusade"/etc. name per
+`Map.db2.ExpansionID` for the Dungeons/Raids expansion-selection dropdown
+(`gen_instance_maps.js`'s `expansion` field, `TWM_GetExpansionName`). Retail
+addons commonly read `_G["EXPANSION_NAME"..id]` for this — a real Blizzard
+global, localized for free, no addon-side translation needed. Checked
+whether it exists here before relying on it: extracted `wow_anniversary`'s
+own `dbfilesclient/globalstrings.db2` (FileDataID 1394440, confirmed present
+per-locale via CASCConsole's `Info` mode) via wago.tools'
+`db2/GlobalStrings/csv?product=wow_anniversary` — only 509 rows total, none
+matching `EXPANSION_NAME` at all. This Classic build's `GlobalStrings.db2`
+apparently only carries strings added on top of some older baseline (no
+expansion-trial/character-select UI exists in Classic), so the global is
+simply undefined here — reading it would silently return `nil`, not a wrong
+value, so this is easy to ship un-noticed until someone opens the affected
+dropdown.
+
+Fixed by sourcing real client-verified names from `Achievement_Category`
+instead (`wago.tools/db2/Achievement_Category/csv?product=<flavor>&locale=<locale>`)
+— achievement category headers for per-expansion dungeon/raid groups are
+real, always-localized in-game strings that exist on every flavor with
+achievements at all. This also caught a real translation trap: ruRU/deDE
+achievement categories keep expansion titles **untranslated** ("The Burning
+Crusade", "Wrath of the Lich King", etc., verbatim English) — a fan
+translation (e.g. ru "Пылающий Легион") would have been wrong. zhCN, by
+contrast, genuinely translates them (巫妖王之怒, 大地的裂变, ...). Baked into
+`Locale/*.lua`'s `TWM_EXPANSION_<N>` as plain hand-authored constants
+(same pattern as every other `TWM_CATEGORY_*`/`TWM_OPTIONS_*` string in this
+addon) rather than a client-global lookup — lesson: **verify a Blizzard
+global actually exists on THIS product/flavor via real extracted data
+before depending on it for anything user-facing**, don't assume retail's
+API surface carries over to Classic just because the identifier sounds
+generic enough to be shared.
+
+## `\w+` in a CASC extraction regex silently excludes any Directory with a space or apostrophe
+
+Six scripts (`gen_wmo_tiles.js`, `parse_wdt.js`, `gen_poi_areas.js`,
+`gen_area_centroids.js`, `gen_mapareas.js`, `preview_wmo_tiles.js`) built
+their own CASCConsole extraction pattern with a `\w+_...\.adt`/`\w+_obj0\.adt`
+alternative for "this map's own tile/obj0 filename" — `\w` is
+`[A-Za-z0-9_]` only, no space, no apostrophe. A tile ADT's real filename on
+disk embeds the map's own `Directory` stem as a literal prefix
+(`stratholme raid_37_24_obj0.adt`, `zul'gurub_33_52_obj0.adt`) — for any map
+whose `Directory` has either character, this pattern matched nothing, ever,
+for that map's own tile files.
+
+Confirmed the actual damage this caused: `gen_wmo_tiles.js`'s own
+"already extracted, skip unless --force" cache check (`needsExtraction`)
+scans a map's directory for at least one obj0 file matching this same
+pattern's shape — since it silently never found one for `Stratholme Raid`/
+`Zul'gurub`, the check stayed permanently `true` for any map list containing
+either, forcing a full CASCConsole re-extraction on **every single run**,
+`--force` or not (confirmed: two back-to-back runs against already-extracted
+data both re-triggered extraction, only fixed after correcting the regex).
+
+Fixed everywhere by replacing `\w+` with `[^/]+` (matches anything except a
+path separator — same convention the `.wdt` alternative next to it already
+used, `[^_/]+\.wdt`). Lesson: when building a regex to match "this file,
+whatever its exact name", don't reach for `\w+` as a stand-in for "any
+filename character" — a real Directory/filename can and does contain
+punctuation `\w` excludes, and the failure mode (silently matches zero
+files, no error) is exactly the kind of thing that looks like an unrelated
+caching bug until you check the regex itself against a real problem
+filename.
+
+## `gen_arenas.js`/`gen_instance_maps.js` needed a "discovery" pass before a real one, or they'd silently ship empty
+
+Both scripts derive their own box from `--tiles-file` (`Twm_WDTValidTiles`,
+written by `parse_wdt.js`), but before `scripts/gen_candidates.js` existed,
+the only way to learn an arena's/dungeon's own `Directory` name (to pass to
+`parse_wdt.js`) was to run `gen_arenas.js`/`gen_instance_maps.js` itself
+first and read its own stdout — meaning the documented pipeline order was:
+run once (get names via stdout, `--tiles-file` doesn't have this map's data
+yet so it silently produces a coarser box or nothing), run `parse_wdt.js`
+with those names added, run again for the real output. Skipping the first
+pass (or the reader assuming a single call was enough, since nothing errors)
+produces an empty `Twm_ArenaNames`/no usable dungeon boxes with no warning
+beyond an easy-to-miss stderr line.
+
+Confirmed this broke `Data_TBC/mapdata_arenas.lua` for real: running
+`gen_arenas.js` exactly once, against a `--tiles-file` that hadn't been
+told about arena zones yet, produced `Twm_ArenaNames = {}` — silently
+overwriting 3 real, working arenas with nothing (recovered from git, not
+lost, but shipped-empty is shipped-empty until someone notices the dropdown
+is missing every arena). Fixed architecturally, not by "remembering to run
+it twice": `gen_candidates.js` now computes every category's map-name list
+upfront (`candidates/<kind>.json`), so `parse_wdt.js --candidates <kind>`
+already knows every zone it'll ever need to cover before anything else
+runs, and `gen_arenas.js`/`gen_instance_maps.js` need exactly one real
+invocation each, always. Lesson: a generator whose own correctness depends
+on *which order* two independent scripts are invoked in is a footgun
+waiting for a clean-slate run to prove it — compute the shared prerequisite
+data upfront instead of letting one consumer's own stdout be the other's
+discovery mechanism.
+
+## `skip_lists.js`'s own header claimed `skipMaps` applied to `gen_arenas.js`/`gen_battlegrounds.js` -- it never actually did
+
+`skip_lists.js`'s header comment lists `skipMaps` as applying to "every
+consumer (`gen_arenas.js`/`gen_battlegrounds.js`/`gen_instance_maps.js`'s
+own candidate list)". Only `gen_instance_maps.js`'s `findCandidates` ever
+actually imported `skip_lists.js` and filtered on it — `findArenas`
+(`gen_arenas.js`) and `findBattlegrounds` (`gen_battlegrounds.js`) never
+did, since neither script ever needed this in practice (`skipMaps` only
+ever held dungeon-category dev-junk rows, CashTest/`test`, so the gap never
+had anything to actually exclude). Surfaced when `gen_candidates.js` (which
+imports all three `find*` functions to build one consistent set of
+candidate lists) made the inconsistency visible for the first time. Fixed:
+both now take a `flavor` parameter and filter via `isSkipped(skipMaps,
+flavor, r.ID)`, matching `findCandidates`'s own pattern exactly, so the
+doc comment is now actually true. Lesson: a doc comment describing
+cross-file behavior ("every consumer does X") is a claim about code that
+lives elsewhere and can silently drift the moment a new consumer is added
+without re-verifying the old ones still hold — grep for the actual import,
+don't trust the comment.
+
+## `gen_candidates.js` existing wasn't the same thing as scripts actually reading it
+
+When `gen_candidates.js` first landed, `gen_arenas.js`/`gen_battlegrounds.js`/
+`gen_instance_maps.js` kept calling their own `findArenas`/`findBattlegrounds`/
+`findCandidates` directly against a freshly-parsed `Map.csv`, exactly as
+before -- `gen_candidates.js` only centralized who else (`parse_wdt.js`,
+`gen_wmo_tiles.js`, `gen_poi_areas.js`) could learn a category's map list
+without running one of these three first. That's a real, working half of
+the fix (it's what actually removes the multi-pass requirement, see the
+entry above), but it left the *other* half of the point silently unfinished:
+these three scripts were still independently re-running the exact same
+discovery/filter logic `gen_candidates.js` had just centralized, one
+`Map.csv` parse each, all after `gen_candidates.js` had already computed the
+identical, JSON answer. Fixed: `findArenas`/
+`findBattlegrounds`/`findCandidates` now run *only* inside `gen_candidates.js`;
+the three scripts' own `main()` reads `candidates/<kind>.json` back (by
+`Map.csv` `ID`, for whatever locale-independent fields aren't in the
+lightweight JSON) instead of re-deriving. Lesson: "component A now produces
+data B" is not the same claim as "component C now consumes B instead of
+recomputing it" -- verify the actual call site changed, not just that the
+new data source exists and is theoretically available.

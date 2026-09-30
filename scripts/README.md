@@ -1,16 +1,48 @@
 # TerrainWorldMap map-data generation scripts
 
 Regenerates `Data_<Flavor>/mapdata_continents.lua` and
-`Data_<Flavor>/mapdata_tiles.lua` from real client data. Not loaded by the
-addon (`.js`/`.ps1` files are ignored by the WoW addon loader).
+`Data_<Flavor>/mapdata_tiles_<kind>.lua` from real client data. Not loaded by
+the addon (`.js`/`.ps1` files are ignored by the WoW addon loader).
 
-Pipeline: `init_workdir.ps1` (fetch client data) → `gen_mapareas.js` (zone
-boxes) → `parse_wdt.js` (tile validity + AreaIDs) → `gen_poi_areas.js`
-(sub-area/POI labels) → `gen_poi_graveyards.js` (graveyards) →
-`gen_poi_instances.js` (dungeon/raid entrances) → `gen_poi_flightmasters.js`
-(flight masters + routes) → `gen_battlegrounds.js`/`gen_arenas.js`/
-`gen_instance_maps.js` (battleground/arena/dungeon+raid+scenario maps, each
-run independently of the rest — see their own steps below).
+Pipeline: `init_workdir.ps1` (fetch shared tools) → `bootstrap.ps1` (set
+WORK_DIR/CLIENT_DIR/FLAVOR/PROXY for the rest of this shell session) →
+`gen_candidates.js` (writes `candidates/<kind>.json` — the map-name list
+every later step reads instead of taking one as an argument) →
+`gen_mapareas.js` (zone boxes) → `parse_wdt.js` (tile validity + AreaIDs,
+once per `--candidates <kind>`) → `gen_poi_areas.js` (sub-area/POI labels) →
+`gen_poi_graveyards.js` (graveyards) → `gen_poi_instances.js` (dungeon/raid
+entrances) → `gen_poi_flightmasters.js` (flight masters + routes) →
+`gen_battlegrounds.js`/`gen_arenas.js`/`gen_instance_maps.js` (battleground/
+arena/dungeon+raid+scenario maps, each run independently of the rest — see
+their own steps below). Every step runs **exactly once** per category now —
+no step needs re-running with a bigger map list once a later step discovers
+more candidates (see `gen_candidates.js`'s own header for why).
+
+Every script below is self-sufficient: given `--work-dir`/`--flavor` (and
+`--client-dir`/`--online` for the ones that need real game files, not just
+DB2 CSVs), it downloads/extracts exactly what *it* needs into
+`<work-dir>/<flavor>/`, via the shared [`extract.js`](extract.js) module.
+Anything already there (DB2 CSVs, locale exports, extracted WDT/ADT/WMO
+files, the downloaded Wowhead page) is skipped on a re-run unless `--force`
+is passed — same as `curl`-based tools everywhere else, "already present,
+skipping". `--proxy <url>` (curl's `-x/--proxy` format) is accepted by every
+script that downloads anything.
+
+`--work-dir`/`--client-dir`/`--flavor`/`--proxy` are all also readable from
+the environment (`WORK_DIR`/`CLIENT_DIR`/`FLAVOR`/`PROXY`, `envOr` in
+`extract.js`) — **the environment variable wins whenever it's set to a
+non-empty value**, the CLI flag is only the fallback for an invocation
+without having sourced `bootstrap.ps1` at all. Source it once per shell
+session (see Setup below) and every command below drops those four flags
+entirely.
+
+Any script that used to take a list of map names as bare trailing arguments
+(`parse_wdt.js`, `gen_wmo_tiles.js`, `gen_poi_areas.js`,
+`gen_area_centroids.js`) now takes exactly one of **`--candidates <kind>`**
+(reads `candidates/<kind>.json`, written once by `gen_candidates.js`) or
+**`--maps <Name1,Name2,...>`** (an explicit, comma-separated override for
+ad-hoc/manual use — comma, not space, so a Directory containing a space,
+e.g. `Stratholme Raid`, needs no special handling).
 
 ## Setup
 
@@ -19,9 +51,18 @@ cd scripts
 npm install
 ```
 
-Requires: Node.js, PowerShell 7+ (`pwsh`), `curl.exe` (bundled with Windows
-10/11), a WoW install (for local extraction) or internet access (for
-`-Online`).
+```powershell
+. .\bootstrap.ps1 -Flavor wow_anniversary
+```
+Sets `WORK_DIR`/`CLIENT_DIR`/`FLAVOR`/`PROXY` for the rest of this shell
+session (dot-source it, a plain `.\bootstrap.ps1` wouldn't persist the env
+vars into your shell). Edit the defaults inside `bootstrap.ps1` to match
+your own machine — it's personal config, your local edits don't need to be
+committed.
+
+Requires: Node.js, PowerShell 7+ (`pwsh`, for `init_workdir.ps1` only),
+`curl.exe` (bundled with Windows 10/11), a WoW install (for local
+extraction via `--client-dir`) or internet access (for `--online`).
 
 ## Product codes
 
@@ -45,52 +86,81 @@ assigned yet (just its own numeric `Map.ID`, used as-is as the continent
 key). No Outland/Northrend -- this flavor's world is Classic-era Kalimdor
 and Eastern Kingdoms plus this one new island so far.
 
-## Step 1 — `init_workdir.ps1`: fetch client data
+## Step 1 — `init_workdir.ps1`: fetch shared tools
 
 ```powershell
-./init_workdir.ps1 -Product <product> -WorkDir <dir> -Storage <wow-install-path> [-Proxy <url>] [-Force]
-./init_workdir.ps1 -Product <product> -WorkDir <dir> -Online [-Proxy <url>] [-Force]
+./init_workdir.ps1 -WorkDir <dir> [-Proxy <url>] [-Force]
 ```
 
-- **`-Product`** (required) — TACT product code (table above)
-- **`-WorkDir`** (required) — output root; gets `WorkDir/CASCConsole` (tool, shared) and `WorkDir/<Product>` (per-product data)
-- **`-Storage`** (required, unless `-Online`) — path to a local WoW install
-- **`-Online`** (optional) — pull from Blizzard CDN instead of `-Storage`
-- **`-Region`** (optional, default `eu`) — CDN region
-- **`-Locale`** (optional, default `enUS`) — extraction locale
+- **`-WorkDir`** (required) — output root; gets `WorkDir/CASCConsole`
+  (CASCConsole.exe + the community listfile, shared across every flavor)
 - **`-Proxy`** (optional) — curl `-x/--proxy` format: `scheme://[user:password@]host[:port]` (`http`, `https`, `socks4`, `socks4a`, `socks5`, `socks5h`)
-- **`-Force`** (optional) — re-download CASCConsole/listfile/DB2 CSVs even if already present
+- **`-Force`** (optional) — re-download CASCConsole/listfile even if already present
 
-Downloads the CASCConsole tool + community listfile once per `WorkDir`, then
-per product: 7 DB2 CSVs (`AreaTable`/`Map`/`UiMap`/`UiMapAssignment`/
-`AreaTrigger`/`TaxiPath`/`TaxiPathNode`), `TaxiNodes` fetched once per client
-locale into `<productDir>/locales/TaxiNodes.<locale>.csv` (`enUS`/`deDE`/
-`esES`/`esMX`/`frFR`/`itIT`/`koKR`/`ptBR`/`ruRU`/`zhCN`/`zhTW` — flight
-masters bake in every locale's name rather than resolving one live, see step
-7), and the WDT/root-ADT/noLiquid-minimap files for every open-world
-continent.
+That's all this script does — no product/flavor, no DB2 CSVs, no WDT/ADT
+extraction. Every other script below takes `--work-dir <dir>` (this same
+`-WorkDir`) plus its own `--flavor <product>` and self-downloads/extracts
+whatever it personally needs into `<dir>/<product>/`.
 
-**Examples:**
+**Example:**
 ```powershell
-./init_workdir.ps1 -Product wow_classic_era -Storage "C:\Program Files\World of Warcraft" -WorkDir C:\wow-data
-
-./init_workdir.ps1 -Product wow_anniversary -Online -WorkDir C:\wow-data -Proxy socks5h://user:pass@127.0.0.1:8883
+./init_workdir.ps1 -WorkDir C:\wow-data
 ```
 
-Output lands in `<WorkDir>/<Product>/` — pass this path as `<csv-dir>` /
-`--flavor-dir` to the next two scripts.
+## Step 1.5 — `gen_candidates.js`: map-name lists for every category
+
+```bash
+node gen_candidates.js --work-dir <dir> --flavor <product> [--force] [--proxy <url>]
+```
+
+Writes `<work-dir>/<flavor>/candidates/{continents,battlegrounds,arenas,dungeons,raids,scenarios}.json`
+— run this once per flavor, **before anything else below**, including
+`gen_battlegrounds.js`/`gen_arenas.js`/`gen_instance_maps.js` themselves now
+(not just `parse_wdt.js`/`gen_wmo_tiles.js`/`gen_poi_areas.js`'s own
+`--candidates <kind>`) — see each of their own steps for what they read
+back and why. Doesn't re-implement any filtering logic — imports
+`findContinents`/`findBattlegrounds`/`findArenas`/`findCandidates` straight
+from `gen_mapareas.js`/`gen_battlegrounds.js`/`gen_arenas.js`/
+`gen_instance_maps.js`, so there's exactly one place each category's own
+filter rules live (those 4 files also keep an `if (require.main === module)`
+guard so `require()`-ing them for this doesn't also trigger their own CLI
+`main()`).
+
+Each JSON file is an array of `{id, key}` (`key` = `Map.csv`'s `Directory`,
+`id` = `Map.csv`'s `ID`, same as `skip_lists.js` keys on) — NOT the
+localized display name, which every consumer still resolves for itself, per
+locale, at generation time. `dungeons`/`raids`/`scenarios` entries also carry
+`expansion` (`Map.csv`'s `ExpansionID` — `TerrainWorldMap.lua`'s own
+expansion-selection dropdown needs it), `battlegrounds` entries also carry
+`uiMapID` (live position tracking). Empty array, not a missing file, for a
+category with nothing on this flavor (e.g. TBC's own `scenarios.json`).
+
+**Why this exists:** see `.claude-docs/gotchas.md` for the two bugs this
+replaced — `parse_wdt.js` used to need re-running up to 3 times with a
+growing map list, and `gen_arenas.js`/`gen_instance_maps.js` needed their
+own stdout as a "discovery" pass before a second, real pass; both silently
+broke on a genuinely clean start. Knowing every category's map list
+upfront removes that ordering dependency entirely — every script below
+runs exactly once now.
+
+**Example:**
+```powershell
+node gen_candidates.js
+```
 
 ## Step 2 — `gen_mapareas.js`: zone bounding boxes + capital city maps
 
 ```bash
-node gen_mapareas.js <csv-dir> [<out-file.lua>]
+node gen_mapareas.js --work-dir <dir> --flavor <product> [--out <out-file.lua>] [--force] [--proxy <url>]
 ```
 
-- `<csv-dir>` — folder containing `Map.*.csv`, `UiMap.*.csv`,
-  `UiMapAssignment.*.csv` (matched by prefix). This is `<WorkDir>/<Product>`
-  from step 1.
-- `<out-file.lua>` — optional. Point it at `Data_<Flavor>/mapdata_continents.lua`
+- **`--work-dir`** (required) — from step 1
+- **`--flavor`** (required) — TACT product code (table above); also names the self-downloaded `<work-dir>/<flavor>/` cache dir
+- **`--out`** — optional. Point it at `Data_<Flavor>/mapdata_continents.lua`
   to overwrite in place. Omit to just print the continent name list.
+
+Self-downloads `Map`/`UiMap`/`UiMapAssignment`/`AreaTable` CSVs from
+wago.tools into `<work-dir>/<flavor>/` first (skipped if already present).
 
 Also emits `Twm_CityMapIDs` (capital-city `uiMapID`s, used by
 `WorldMapOverlay.lua` to gate the terrain overlay on city sub-maps) by
@@ -125,35 +195,51 @@ zone box.
 
 **Example:**
 ```bash
-node gen_mapareas.js C:\wow-data\wow_classic_era Data_Vanilla/mapdata_continents.lua
+node gen_mapareas.js --work-dir C:\wow-data --flavor wow_classic_era --out Data_Vanilla/mapdata_continents.lua
 ```
 
-stdout, line 1: the exact case-sensitive continent names to pass to
-`parse_wdt.js` in step 3, e.g.:
-```
-Azeroth Kalimdor
-```
+(This continent list is also exactly `candidates/continents.json`, once
+`gen_candidates.js` has run — its own stdout line 1 above is kept for a
+one-off/no-workdir use, but `parse_wdt.js` below reads the JSON by default.)
 
 ## Step 3 — `parse_wdt.js`: tile validity + AreaIDs
 
 ```bash
-node parse_wdt.js --flavor-dir <dir> --out <out-file.lua> [--noliquid] [--areatable-dir <dir>] [--listfile <community-listfile.csv>] <ContinentName> [<ContinentName> ...]
+node parse_wdt.js --work-dir <dir> --flavor <product> (--client-dir <wow-install-path> | --online) --out <out-file.lua> (--candidates <continents|battlegrounds|arenas|dungeons|raids|scenarios> | --maps <Name1,Name2,...>) [--noliquid] [--areatable-dir <dir>] [--bake-tile-fileids] [--force] [--proxy <url>]
 ```
 
-- **`--flavor-dir`** (required) — `<WorkDir>/<Product>` from step 1
-- **`--out`** (required) — output path, e.g. `Data_<Flavor>/mapdata_tiles.lua`
+- **`--work-dir`**/**`--flavor`** (required) — see step 2
+- **`--client-dir`** — path to a local WoW install, for extraction
+- **`--online`** — pull from the Blizzard CDN instead of `--client-dir`
+- **`--client-locale`** (optional, default `enUS`) — CASCConsole's own extraction locale (`-l`); rarely needs changing
+- **`--out`** (required) — output path, e.g. `Data_<Flavor>/mapdata_tiles_<kind>.lua` — one call per category now (see below), not one combined file
 - **`--noliquid`** (optional) — also detect underwater tiles (noLiquid minimaps) — only meaningful for flavors with submerged zones (Mists onward: Vashj'ir, Pandaria coastline)
-- **`--areatable-dir`** (optional, defaults to `--flavor-dir`) — folder containing `AreaTable.*.csv`
-- **`--listfile`** (optional) — path to a community listfile (`id;path` per line, e.g. `init_workdir.ps1`'s `WorkDir/CASCConsole/listfile.csv`). Bakes each tile's minimap BLP `FileDataID` into `Twm_TileFileID[continent][filename]`. **Only needed for a flavor where `Texture:SetTexture("World\Minimaps\...")` doesn't resolve by path string at all** — confirmed on WoW: Forever/Camelot (see `.claude-docs/gotchas.md`); every other flavor still loads fine by path and doesn't need this flag. A tile with no listfile entry gets a loud `WARNING` on stderr and falls back to the (broken, on that flavor) path string — not silently dropped.
-- **`<ContinentName>...`** (required) — case-sensitive, must match `gen_mapareas.js`'s stdout line 1 exactly
+- **`--areatable-dir`** (optional, defaults to `<work-dir>/<flavor>`, self-downloaded) — folder containing `AreaTable.*.csv`, for the rare case you want to point it at a different snapshot
+- **`--bake-tile-fileids`** (optional) — resolves each tile's minimap BLP `FileDataID` (from `<work-dir>/CASCConsole/listfile.csv`) into `Twm_TileFileID[continent][filename]`. **Only needed for a flavor where `Texture:SetTexture("World\Minimaps\...")` doesn't resolve by path string at all** — confirmed on WoW: Forever/Camelot (see `.claude-docs/gotchas.md`); every other flavor still loads fine by path and doesn't need this flag. A tile with no listfile entry gets a loud `WARNING` on stderr and falls back to the (broken, on that flavor) path string — not silently dropped.
+- **`--candidates <kind>`** / **`--maps <Name1,Name2,...>`** (exactly one required) — see this README's intro; `--candidates` needs `gen_candidates.js` run first
 
-**Examples:**
+Self-extracts (via CASCConsole) each map's own WDT/root-ADT/[noLiquid
+minimap] into `<work-dir>/<flavor>/world/...` first, skipped per-map if its
+own `.wdt` is already there (`--force` re-extracts).
+
+`Twm_WDTValidTiles`/`Twm_NoLiquidTiles`/`Twm_TileFileID` are declared once,
+centrally, in `mapdata_zones.lua` — this script's own output only ever
+assigns `Twm_WDTValidTiles["<name>"] = {...}` per map, so one call per
+category (`mapdata_tiles_continents.lua`, `mapdata_tiles_dungeons.lua`, ...)
+coexists safely with the others regardless of `.toc` load order, and each
+category is a single, non-repeated call — no more re-running this with a
+bigger map list once `gen_battlegrounds.js`/`gen_arenas.js` discover their
+own zone names (that's what `gen_candidates.js`, step 1.5, is for).
+
+**Examples (one call per category — repeat for whichever categories this
+flavor actually has, `--candidates scenarios` on a flavor with none just
+prints "nothing to do" and exits cleanly):**
 ```bash
-node parse_wdt.js --flavor-dir C:\wow-data\wow_classic_era --out Data_Vanilla/mapdata_tiles.lua Azeroth Kalimdor
+node parse_wdt.js --work-dir C:\wow-data --flavor wow_classic_era --client-dir "C:\Program Files\World of Warcraft" --out Data_Vanilla/mapdata_tiles_continents.lua --candidates continents
 
-node parse_wdt.js --flavor-dir C:\wow-data\wow_anniversary --out Data_TBC/mapdata_tiles.lua Azeroth Kalimdor Expansion01
+node parse_wdt.js --work-dir C:\wow-data --flavor wow_anniversary --online --out Data_TBC/mapdata_tiles_dungeons.lua --candidates dungeons
 
-node parse_wdt.js --flavor-dir C:\wow-data\wow_classic --out Data_Mists/mapdata_tiles.lua --noliquid Azeroth Kalimdor Expansion01 Northrend HawaiiMainLand Deephome LostIsles MaelstromZone Gilneas2 TolBarad MoguIslandDailyArea
+node parse_wdt.js --work-dir C:\wow-data --flavor wow_classic --client-dir "C:\Program Files\World of Warcraft" --out Data_Mists/mapdata_tiles_continents.lua --noliquid --candidates continents
 ```
 
 Prints per-continent diagnostics to stderr, including `*** MISMATCH ***`
@@ -164,14 +250,14 @@ post-Cataclysm client, e.g. reshaped Azeroth tiles, is expected, not a bug).
 ## Step 4 — `gen_poi_areas.js`: sub-area/POI labels (`Twm_poi_areas`)
 
 ```bash
-node gen_poi_areas.js --flavor-dir <dir> --mapareas-file <mapdata_continents.lua> --out <out-file.lua> [--areatable-dir <dir>] <ContinentName> [<ContinentName> ...]
+node gen_poi_areas.js --work-dir <dir> --flavor <product> (--client-dir <path> | --online) --mapareas-file <mapdata_continents.lua|mapdata_battlegrounds.lua> --out <out-file.lua> (--candidates <continents|battlegrounds> | --maps <Name1,Name2,...>) [--areatable-dir <dir>] [--force] [--proxy <url>]
 ```
 
-- **`--flavor-dir`** (required) — `<WorkDir>/<Product>` from step 1 (needs `AreaTable.*.csv` and the extracted ADTs)
-- **`--mapareas-file`** (required) — the flavor's own already-generated `Data_<Flavor>/mapdata_continents.lua` (step 2's output)
+- **`--work-dir`**/**`--flavor`**/**`--client-dir`**/**`--online`** (see step 3) — root ADTs are self-extracted per continent if not already present, same cache dir `parse_wdt.js` already populated
+- **`--mapareas-file`** (required) — the flavor's own already-generated `Data_<Flavor>/mapdata_continents.lua` (step 2's output) for the usual continents pass, or `mapdata_battlegrounds.lua` (step 8's output) for the separate battleground-zone pass below
 - **`--out`** (required) — output path, e.g. `Data_<Flavor>/mapdata_poi_areas.lua`
-- **`--areatable-dir`** (optional, defaults to `--flavor-dir`) — folder containing `AreaTable.*.csv`
-- **`<ContinentName>...`** (required) — must match a key in `--mapareas-file`'s `Twm_mapareas`
+- **`--areatable-dir`** (optional, defaults to `<work-dir>/<flavor>`, self-downloaded) — folder containing `AreaTable.*.csv`
+- **`--candidates <kind>`** / **`--maps <Name1,Name2,...>`** (exactly one required) — `continents` for the usual pass, `battlegrounds` for the battleground-zone pass; names must match a key in `--mapareas-file`'s `Twm_mapareas`
 
 Algorithm (no `AreaPOI` DB2 involved — an earlier version of this script
 used it, but its `Icon` field turned out to be a numeric atlas index that
@@ -224,7 +310,7 @@ in root `mapdata_zones.lua`, loaded before any of these files.
 
 **Example:**
 ```bash
-node gen_poi_areas.js --flavor-dir C:\wow-data\wow_anniversary --mapareas-file Data_TBC/mapdata_continents.lua --out Data_TBC/mapdata_poi_areas.lua Azeroth Kalimdor Expansion01
+node gen_poi_areas.js --work-dir C:\wow-data --flavor wow_anniversary --client-dir "C:\Program Files\World of Warcraft" --mapareas-file Data_TBC/mapdata_continents.lua --out Data_TBC/mapdata_poi_areas.lua --candidates continents
 ```
 
 **Battlegrounds:** run this a second time against
@@ -251,13 +337,13 @@ standalone top-level landmark (Northrend's Dalaran) has none and stays.
 
 **Example:**
 ```bash
-node gen_poi_areas.js --flavor-dir C:\wow-data\wow_anniversary --mapareas-file Data_TBC/mapdata_battlegrounds.lua --out Data_TBC/mapdata_poi_battlegrounds_areas.lua PVPZone01 PVPZone03 PVPZone04 NetherstormBG
+node gen_poi_areas.js --work-dir C:\wow-data --flavor wow_anniversary --client-dir "C:\Program Files\World of Warcraft" --mapareas-file Data_TBC/mapdata_battlegrounds.lua --out Data_TBC/mapdata_poi_battlegrounds_areas.lua --candidates battlegrounds
 ```
 
 ## Step 5 — `gen_poi_graveyards.js`: graveyard/spirit-healer locations (`Twm_poi_graveyards`)
 
 ```bash
-node gen_poi_graveyards.js --wowhead-html <saved Spirit Healer NPC page.html> --mapareas-file <target flavor mapdata_continents.lua> --out <out-file.lua> [--flavor-dir <dir with UiMapAssignment/UiMap/AreaTable.*.csv>]
+node gen_poi_graveyards.js --work-dir <dir> --flavor <product> --mapareas-file <target flavor mapdata_continents.lua> --out <out-file.lua> [--wowhead-html <saved Spirit Healer NPC page.html>] [--force] [--proxy <url>]
 ```
 
 No DB2 or ADT source has graveyard locations, so this borrows Wowhead's own
@@ -283,52 +369,60 @@ domain matching the target flavor, not a mismatched one:
 | Vanilla | `wowhead.com/classic/npc=6491/spirit-healer` | 42 zones, 169 spawns — Vanilla content only |
 | TBC | `wowhead.com/tbc/npc=6491/spirit-healer` | 55 zones, 251 spawns — adds Outland |
 | Mists | `wowhead.com/mop-classic/npc=6491/spirit-healer` | 98 zones, 681 spawns — current post-Cataclysm world (Northrend/Pandaria/reshaped Azeroth+Kalimdor included) |
+| Forever | `wowhead.com/forever/npc=6491/spirit-healer` | Classic+ content |
 
-Save each page's HTML (e.g. `curl -A "Mozilla/5.0" <url> -o spirit_<flavor>.html`
-— no login/JS needed) and pass it as `--wowhead-html`.
+This script downloads the right domain itself, keyed off `--flavor`
+(`wow_classic_era`→`classic`, `wow_anniversary`→`tbc`, `wow_classic`→`mop-classic`,
+`wow_classic_beta`→`forever`), into `<work-dir>/<flavor>/spirit_healer.html` —
+`curl -A "Mozilla/5.0" <url>` under the hood, cached same as everything else.
+Pass `--wowhead-html <saved page.html>` to override this with your own saved
+copy instead (offline work, manual testing, or a flavor not in the table
+above).
 
-- **`--wowhead-html`** (required) — path to the saved NPC page HTML for the
-  target flavor's own domain (table above).
+- **`--work-dir`**/**`--flavor`** (required) — also self-downloads `AreaTable`/`UiMap`/`UiMapAssignment` CSVs, used for the fallback resolution below
 - **`--mapareas-file`** (required) — the target flavor's own
   `mapdata_continents.lua`. Every continent block in it is scanned (not just
   one), and each `g_mapperData` AreaID is looked up directly against
   whichever continent actually declares that AreaID — supplies the zone's
   own box, in this flavor's own Big-coordinate space, via `Twm_mapareas`.
 - **`--out`** (required) — output path, e.g. `Data_<Flavor>/mapdata_poi_graveyards.lua`
-- **`--flavor-dir`** (optional) — `<WorkDir>/<Product>` from step 1. Without
-  it, an AreaID from the page with no matching box in `--mapareas-file`
-  (e.g. a zone from a later expansion this flavor doesn't have, **or** a
-  small starting-experience camp `gen_mapareas.js` excluded from the zone
-  dropdown for not being a top-level `AreaTable` entry — Camp Narache,
-  Gilneas City, ...) is silently skipped. With it, such an AreaID is still
-  resolved: its own box comes straight from this dir's `UiMapAssignment.csv`
-  (not its parent zone's box, which would place the point wrong, not just
-  approximately — the percentages are relative to that AreaID's own map),
-  and which output section it goes under comes from walking `AreaTable`'s
-  `ParentAreaID` chain up to whichever ancestor **is** in `--mapareas-file`.
-  Confirmed for Mists: Gilneas2 alone has two disjoint sets of real
-  graveyards on Wowhead, one keyed to Gilneas City, one to Gilneas itself —
-  losing either silently is why this flag exists.
+- **`--wowhead-html`** (optional) — overrides the self-downloaded page (see above)
+
+An AreaID from the page with no matching box in `--mapareas-file` (e.g. a
+zone from a later expansion this flavor doesn't have, **or** a small
+starting-experience camp `gen_mapareas.js` excluded from the zone dropdown
+for not being a top-level `AreaTable` entry — Camp Narache, Gilneas City,
+...) still resolves via the self-downloaded `AreaTable`/`UiMapAssignment`:
+its own box comes straight from `UiMapAssignment.csv` (not its parent
+zone's box, which would place the point wrong, not just approximately — the
+percentages are relative to that AreaID's own map), and which output
+section it goes under comes from walking `AreaTable`'s `ParentAreaID` chain
+up to whichever ancestor **is** in `--mapareas-file`. Confirmed for Mists:
+Gilneas2 alone has two disjoint sets of real graveyards on Wowhead, one
+keyed to Gilneas City, one to Gilneas itself — this fallback is what keeps
+both instead of losing one silently.
 
 Dedup (see below) runs per output continent across every AreaID that landed
 there, not per AreaID — a zone and a sub-area of it (Gilneas/Gilneas City)
 can each contribute points close enough together to be the same physical
 graveyard, and only whole-continent dedup catches that. Skip count (fully
-unresolvable AreaIDs) is printed to stderr; Mists still skips ~36 even with
-`--flavor-dir` (non-open-world/instance-only zones not part of this addon's
-continent list at all).
+unresolvable AreaIDs) is printed to stderr; Mists still skips ~36 (non-open-
+world/instance-only zones not part of this addon's continent list at all).
 
 **Example:**
 ```bash
-curl -A "Mozilla/5.0" https://www.wowhead.com/classic/npc=6491/spirit-healer -o spirit_vanilla.html
-node gen_poi_graveyards.js --wowhead-html spirit_vanilla.html --mapareas-file Data_Vanilla/mapdata_continents.lua --out Data_Vanilla/mapdata_poi_graveyards.lua
+node gen_poi_graveyards.js --work-dir C:\wow-data --flavor wow_classic_era --mapareas-file Data_Vanilla/mapdata_continents.lua --out Data_Vanilla/mapdata_poi_graveyards.lua
 ```
 
 ## Step 6 — `gen_poi_instances.js`: dungeon/raid entrance markers (`Twm_instances`)
 
 ```bash
-node gen_poi_instances.js --flavor-dir <dir with AreaTrigger.*.csv and Map.*.csv> --teleport-csv <id-to-target-map reference CSV> --mapareas-file <target flavor mapdata_continents.lua> --out <out-file.lua>
+node gen_poi_instances.js --work-dir <dir> --flavor <product> --teleport-csv <id-to-target-map reference CSV> --mapareas-file <target flavor mapdata_continents.lua> --out <out-file.lua> [--force] [--proxy <url>]
 ```
+
+Self-downloads `AreaTrigger`/`Map` CSVs from wago.tools. `--teleport-csv`
+stays a manually-supplied file — no CASC/DB2 source has this mapping at all
+(see below), so there's nothing to self-fetch there.
 
 No official client DB2 table encodes which map an `AreaTrigger` teleports
 you to — that link isn't part of what the client ever receives (confirmed
@@ -377,17 +471,16 @@ really one entrance (cosmetic only, not wrong data).
 
 **Example:**
 ```bash
-node gen_poi_instances.js --flavor-dir C:\wow-data\wow_classic_era --teleport-csv C:\wow-data\wow_classic_era\areatrigger_teleport.csv --mapareas-file Data_Vanilla/mapdata_continents.lua --out Data_Vanilla/mapdata_poi_instances.lua
+node gen_poi_instances.js --work-dir C:\wow-data --flavor wow_classic_era --teleport-csv C:\wow-data\areatrigger_teleport.csv --mapareas-file Data_Vanilla/mapdata_continents.lua --out Data_Vanilla/mapdata_poi_instances.lua
 ```
 
 ## Step 7 — `gen_poi_flightmasters.js`: flight master markers + routes (`Twm_flightmasters`, `Twm_taxipaths`, `Twm_taxipathnodes`)
 
 ```bash
-node gen_poi_flightmasters.js --flavor-dir <dir with TaxiPath.*.csv, TaxiPathNode.*.csv and Map.*.csv> --locales-dir <dir with TaxiNodes.<locale>.csv per locale> --mapareas-file <target flavor mapdata_continents.lua> --out <out-file.lua>
+node gen_poi_flightmasters.js --work-dir <dir> --flavor <product> --mapareas-file <target flavor mapdata_continents.lua> --out <out-file.lua> [--force] [--proxy <url>]
 ```
 
-- **`--flavor-dir`** (required) — `<WorkDir>/<Product>` from step 1
-- **`--locales-dir`** (required) — `<WorkDir>/<Product>/locales` from step 1 (one `TaxiNodes.<locale>.csv` per supported locale: `enUS`/`deDE`/`esES`/`esMX`/`frFR`/`itIT`/`koKR`/`ptBR`/`ruRU`/`zhCN`/`zhTW`). `enUS` is required — it's also the structural source of truth for every non-name field (`Flags`/`CharacterBitNumber`/`Pos`/`ContinentID` are identical across every locale's export of the same row, only `Name_lang` differs); the rest are optional per-locale name overlays, skipped with a warning (not a hard failure) if missing.
+- **`--work-dir`**/**`--flavor`** (required) — also self-downloads `TaxiPath`/`TaxiPathNode`/`Map` CSVs, plus `TaxiNodes.<locale>.csv` into `<work-dir>/<flavor>/locales/` for every supported locale: `enUS`/`deDE`/`esES`/`esMX`/`frFR`/`itIT`/`koKR`/`ptBR`/`ruRU`/`zhCN`/`zhTW`. `enUS` is also the structural source of truth for every non-name field (`Flags`/`CharacterBitNumber`/`Pos`/`ContinentID` are identical across every locale's export of the same row, only `Name_lang` differs); a missing locale is skipped with a warning (not a hard failure).
 - **`--mapareas-file`** (required) — the flavor's own `Data_<Flavor>/mapdata_continents.lua` (step 2's output)
 - **`--out`** (required) — output path, e.g. `Data_<Flavor>/mapdata_poi_flightmasters.lua`
 
@@ -455,7 +548,7 @@ during a live pan/zoom than the straight-line default — see
 
 **Example:**
 ```bash
-node gen_poi_flightmasters.js --flavor-dir C:\wow-data\wow_classic_era --locales-dir C:\wow-data\wow_classic_era\locales --mapareas-file Data_Vanilla/mapdata_continents.lua --out Data_Vanilla/mapdata_poi_flightmasters.lua
+node gen_poi_flightmasters.js --work-dir C:\wow-data --flavor wow_classic_era --mapareas-file Data_Vanilla/mapdata_continents.lua --out Data_Vanilla/mapdata_poi_flightmasters.lua
 ```
 
 ## Capitals — no generator, computed live in Lua
@@ -474,14 +567,14 @@ box center, falling back to a `Twm_poi_areas` entry with the same AreaID
 ## Step 8 — `gen_battlegrounds.js`: battleground maps (`Twm_BattlegroundMapID`, `TWM_BATTLEGROUNDS`, `Twm_mapareas`)
 
 ```bash
-node gen_battlegrounds.js --flavor-dir <dir with Map/UiMap/UiMapAssignment CSVs> --out <out-file.lua>
+node gen_battlegrounds.js --work-dir <dir> --flavor <product> --out <out-file.lua> [--force] [--proxy <url>]
 ```
 
-- **`--flavor-dir`** (required) — `<WorkDir>/<Product>` from step 1
+- **`--work-dir`**/**`--flavor`** (required) — also self-downloads `Map`/`UiMapAssignment` CSVs
 - **`--out`** (required) — output path, e.g. `Data_<Flavor>/mapdata_battlegrounds.lua`
 
-Not part of the main pipeline chain — run it standalone whenever a flavor's
-battleground list changes. Same top-level-map shape as `gen_mapareas.js`'s
+Re-run whenever a flavor's battleground list changes (a DBC snapshot moving
+on, e.g.). Same top-level-map shape as `gen_mapareas.js`'s
 continents (`Map.csv` row with `ParentMapID=-1`, `MapType=1`), just
 `InstanceType=3` instead of `0`. Unlike continents, a battleground has no
 separate "whole map" `UiMapAssignment` root row (`Type=2`/`System=0`/`AreaID=0`)
@@ -512,18 +605,24 @@ battleground's own key, into the same table `gen_mapareas.js`'s continents
 already populate.
 
 Battlegrounds are real outdoor ADT terrain, unlike dungeon/raid interiors —
-`parse_wdt.js` handles them exactly like a small continent (pass the
-battleground's own `Directory` as one of its `<ContinentName>` args, output to
-the flavor's own `mapdata_tiles.lua` alongside its continents — do **not**
-give battlegrounds a separate tiles file, since `parse_wdt.js` always emits a
-fresh `Twm_WDTValidTiles = {}` reset at the top of its output, which would
-wipe out whatever an earlier, separately-run continents pass had already
-written to that global table if loaded afterward).
+`parse_wdt.js` handles them exactly like a small continent, via its own
+`--candidates battlegrounds` pass (step 3), writing to its own
+`mapdata_tiles_battlegrounds.lua` — safe as a separate file from the
+continents' own `mapdata_tiles_continents.lua` because `Twm_WDTValidTiles`
+is declared once, centrally, in `mapdata_zones.lua` (not reset per file
+anymore).
+
+**`gen_candidates.js` (step 1.5) is a hard prerequisite for this script
+itself, not just for `parse_wdt.js`** — `findBattlegrounds` (the structural
+Map.csv filter + `skipMaps`) only ever runs inside `gen_candidates.js` now;
+this script's own `main()` reads back `candidates/battlegrounds.json` (by
+`Map.csv` `ID`) instead of re-deriving the same candidate list a second
+time, only re-deriving each one's box/`UiMapID` from `UiMapAssignment`
+(not carried in the lightweight JSON). Run `gen_candidates.js` first.
 
 **Example (TBC):**
 ```bash
-node gen_battlegrounds.js --flavor-dir C:\wow-data\wow_anniversary --out Data_TBC/mapdata_battlegrounds.lua
-node parse_wdt.js --flavor-dir C:\wow-data\wow_anniversary --out Data_TBC/mapdata_tiles.lua Azeroth Kalimdor Expansion01 PVPZone01 PVPZone03 PVPZone04 NetherstormBG
+node gen_battlegrounds.js --work-dir C:\wow-data --flavor wow_anniversary --out Data_TBC/mapdata_battlegrounds.lua
 ```
 
 **Battlegrounds found per flavor** (as of this writing — re-run
@@ -542,7 +641,7 @@ node parse_wdt.js --flavor-dir C:\wow-data\wow_anniversary --out Data_TBC/mapdat
 ## Step 9 — `gen_arenas.js`: arena maps (`Twm_ArenaNames`, `Twm_mapareas`)
 
 ```bash
-node gen_arenas.js --flavor-dir <dir with Map.*.csv> --locales-dir <dir with Map.<locale>.csv for each of enUS/deDE/esES/esMX/frFR/itIT/koKR/ptBR/ruRU/zhCN/zhTW> --tiles-file <mapdata_tiles.lua, already regenerated including the arena Directory names> --out <out-file.lua>
+node gen_arenas.js --work-dir <dir> --flavor <product> --tiles-file <mapdata_tiles_arenas.lua, from parse_wdt.js --candidates arenas> --out <out-file.lua> [--force] [--proxy <url>]
 ```
 
 Same structural Map.csv filter as `gen_battlegrounds.js` (`ParentMapID=-1`,
@@ -559,20 +658,19 @@ differ from battlegrounds in two ways that shape this whole script:
   to view it.
 - Consequently this script needs two things no other generator does:
   - **`--tiles-file`**: a box derived from valid-tile extent instead of a
-    DBC Region box. Run `parse_wdt.js` on the arena's own `Directory` name
-    first (same "pass it alongside continents/battlegrounds in the same
-    invocation, don't give it a separate tiles file" rule as
-    `gen_battlegrounds.js`'s own note below), then point this at that
-    output. The tile index range is converted to Big coordinates through
+    DBC Region box. Run `parse_wdt.js --candidates arenas` first (step 3,
+    needs `gen_candidates.js` run beforehand), then point this at that
+    output (`mapdata_tiles_arenas.lua`). The tile index range is converted
+    to Big coordinates through
     `TWM_Mini2Big_Coord`'s own formula (`TerrainWorldMap.lua`) —
     `x/y = (index-32)*-533.3333` — the same conversion
     `WorldMapOverlay.lua`'s `DrawTiles` already uses to place each tile.
-  - **`--locales-dir`**: with no live uiMapID, there's no
+  - **Per-locale names**: with no live uiMapID, there's no
     `C_Map.GetMapInfo(uiMapID).name` to resolve a client-locale name from
     either (unlike `Twm_BattlegroundMapID`) — names are baked in per
-    client locale instead, fetched the same way and for the same 11
-    locales as `gen_poi_flightmasters.js`'s `TaxiNodes.<locale>.csv`, just
-    for `Map.<locale>.csv`. Output shape mirrors `Twm_flightmasters`'s name
+    client locale instead, self-downloaded (`Map.<locale>.csv`) the same
+    way and for the same 11 locales as `gen_poi_flightmasters.js`'s
+    `TaxiNodes.<locale>.csv`. Output shape mirrors `Twm_flightmasters`'s name
     tables too: `Twm_ArenaNames = {{key=..., name={enUS=..., deDE=...}}, ...}`,
     resolved into the actual `TWM_ARENAS` dropdown table (`{name: {key}}`,
     same shape as `TWM_BATTLEGROUNDS`) at load time in `TerrainWorldMap.lua`
@@ -582,10 +680,17 @@ differ from battlegrounds in two ways that shape this whole script:
 
 **Example (TBC):**
 ```bash
-node gen_arenas.js --flavor-dir C:\wow-data\wow_anniversary --locales-dir C:\wow-data\wow_anniversary\locales --tiles-file Data_TBC/mapdata_tiles.lua --out Data_TBC/mapdata_arenas.lua
-node parse_wdt.js --flavor-dir C:\wow-data\wow_anniversary --out Data_TBC/mapdata_tiles.lua Azeroth Kalimdor Expansion01 PVPZone01 PVPZone03 PVPZone04 NetherstormBG PVPZone05 bladesedgearena PVPLordaeron
+node parse_wdt.js --work-dir C:\wow-data --flavor wow_anniversary --client-dir "C:\Program Files\World of Warcraft" --out Data_TBC/mapdata_tiles_arenas.lua --candidates arenas
+node gen_arenas.js --work-dir C:\wow-data --flavor wow_anniversary --tiles-file Data_TBC/mapdata_tiles_arenas.lua --out Data_TBC/mapdata_arenas.lua
 ```
-(run `parse_wdt.js` first — `gen_arenas.js` reads its output.)
+One call each now, and this script no longer derives its own candidate list
+at all — `findArenas` (the structural Map.csv filter + `skipMaps`) only
+ever runs inside `gen_candidates.js`; `gen_arenas.js`'s own `main()` reads
+`candidates/arenas.json` back (by `Map.csv` `ID`, for its locale-independent
+Directory/enUS-name fields). `gen_candidates.js` is a hard prerequisite for
+this script now, same as `gen_battlegrounds.js` above — see
+`.claude-docs/gotchas.md` for the two bugs this replaced (a silent 2-pass
+requirement, and `skipMaps` never actually being checked here).
 
 **Arenas found per flavor** (as of this writing):
 - **Vanilla**: none (arenas didn't exist yet)
@@ -596,8 +701,32 @@ node parse_wdt.js --flavor-dir C:\wow-data\wow_anniversary --out Data_TBC/mapdat
 ## Step 10 — `gen_wmo_tiles.js`: WMO minimap-tile overlay (`Twm_WMOTiles`)
 
 ```bash
-node gen_wmo_tiles.js --flavor-dir <dir with world/maps/<map>/*_obj0.adt and extracted world/wmo/... WMOs> --listfile <community-listfile.csv> --out <out-file.lua> <MapDirectoryName> [<MapDirectoryName> ...]
+node gen_wmo_tiles.js --work-dir <dir> --flavor <product> (--client-dir <path> | --online) --out <out-file.lua> (--candidates <dungeons|raids|arenas> | --maps <Name1,Name2,...>) [--force] [--proxy <url>]
 ```
+
+`--candidates` only ever makes sense as `dungeons`/`raids`/`arenas` here —
+continents/battlegrounds never have any baked WMO tiles at all (confirmed:
+neither ever appears as a key in a real `mapdata_wmo_tiles_*.lua`), so
+`continents`/`battlegrounds` aren't valid values. One call per category,
+writing its own `mapdata_wmo_tiles_<kind>.lua` (`Twm_WMOTiles` itself is
+declared once, centrally, in `mapdata_zones.lua`, same reasoning as
+`Twm_WDTValidTiles` in step 3).
+
+**Example (TBC, one call per category):**
+```bash
+node gen_wmo_tiles.js --work-dir C:\wow-data --flavor wow_anniversary --client-dir "C:\Program Files\World of Warcraft" --out Data_TBC/mapdata_wmo_tiles_dungeons.lua --candidates dungeons
+node gen_wmo_tiles.js --work-dir C:\wow-data --flavor wow_anniversary --client-dir "C:\Program Files\World of Warcraft" --out Data_TBC/mapdata_wmo_tiles_raids.lua --candidates raids
+node gen_wmo_tiles.js --work-dir C:\wow-data --flavor wow_anniversary --client-dir "C:\Program Files\World of Warcraft" --out Data_TBC/mapdata_wmo_tiles_arenas.lua --candidates arenas
+```
+
+Self-extracts in two passes: each map's own obj0 ADTs/WDT first (to find
+`MODF` placements at all), then — once those placements are resolved
+against the community listfile (`<work-dir>/CASCConsole/listfile.csv`,
+prepared by `init_workdir.ps1`) — exactly the WMO group model files and
+minimap BLPs those placements actually need. This closes a real gap: unlike
+every other step above, extracting these files was never automated before
+this refactor — they had to be pulled by hand with your own CASCConsole
+invocation.
 
 Naming here is deliberately map-generic, not arena-specific — the same
 WMO-minimap-tile system applies equally to arenas, dungeons, and raids.
@@ -621,18 +750,38 @@ real minimap art (confirmed: Orgrimmar Arena has both — its outdoor tiles
 extract fine and already show the complete arena, but its WMO tiles are
 still generated too, since the height-cutoff slider (see below) needs them
 to isolate one real building level; a flattened outdoor tile can't do
-that). This script finds WMO placements and their tiles directly — no
-`WMOMinimapTexture` DB2 row needed:
+that). This script finds WMO placements via `MODF`, then resolves each
+placement's real tile list from the **`WMOMinimapTexture` DB2 table**
+(`ID, GroupNum, BlockX, BlockY, FileDataID, WMOID`) — **not** by pattern-
+matching tile filenames in the community listfile, an earlier approach
+replaced 2026-09-30 after it shipped 20 "ghost" tiles for Razorfen Downs
+(a WMO group whose baked tiles the aggregate community listfile still
+listed, but this build's own CASC archive and its own `WMOMinimapTexture`
+both agree don't exist — confirmed by two separate extraction attempts,
+including a full wildcard sweep of the WMO's own minimap directory, finding
+zero matching files). The DB2 table is generated fresh per build, so it
+can't carry that kind of cross-build staleness; switching to it also
+silently fixed the exact same class of stale-tile bug on 8 OTHER TBC
+dungeons/raids that had never been individually diagnosed (see
+`.claude-docs/gotchas.md` for the full account). `WMOMinimapTexture.WMOID`
+is **not** a FileDataID — it's a separate internal identifier stored in the
+WMO root file's own `MOHD` chunk (a `uint32` at offset 32, right after
+`ambColor` and right before the bounding box), so this script still has to
+extract each placement's root `.wmo` file and read that field to know which
+`WMOMinimapTexture` rows are its own:
 
 - Scans each map's `world/maps/<map>/*_obj0.adt` files for `MODF`
   chunks (64-byte entries: `nameId`(0)/`uniqueId`(4)/`position`
   float32[3](8, order X/height/Y)/`rotation` float32[3](20, same order)/
   bounds(32,44)/`flags`(56)/`doodadSet`(58)/`nameSet`(60)/`scale`(62)),
   deduped by `nameId`.
-- One streaming pass over `--listfile` resolves each placement's `nameId`
-  to its WMO path, and separately collects every `world/minimaps/wmo/`
-  tile path grouped by stem (path minus its trailing
-  `_<group>_<blockX>_<blockY>.blp`).
+- One streaming pass over the community listfile resolves each placement's
+  `nameId` to its WMO root path; those root files are then self-extracted
+  and each one's `MOHD.WMOID` (offset 32) read directly, which is looked up
+  in `WMOMinimapTexture.csv` (self-downloaded like any other DB2 CSV) for
+  that WMO's real `{GroupNum, BlockX, BlockY, FileDataID}` tile list. A
+  second, narrower listfile pass then resolves only those specific
+  FileDataIDs to their own paths, for extraction and BLP-dimension reading.
 - **Rotation scope**: only placements with `|rotation| <= 0.05` degrees on
   all three axes are emitted. A placement with real rotation (confirmed to
   exist, e.g. Tol'Viron Arena, Ring of Valor — always yaw-only, never
@@ -749,14 +898,31 @@ Arena, Mists' Tiger's Peak (`ShadoPanArena`), Forever's Hyjal Crater.
 
 ## Other scripts
 
+- **`skip_lists.js`** — not a runnable script, a shared hand-maintained data
+  module (`skipMaps`/`skipAdtTiles`/`skipWmoTiles`, keyed by product code ->
+  array of `Map.csv` `ID` values). Grown incrementally as test viewing turns
+  up a map whose generated tiles are simply wrong (a WMO placement or ADT
+  tile-validity result that doesn't belong there, not a bug in the
+  extraction/placement math itself — that class of bug gets fixed at the
+  source instead). `skipMaps` excludes a map from `gen_instance_maps.js`'s
+  own candidate list entirely; `skipAdtTiles`/`skipWmoTiles` keep the map but
+  force `parse_wdt.js`/`gen_wmo_tiles.js` to skip just that one tile layer for
+  it (read by `TerrainWorldMap.lua`'s `TWM_MapHasTerrain`/the Show
+  Terrain/Show WMO Layers checkbox logic exactly like a map that genuinely
+  never had that layer). See the file's own header for the full rationale.
+  Not currently wired into `gen_arenas.js`/`gen_battlegrounds.js` — only the
+  three consumers above needed it so far.
+
 - **`audit_wmo_extraction.js`** — standalone diagnostic tool, not part of the
   pipeline above. For one or more maps, lists every real `MODF` placement
   that has ANY baked WMO minimap tile at all (checked against the community
   listfile, independent of local extraction state) and reports exactly
   which local files (root/group `.wmo`, minimap `.blp`) are still missing:
   ```bash
-  node audit_wmo_extraction.js <flavor-dir> <community-listfile.csv> <MapDirectoryName> [<MapDirectoryName> ...]
+  node audit_wmo_extraction.js --work-dir <dir> --flavor <product> <MapDirectoryName> [<MapDirectoryName> ...]
   ```
+  Read-only — reports what is/isn't extracted yet under `<work-dir>/<flavor>/`,
+  never extracts anything itself (that's the opposite of its own point).
   Written after `gen_wmo_tiles.js` silently produced 0 tiles for a couple of
   arenas that turned out to have real, un-extracted WMO structure (Ruins of
   Lordaeron on both TBC and Mists) — `gen_wmo_tiles.js` itself only warns
@@ -774,7 +940,8 @@ Arena, Mists' Tiger's Peak (`ShadoPanArena`), Forever's Hyjal Crater.
   its `Twm_mapareas` bounding box. Useful for validating the ADT
   chunk-position formula (`gen_poi_areas.js` duplicates the same
   computation internally) or just inspecting where a given AreaID
-  actually sits.
+  actually sits. Takes `--candidates <kind>` / `--maps <Name1,Name2,...>`
+  same as `parse_wdt.js` (step 3) — usually `--candidates continents`.
 
 - **`preview_wmo_tiles.js`** — standalone diagnostic tool, not part of the
   pipeline above and not run against every map. Composites one map's WMO
@@ -783,8 +950,22 @@ Arena, Mists' Tiger's Peak (`ShadoPanArena`), Forever's Hyjal Crater.
   candidate map or a change to the shared placement math can be sanity-
   checked by eye before touching the addon's shipped Lua data:
   ```bash
-  node preview_wmo_tiles.js --flavor-dir <dir> --listfile <community-listfile.csv> --out <out.png> <MapDirectoryName>
+  node preview_wmo_tiles.js --work-dir <dir> --flavor <product> (--client-dir <path> | --online) (--out <out.png> | --dump-tiles-dir <dir>) [--with-adt-tiles] <MapDirectoryName>
   ```
+  `--dump-tiles-dir <dir>` additionally (or instead of `--out`) writes every
+  individual baked WMO minimap tile out as its own PNG at its real
+  (possibly-cropped) native size, named `<FileDataID>.png` — useful to
+  eyeball one raw tile texture on its own (e.g. to find the exact
+  FileDataID of a bad/misplaced tile worth adding to `skip_lists.js`'s
+  `skipTileFileDataId`), not just the composited overlay. FileDataID is
+  resolved from the same community listfile pass already done to turn a
+  `MODF`'s `nameId` into a WMO path, just matched the other direction (local
+  relative path → ID).
+  Self-extracts the same way `gen_wmo_tiles.js` does (map's own obj0 ADTs/WDT,
+  then the resolved WMO group/minimap files), just using the WMO's own
+  minimap directory presence as a coarser "probably already extracted"
+  signal instead of an exact per-file list (this is a one-off sanity-check
+  tool, not the pipeline feeding shipped Lua data).
   Needs `npm install` in this folder first (adds `@wowserhq/format` for BLP
   decoding and `pngjs` for PNG writing, on top of `gen_wmo_tiles.js`'s own
   `csv-parse`). Reuses `gen_wmo_tiles.js`'s exact placement formula (Y-flip,
@@ -818,7 +999,7 @@ Arena, Mists' Tiger's Peak (`ShadoPanArena`), Forever's Hyjal Crater.
 ## Step 11 — `gen_instance_maps.js`: dungeon/raid/scenario maps (`Twm_DungeonNames`/`Twm_RaidNames`/`Twm_ScenarioNames`, `Twm_mapareas`)
 
 ```bash
-node gen_instance_maps.js --kind dungeon|raid|scenario --flavor-dir <dir with Map.*.csv> --locales-dir <dir with Map.<locale>.csv per locale> --tiles-file <mapdata_tiles.lua, already regenerated including these Directory names> --listfile <community-listfile.csv> --out <out-file.lua>
+node gen_instance_maps.js --kind dungeon|raid|scenario --work-dir <dir> --flavor <product> (--client-dir <path> | --online) --tiles-file <mapdata_tiles.lua, already regenerated including these Directory names> [--wmo-tiles-file <mapdata_wmo_tiles.lua, already regenerated including these Directory names>] --out <out-file.lua> [--force] [--proxy <url>]
 ```
 
 One shared script for all three categories (`--kind`), not three separate
@@ -826,13 +1007,29 @@ files the way `gen_battlegrounds.js`/`gen_arenas.js` are — unlike those two
 (genuinely different `UiMapAssignment` handling), dungeons/raids/scenarios
 differ from each other only in which `Map.csv` `InstanceType` value selects
 them (`1`/`2`/`5`) and which Lua globals the output populates. Otherwise
-modeled closely on `gen_arenas.js`: per-locale baked names (`--locales-dir`,
+modeled closely on `gen_arenas.js`: per-locale baked names (self-downloaded,
 same 11 locales) and a box derived from `--tiles-file` instead of a
 `UiMapAssignment` Region box, for the same reason arenas need one —
 `UiMapAssignment` presence for these is flavor-**inconsistent** (confirmed:
 Ragefire Chasm has 0 rows on Vanilla/Forever but 6 on TBC/Mists, same
 MapID), so there's no single reliable rule to build a box or a live-resolved
 name from it either way, unlike battlegrounds.
+
+Each candidate also carries `expansion` (`Map.csv`'s own `ExpansionID`, a
+string like every other ID in this codebase) into the generated file. For
+Dungeons/Raids specifically, `TerrainWorldMap.lua` uses it to insert an
+expansion-selection dropdown level (Classic/The Burning Crusade/...,
+`TWM_GetSortedExpansionIDs`/`TWM_GetExpansionName`) between the category and
+the actual map list — release order falls straight out of sorting
+`ExpansionID` numerically. The per-expansion names (`Locale/*.lua`'s
+`TWM_EXPANSION_<N>`) were sourced from this client's own `Achievement_Category`
+DB2 data (`wago.tools/db2/Achievement_Category/csv?product=<flavor>&locale=<locale>`),
+not guessed — most locales (ruRU, deDE) keep the English title untranslated,
+which is Blizzard's own convention, not a translation gap in this addon.
+Scenarios also get an `expansion` field (uniform output shape, cheap to
+include) but no dropdown level — Mists is the only flavor with any, and
+they're all MoP (`ExpansionID=4`), so splitting by expansion there would be a
+single always-open submenu with nothing to filter.
 
 **Structural filter is deliberately NOT `MapType=1`**, unlike every other
 generator's own top-level-map filter (`gen_mapareas.js`/`gen_arenas.js`/
@@ -847,48 +1044,82 @@ filtered by a plain `/unused/i` test on `MapName_lang` (matches "(UNUSED)
 Scenario: ...", "The Depths [UNUSED]", etc., confirmed no false positives
 on real content across a full Mists scan).
 
-**Box derivation has two paths**, tried in order:
+**Box derivation has three paths**, tried in order:
 1. Same as `gen_arenas.js`: valid-tile extent from `--tiles-file` (real ADT
    tile grid — some dungeons/scenarios have one, e.g. Shadowfang Keep,
    Greenstone Village).
-2. **New — most dungeons/raids have no ADT tile grid at all** (a single
-   global WMO placed via a WDT-level `MODF`, see `.claude-docs/gotchas.md`'s
-   "Detecting a pure WMO dungeon" entry, guarded by `MPHD.flags & 0x1`) —
-   `parse_wdt.js` finds 0 valid tiles for these, not an error, there's
-   nothing there to find. Falls back to that placed WMO's own **`MOHD`
-   chunk bounding box** (root `.wmo` file, fixed 64-byte struct, bbox at
-   offset 36/48 — already the union of every group, no need to touch group
-   files at all), transformed by the same yaw+translate+Big-convert
-   pipeline `gen_wmo_tiles.js`'s header derives (minus that script's own
-   minimap-tile-baking-specific 90-degree content quirk, which is about how
-   Blizzard's tool oriented *textures*, not a property of the WMO's own
-   placed geometry — irrelevant for a plain bounding box). **Does not
-   depend on baked minimap art existing at all** — confirmed necessary,
-   since Vanilla has none for these at all, only the WMO model file itself
-   (`--listfile` resolves the WDT's `MODF.nameId` to that file's path, same
-   as `gen_wmo_tiles.js`).
+2. **Preferred for pure-WMO maps (most dungeons/raids — no ADT tile grid at
+   all)**: the union of every real tile corner already sitting in
+   `--wmo-tiles-file`'s own `Twm_WMOTiles["<map>"]` entry (already-generated
+   `mapdata_wmo_tiles.lua`, `gen_wmo_tiles.js`'s output) — guaranteed to
+   match what `TWM_WMOOverlay_Update` actually renders, since it's the exact
+   same corner data, not a second, independently-reasoned placement formula.
+   `--wmo-tiles-file` is optional — omit it (or pass a file that doesn't
+   have an entry for a given map yet) and path 3 below is used instead.
+3. **Fallback, only when neither of the above has anything for a map** (no
+   `Twm_WDTValidTiles` entry AND no `Twm_WMOTiles` entry — e.g. it genuinely
+   has no baked WMO minimap tiles at all, or `--wmo-tiles-file` wasn't
+   passed/regenerated yet): derives a coarser box straight from the placed
+   WMO's own **`MOHD` chunk bounding box** (root `.wmo` file, fixed 64-byte
+   struct, bbox at offset 36/48 — already the union of every group, no need
+   to touch group files at all — see `boxFromWdtGlobalPlacement`), found via
+   the WDT-level `MODF` (`.claude-docs/gotchas.md`'s "Detecting a pure WMO
+   dungeon" entry, guarded by `MPHD.flags & 0x1`).
+   **This path was originally documented as deliberately skipping
+   `gen_wmo_tiles.js`'s own 90-degree local-space rotation** (the "minimap-
+   tile-baking-specific content quirk", on the theory it's a texture-only
+   detail, irrelevant to a plain geometric bounding box). **That theory was
+   wrong** — a live test showed the resulting box visibly not covering the
+   real WMO tile cluster ("центрирует, но не всё скопление ВМО тайлов");
+   comparing this path's own output against path 2's (real, rendered tile
+   corners) for the same maps showed genuinely different box shapes, not
+   just a rounding difference (confirmed across 23 of TBC's 36 dungeons and
+   6 of its 17 raids). Path 3 itself was NOT changed to add the rotation
+   back in (unverified whether it's actually the *right* fix for a raw MOHD
+   bbox specifically, as opposed to the block-tiled minimap coordinates
+   `gen_wmo_tiles.js` derives it for) — instead, path 2 was added so path 3
+   is only ever a last resort for maps with no real tile data to check
+   against at all. **Does not depend on baked minimap art existing** —
+   confirmed necessary, since Vanilla has none for these at all, only the
+   WMO model file itself (the community listfile resolves the WDT's
+   `MODF.nameId` to that file's path, same as `gen_wmo_tiles.js`). This
+   map's own WDT and that resolved WMO root file are self-extracted the same
+   two-pass way `gen_wmo_tiles.js` extracts its own dynamically-discovered
+   files — but only for maps that actually fall through to this path; a map
+   resolved by path 2 needs no extraction here at all.
 
-**Example (Mists test run — see `.claude-docs/gotchas.md` if the numbers
-below stop matching a future re-run):**
+**Example (full TBC run — `--wmo-tiles-file` pointed at the already-shipped
+per-category file so most pure-WMO candidates resolve via path 2 with zero
+extraction; `--tiles-file`/`--wmo-tiles-file` are `parse_wdt.js`/
+`gen_wmo_tiles.js`'s own `--candidates dungeons` output, steps 3/10 above):**
 ```bash
-node gen_instance_maps.js --kind dungeon --flavor-dir C:\wow-data\wow_classic --locales-dir C:\wow-data\wow_classic\locales --tiles-file Data_Mists/mapdata_tiles.lua --listfile C:\wow-data\CASCConsole\listfile.csv --out Data_Mists/mapdata_dungeons.lua
+node gen_instance_maps.js --kind dungeon --work-dir C:\wow-data --flavor wow_anniversary --client-dir "C:\Program Files\World of Warcraft" --tiles-file Data_TBC/mapdata_tiles_dungeons.lua --wmo-tiles-file Data_TBC/mapdata_wmo_tiles_dungeons.lua --out Data_TBC/mapdata_dungeons.lua
 ```
+This script itself doesn't take `--candidates`/`--maps` at all — `--kind`
+already selects exactly one category, so there's no second axis to choose.
+It reads `candidates/<dungeons|raids|scenarios>.json` (by `Map.csv` `ID`,
+for its locale-independent Directory/enUS-name/`ExpansionID` fields)
+instead of re-deriving the same candidate list from `Map.csv` a second
+time — `findCandidates` (the structural filter + `skipMaps`) only ever runs
+inside `gen_candidates.js` now, same as `findArenas`/`findBattlegrounds`
+above. `gen_candidates.js` is a hard prerequisite for this script too.
+Runs exactly once per `--kind` now — it used to need its own stdout as a
+"discovery" pass before `--tiles-file` had dungeon/raid tile data at all;
+`gen_candidates.js`/`parse_wdt.js --candidates dungeons` already having
+that data from the start removes that requirement (same fix as
+`gen_arenas.js` above).
 
-**Status as of this writing**: only a small validation set has been run
-end-to-end (one map per category, one of each box-derivation path) —
-Shadowfang Keep and Ragefire Chasm (dungeons, tile-extent and pure-WMO
-respectively), Onyxia's Lair (raid, pure-WMO), Greenstone Village (scenario,
-tile-extent) — all on Mists. A full run across every flavor/category is
+**Status as of this writing**: TBC (`wow_anniversary`) has been run
+end-to-end for both dungeons (36) and raids (17) — see this file's own git
+history/SESSION notes for the full account. Mists (`wow_classic`) only has
+a small validation set from an earlier pass — Shadowfang Keep and Ragefire
+Chasm (dungeons), Onyxia's Lair (raid), Greenstone Village (scenario) — and
+those pre-date both the `--wmo-tiles-file` path and the box-derivation fix
+above, so their boxes should be re-derived along with everything else next
+time Mists gets a full pass. A full run across Mists/Vanilla/Forever is
 **deliberately not done yet**: Mists alone has 84 dungeon + 33 raid + 34
-scenario candidates once `MapType` isn't used to filter, most of which
-(especially dungeons/raids) are pure-WMO and need their own WDT + root
-`.wmo` file extracted locally first (see `init_workdir.ps1`'s own docstring
-— it only fetches continents, not instance maps, so this needs its own
-extraction pass, likely per-map or in one large batched `CASCConsole` regex
-covering every `world/maps/<dir>/<dir>.wdt` + `world/wmo/.../<root>.wmo`
-implicated). Do that as a deliberate next pass, not inline with unrelated
-work — re-run `audit_wmo_extraction.js`-style checks first if unsure what's
-missing.
+scenario candidates once `MapType` isn't used to filter — its own deliberate
+next pass, not inline with unrelated work.
 
 ## When to re-run
 

@@ -15,6 +15,27 @@
 // both silently produced zero tiles despite having real baked minimap art,
 // because only the per-ADT MODF scan existed here before).
 //
+// Which tiles belong to a placement is resolved via the `WMOMinimapTexture`
+// DB2 table (ID, GroupNum, BlockX, BlockY, FileDataID, WMOID) -- NOT by
+// pattern-matching tile filenames in the community listfile (an earlier,
+// now-replaced approach). `WMOID` here is NOT a FileDataID -- it's a
+// separate internal identifier stored in the WMO root file's own `MOHD`
+// chunk (a uint32 at offset 32, right after `ambColor` and right before the
+// bounding box -- see readWmoId), confirmed by direct comparison against a
+// real placement (Razorfen Downs: MOHD offset 32 = 1356, and every one of
+// its 32 real tiles in WMOMinimapTexture.csv carries WMOID=1356). Switched
+// to this after the filename-based approach shipped 20 "ghost" tiles for
+// Razorfen Downs (group 010) that the community listfile still lists (a
+// stale entry from some other build) but this build's own CASC archive and
+// its own WMOMinimapTexture table both agree don't exist -- confirmed via
+// two independent extraction attempts (including a full wildcard sweep of
+// the WMO's whole minimap directory) finding zero matching files. The DB2
+// table is generated fresh per build, so it can't carry that kind of
+// cross-build staleness the way the aggregate listfile can -- if Blizzard's
+// own client trusts this table for the SAME feature (and evidently does,
+// since nobody's reported broken native-minimap tiles from it), it's the
+// right source of truth here too.
+//
 // SCOPE: yaw (MODF.rotation[1]) is supported; pitch/roll aren't -- every
 // real placement checked so far (a broad sample: arenas, Shadowfang Keep,
 // ~20 WDT-only dungeons/raids) is yaw-only, never pitch/roll, so a
@@ -117,6 +138,11 @@ const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
 const { Blp } = require('@wowserhq/format');
+const { flavorDir, listfilePath, ensureExtracted, ensureExtractedPaths, ensureDb2Csv, envOr, resolveMapKeys } = require('./extract');
+const { skipWmoTiles, skipTileFileDataId, isSkipped } = require('./skip_lists');
+const { getValidTiles } = require('./parse_wdt');
+
+const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // Real (possibly cropped) pixel dimensions straight from the BLP header --
 // no full pixel decode needed, just width/height.
@@ -130,6 +156,7 @@ function chunkID(a, b, c, d) { return (a.charCodeAt(0) << 24) | (b.charCodeAt(0)
 const ID_MPHD = chunkID('M', 'P', 'H', 'D');
 const ID_MODF = chunkID('M', 'O', 'D', 'F');
 const ID_MOGP = chunkID('M', 'O', 'G', 'P');
+const ID_MOHD = chunkID('M', 'O', 'H', 'D');
 
 const MINI2BIG = 1600 / 3; // 533.3333..., matches TerrainWorldMap.lua's MINI2BIGX/Y
 const MAP_ORIGIN = 32 * MINI2BIG; // 17066.666...
@@ -137,12 +164,29 @@ const PPU = 2; // pixels per world unit for WMO minimap tiles (fixed, not derive
 const TILE_UNITS = 256 / PPU; // 128 model-units per 256px tile
 const ROT_EPSILON = 0.05; // degrees -- MODF rotation floats aren't always exactly 0.0
 
-// Every MODF entry (deduped by nameId) across a map's own _obj0.adt files.
-function findModfPlacements(mapDir) {
+// Every MODF entry (deduped by nameId) across a map's own _obj0.adt files --
+// only the ones the WDT's own MAIN/MAID chunk actually declares as real,
+// obj0ADT-backed tiles (validTileKeys, from parse_wdt.js's getValidTiles(),
+// 'obj0ADT' field -- a tile can have real terrain with no object placements
+// at all, so this is deliberately NOT the same 'rootADT' check
+// Twm_WDTValidTiles itself uses).
+// CASC/the community listfile can contain a stray _obj0.adt for a tile the
+// client itself doesn't consider real terrain (same class of staleness as
+// the WMOMinimapTexture ghost-tile fix above, see .claude-docs/gotchas.md)
+// -- trusting "this file exists and got extracted" alone isn't enough.
+function findModfPlacements(mapDir, validTileKeys) {
 	const entries = [];
 	const seen = new Set();
 	for (const f of fs.readdirSync(mapDir)) {
 		if (!f.endsWith('_obj0.adt')) continue;
+		const m = f.match(/_(\d+)_(\d+)_obj0\.adt$/i);
+		if (m) {
+			const key = `${m[1].padStart(2, '0')}x${m[2].padStart(2, '0')}`;
+			if (!validTileKeys.has(key)) {
+				console.error(`  (ignoring ${f} -- not a real, obj0ADT-backed tile per this map's own WDT)`);
+				continue;
+			}
+		}
 		const buf = fs.readFileSync(path.join(mapDir, f));
 		let offset = 0;
 		while (offset + 8 <= buf.length) {
@@ -202,6 +246,47 @@ function findWdtPlacement(wdtPath) {
 	return [modf];
 }
 
+// The WMO root file's own internal WMOID (MOHD chunk, offset 32 -- right
+// after nTextures/nGroups/nPortals/nLights/nDoodadNames/nDoodadDefs/
+// nDoodadSets (4 bytes each, offsets 0-24) and ambColor (4 bytes, offset 28),
+// right before the bounding box (offset 36/48, already read elsewhere) --
+// see this file's header for how this offset was confirmed, not assumed).
+// This is the join key WMOMinimapTexture.csv's own `WMOID` column uses --
+// unrelated to any FileDataID.
+function readWmoId(rootWmoPath) {
+	const buf = fs.readFileSync(rootWmoPath);
+	let offset = 0;
+	while (offset + 8 <= buf.length) {
+		const magic = buf.readUInt32LE(offset);
+		const size = buf.readUInt32LE(offset + 4);
+		const dataStart = offset + 8;
+		if (magic === ID_MOHD) return buf.readUInt32LE(dataStart + 32);
+		offset = dataStart + size;
+	}
+	return null;
+}
+
+// WMOMinimapTexture.csv -> Map<WMOID (string), [{groupNum, blockX, blockY,
+// fileID}]>. Authoritative source for which baked minimap tiles belong to a
+// given WMO -- see this file's header for why this replaced filename
+// pattern-matching against the community listfile.
+function loadWmoMinimapTexture(csvPath) {
+	const { parseCsvFile } = require('./csv');
+	const rows = parseCsvFile(csvPath);
+	const byWmoId = new Map();
+	for (const r of rows) {
+		const list = byWmoId.get(r.WMOID) || [];
+		list.push({
+			groupNum: parseInt(r.GroupNum, 10),
+			blockX: parseInt(r.BlockX, 10),
+			blockY: parseInt(r.BlockY, 10),
+			fileID: parseInt(r.FileDataID, 10),
+		});
+		byWmoId.set(r.WMOID, list);
+	}
+	return byWmoId;
+}
+
 // MOGP chunk's own local bounding box (offset 12 within its data: flags(4)
 // then bbox min C3Vector(12) + max C3Vector(12)).
 function groupBoundingBox(groupFilePath) {
@@ -223,36 +308,107 @@ function groupBoundingBox(groupFilePath) {
 }
 
 function parseArgs(argv) {
-	const opts = { flavorDir: null, listfile: null, out: null };
-	const mapNames = [];
+	const opts = {
+		workDir: null, flavor: null, clientDir: null, online: false, clientLocale: 'enUS',
+		out: null, force: false, proxy: null, maps: null, candidatesKind: null,
+	};
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i];
-		if (a === '--flavor-dir') opts.flavorDir = argv[++i];
-		else if (a === '--listfile') opts.listfile = argv[++i];
+		if (a === '--work-dir') opts.workDir = argv[++i];
+		else if (a === '--flavor') opts.flavor = argv[++i];
+		else if (a === '--client-dir') opts.clientDir = argv[++i];
+		else if (a === '--online') opts.online = true;
+		else if (a === '--client-locale') opts.clientLocale = argv[++i];
 		else if (a === '--out') opts.out = argv[++i];
-		else if (a.startsWith('--')) throw new Error(`Unknown option: ${a}`);
-		else mapNames.push(a);
+		else if (a === '--force') opts.force = true;
+		else if (a === '--proxy') opts.proxy = argv[++i];
+		else if (a === '--maps') opts.maps = argv[++i];
+		else if (a === '--candidates') opts.candidatesKind = argv[++i];
+		else throw new Error(`Unknown option: ${a}`);
 	}
-	return { opts, mapNames };
+	return opts;
 }
 
 function printUsage() {
-	console.error('Usage: node gen_wmo_tiles.js --flavor-dir <dir with world/maps/<map>/*_obj0.adt and extracted world/wmo/... WMOs> --listfile <community-listfile.csv> --out <out-file.lua> <MapDirectoryName> [<MapDirectoryName> ...]');
+	console.error('Usage: node gen_wmo_tiles.js --work-dir <dir> --flavor <product> (--client-dir <path> | --online) --out <out-file.lua> (--candidates <dungeons|raids|arenas> | --maps <Name1,Name2,...>) [--force] [--proxy <url>]');
+	console.error('  --candidates reads <work-dir>/<flavor>/candidates/<kind>.json (scripts/gen_candidates.js, run that first) --');
+	console.error('  continents/battlegrounds never have any baked WMO tiles, only dungeons/raids/arenas do, so those are the');
+	console.error('  only 3 valid kinds here. --maps is an explicit comma-separated override for ad-hoc/manual use.');
+	console.error('  Self-extracts (via CASCConsole) each map\'s obj0 ADTs/WDT, then -- once MODF placements are');
+	console.error('  resolved against the community listfile and each root WMO\'s own WMOID against WMOMinimapTexture.csv --');
+	console.error('  exactly the WMO group/minimap files they need.');
 }
 
 async function main() {
-	let opts, mapNames;
+	let opts;
 	try {
-		({ opts, mapNames } = parseArgs(process.argv.slice(2)));
+		opts = parseArgs(process.argv.slice(2));
 	} catch (e) {
 		console.error(e.message);
 		printUsage();
 		process.exit(1);
 	}
+	opts.workDir = envOr(opts.workDir, 'WORK_DIR');
+	opts.clientDir = envOr(opts.clientDir, 'CLIENT_DIR');
+	opts.flavor = envOr(opts.flavor, 'FLAVOR');
+	opts.proxy = envOr(opts.proxy, 'PROXY');
 
-	if (!opts.flavorDir || !opts.listfile || !opts.out || mapNames.length === 0) {
+	if (!opts.workDir || !opts.flavor || !opts.out) {
 		printUsage();
 		process.exit(1);
+	}
+	let mapNames;
+	try {
+		mapNames = resolveMapKeys({ maps: opts.maps, candidatesKind: opts.candidatesKind, workDir: opts.workDir, flavor: opts.flavor });
+	} catch (e) {
+		console.error(e.message);
+		printUsage();
+		process.exit(1);
+	}
+	if (mapNames.length === 0) {
+		console.error(`No maps to process (candidates/${opts.candidatesKind}.json is empty) -- nothing to do.`);
+		process.exit(0);
+	}
+
+	const flavorDirPath = flavorDir(opts.workDir, opts.flavor);
+	const extractOpts = {
+		workDir: opts.workDir, flavor: opts.flavor,
+		clientDir: opts.clientDir, online: opts.online, clientLocale: opts.clientLocale,
+		force: opts.force,
+	};
+	// See the per-tile loop below (rawTiles) for where this is actually
+	// checked -- a fileID-level skip, independent of skipMaps/skipWmoTiles
+	// above (those drop a whole map; this drops one bad baked tile texture
+	// wherever it's referenced).
+	const skipTileIdSet = new Set(skipTileFileDataId[opts.flavor] || []);
+
+	// skip_lists.js is keyed by Map.csv `ID`, not Directory name -- only load
+	// Map.csv (an extra download/parse this script otherwise never needs) when
+	// this flavor's own skipWmoTiles actually has something to check against.
+	// skipWmoTiles' net effect (no Twm_WMOTiles entry for it) is identical to
+	// never having been asked for it at all. skipMaps itself is NOT checked
+	// here (or in parse_wdt.js) at all -- with --candidates, a skipped map is
+	// already absent from candidates/<kind>.json (gen_candidates.js applies
+	// skipMaps once, when building it), so re-checking here would only ever
+	// be dead code; with --maps, an explicitly hand-listed map is exactly a
+	// debug/manual override, and silently dropping it anyway would defeat
+	// that override's entire point -- skipMaps is a "never a real candidate"
+	// list, not a "never process no matter what" one.
+	if ((skipWmoTiles[opts.flavor] || []).length > 0) {
+		const { parseCsvFile, findCsv } = require('./csv');
+		ensureDb2Csv({ ...extractOpts, table: 'Map', proxy: opts.proxy });
+		const directoryToID = {};
+		for (const r of parseCsvFile(findCsv(flavorDirPath, 'Map.')))
+			directoryToID[r.Directory] = r.ID;
+
+		mapNames = mapNames.filter(m => {
+			const mapID = directoryToID[m];
+			if (isSkipped(skipWmoTiles, opts.flavor, mapID)) {
+				console.error(`${m}: skipping WMO tiles (skip_lists.js's skipWmoTiles)`);
+				return false;
+			}
+			return true;
+		});
 	}
 
 	// Gather every candidate MODF nameId across all requested maps first,
@@ -271,14 +427,80 @@ async function main() {
 	// the two as redundant -- wrong; reverted.)
 	const placementsByMap = {};
 	const wantedNameIds = new Set();
+	// Phase 1: self-extract every requested map's obj0 ADTs (per-tile MODF
+	// source) and its own WDT (for the pure-WMO WDT-level MODF fallback) in
+	// ONE combined CASCConsole call, not one call per map -- each launch
+	// pays its own ~20s CASC/listfile startup cost regardless of how little
+	// it has to extract (confirmed: this exact per-item pattern already had
+	// to be batched out of parse_wdt.js/gen_instance_maps.js after real
+	// multi-map runs hung for many minutes on nothing but that overhead).
+	if (mapNames.length > 0) {
+		// Cache-hit check is deliberately NOT "does the map's .wdt exist" --
+		// parse_wdt.js (run earlier in the normal pipeline order) already
+		// extracts WDT+root-ADT without ever touching obj0 files, so a WDT
+		// already being present proves nothing about obj0 (confirmed: this
+		// silently skipped obj0 extraction entirely for every map that had
+		// already been through parse_wdt.js, producing 0 WMO tiles for maps
+		// that genuinely have real placements). Check for at least one real
+		// obj0 file per map instead -- exact obj0 filenames aren't knowable
+		// in advance (tile-position-dependent), so this is a directory scan,
+		// not a fixed checkPaths list; ensureExtracted's own array-of-exact-
+		// paths check can't express that, so its cache check is bypassed
+		// (checkPaths: []) and this replaces it.
+		//
+		// A pure-WMO map (Ragefire Chasm, Onyxia's Lair, most classic 5-mans
+		// -- see findWdtPlacement's header) genuinely has ZERO obj0 files by
+		// design, not because it's un-extracted -- the plain "any obj0 file
+		// present" scan below can't tell those apart, so it flagged every
+		// pure-WMO map as needing extraction forever, which made `.some()`
+		// return true for basically any real map list (dungeons/raids are
+		// mostly pure-WMO) and forced a full re-extraction on EVERY run
+		// regardless of --force. Fixed: once a map's own WDT is present,
+		// check MPHD's global-WMO flag first (via findWdtPlacement, already
+		// used below for the real placement lookup) -- a genuine pure-WMO
+		// map short-circuits to "cache hit" without ever looking for obj0
+		// files at all.
+		const needsExtraction = mapNames.some(m => {
+			const dir = path.join(flavorDirPath, 'world', 'maps', m);
+			const wdtPath = path.join(dir, `${m}.wdt`);
+			if (!fs.existsSync(wdtPath)) return true;
+			if (findWdtPlacement(wdtPath).length > 0) return false;
+			return !fs.readdirSync(dir).some(f => /_obj0\.adt$/i.test(f));
+		});
+		if (needsExtraction || extractOpts.force) {
+			const escapedNames = mapNames.map(escapeRegExp);
+			const contAlt = escapedNames.join('|');
+			// obj0 filenames embed the map's own directory stem as a literal
+			// prefix (e.g. "stratholme raid_37_24_obj0.adt", "zul'gurub_33_52_
+			// obj0.adt") -- \w excludes space/apostrophe/etc, so a map whose
+			// Directory has either (Stratholme Raid, Zul'gurub -- confirmed,
+			// not hypothetical) never matched this pattern at all, its obj0
+			// extraction silently found nothing every single time, and
+			// needsExtraction above stayed permanently true for any map list
+			// containing one -- forcing a full re-extraction on every run
+			// regardless of --force. [^/]+ (only excludes the path
+			// separator, matching the .wdt alternative's own convention)
+			// instead of \w+ fixes this for any punctuation, not just these
+			// two known cases.
+			ensureExtracted({
+				...extractOpts,
+				pattern: `^world/maps/(${contAlt})/([^_/]+\\.wdt|[^/]+_obj0\\.adt)$`,
+				checkPaths: [],
+			});
+		} else {
+			console.error('  already extracted (obj0 present for every requested map), skipping (use --force to re-extract)');
+		}
+	}
+
 	for (const mapName of mapNames) {
-		const mapDir = path.join(opts.flavorDir, 'world', 'maps', mapName);
+		const mapDir = path.join(flavorDirPath, 'world', 'maps', mapName);
 		if (!fs.existsSync(mapDir)) {
-			console.error(`WARNING: ${mapName} -- no world/maps/${mapName} dir in --flavor-dir, skipping`);
+			console.error(`WARNING: ${mapName} -- no world/maps/${mapName} dir after extraction (map name not found in this flavor), skipping`);
 			placementsByMap[mapName] = [];
 			continue;
 		}
-		let placements = findModfPlacements(mapDir);
+		const validTileKeys = new Set(getValidTiles(path.join(mapDir, `${mapName}.wdt`), 'obj0ADT'));
+		let placements = findModfPlacements(mapDir, validTileKeys);
 		if (placements.length === 0) {
 			// No per-ADT MODF at all -- try the WDT-level global placement
 			// (pure-WMO map, no real ADT terrain) before giving up.
@@ -288,25 +510,89 @@ async function main() {
 		for (const p of placements) wantedNameIds.add(p.nameId);
 	}
 
-	// Single streaming pass: resolve wanted WMO nameIds to paths, and collect
-	// every world/minimaps/wmo/ tile path (grouped by its stem, i.e. the
-	// path with the trailing _NNN_XX_YY.blp stripped).
+	// Pass 1: resolve wanted WMO nameIds to their root .wmo paths (one
+	// listfile stream).
 	const idToPath = {};
-	const tilesByStem = {}; // stem -> [{groupNum, blockX, blockY, fileID}]
-	const rl = readline.createInterface({ input: fs.createReadStream(opts.listfile) });
-	for await (const line of rl) {
-		const idx = line.indexOf(';');
-		if (idx === -1) continue;
-		const id = parseInt(line.slice(0, idx), 10);
-		const p = line.slice(idx + 1).trim();
-		if (wantedNameIds.has(id)) idToPath[id] = p;
-		if (p.startsWith('world/minimaps/wmo/')) {
-			const m = p.match(/^(.*)_(\d+)_(\d+)_(\d+)\.blp$/);
-			if (m) {
-				const [, stem, groupNum, blockX, blockY] = m;
-				(tilesByStem[stem] = tilesByStem[stem] || []).push({ groupNum: parseInt(groupNum, 10), blockX: parseInt(blockX, 10), blockY: parseInt(blockY, 10), fileID: id, listfilePath: p });
+	{
+		const rl = readline.createInterface({ input: fs.createReadStream(listfilePath(opts.workDir)) });
+		for await (const line of rl) {
+			const idx = line.indexOf(';');
+			if (idx === -1) continue;
+			const id = parseInt(line.slice(0, idx), 10);
+			if (wantedNameIds.has(id)) idToPath[id] = line.slice(idx + 1).trim();
+		}
+	}
+
+	// Phase 1.5: batch-extract every wanted root .wmo file -- needed now to
+	// read each one's own internal WMOID (MOHD chunk, see readWmoId), the
+	// join key into WMOMinimapTexture.csv below. Previously this script
+	// never touched root files at all (only gen_instance_maps.js's pure-WMO
+	// box fallback did); reading WMOID is the reason that changed.
+	const wantedWmoPaths = [...new Set(Object.values(idToPath))];
+	if (wantedWmoPaths.length > 0) ensureExtractedPaths({ ...extractOpts, paths: wantedWmoPaths });
+
+	const wmoIdByNameId = {};
+	for (const [nameId, wmoPath] of Object.entries(idToPath)) {
+		const localPath = path.join(flavorDirPath, wmoPath);
+		if (!fs.existsSync(localPath)) continue;
+		wmoIdByNameId[nameId] = readWmoId(localPath);
+	}
+
+	// WMOMinimapTexture.csv: the authoritative {groupNum, blockX, blockY,
+	// fileID} list per WMOID -- see this file's header for why this
+	// replaced filename pattern-matching against the community listfile.
+	ensureDb2Csv({ ...extractOpts, table: 'WMOMinimapTexture', proxy: opts.proxy });
+	const { findCsv } = require('./csv');
+	const tilesByWmoId = loadWmoMinimapTexture(findCsv(flavorDirPath, 'WMOMinimapTexture.'));
+
+	// Pass 2: resolve every wanted tile's own FileDataID to its listfile
+	// path (needed to extract it and to read its real BLP dimensions below)
+	// -- gathered only now that WMOMinimapTexture has narrowed this down to
+	// exactly the fileIDs actually referenced by a placement in this run.
+	const wantedFileIds = new Set();
+	for (const wmoId of Object.values(wmoIdByNameId)) {
+		if (wmoId == null) continue;
+		for (const t of tilesByWmoId.get(String(wmoId)) || []) wantedFileIds.add(t.fileID);
+	}
+	const fileIdToPath = {};
+	if (wantedFileIds.size > 0) {
+		const rl = readline.createInterface({ input: fs.createReadStream(listfilePath(opts.workDir)) });
+		for await (const line of rl) {
+			const idx = line.indexOf(';');
+			if (idx === -1) continue;
+			const id = parseInt(line.slice(0, idx), 10);
+			if (wantedFileIds.has(id)) fileIdToPath[id] = line.slice(idx + 1).trim();
+		}
+	}
+
+	// Phase 2: now that every placement's real tile list is known (from the
+	// DB2 table, not a directory/filename scan), self-extract exactly the
+	// group model files + minimap BLPs those tiles actually need.
+	const neededPaths = new Set();
+	for (const mapName of mapNames) {
+		for (const p of placementsByMap[mapName] || []) {
+			const wmoPath = idToPath[p.nameId];
+			const wmoId = wmoIdByNameId[p.nameId];
+			if (!wmoPath || wmoId == null) continue;
+			const tiles = tilesByWmoId.get(String(wmoId));
+			if (!tiles || tiles.length === 0) continue;
+			for (const g of new Set(tiles.map(t => t.groupNum)))
+				neededPaths.add(wmoPath.replace(/\.wmo$/i, `_${String(g).padStart(3, '0')}.wmo`));
+			for (const t of tiles) {
+				const p2 = fileIdToPath[t.fileID];
+				if (p2) neededPaths.add(p2);
 			}
 		}
+	}
+	if (neededPaths.size > 0) {
+		const pathList = [...neededPaths];
+		// ensureExtractedPaths, not ensureExtracted with a hand-built
+		// alternation -- a handful of large dungeons/raids at once can need
+		// hundreds of individual group/tile paths, and one combined regex
+		// over all of them blows past Windows' ~32767-char command-line cap
+		// (confirmed: ENAMETOOLONG at 160000+ chars on a real TBC dungeon
+		// batch). This chunks into as many CASCConsole calls as needed.
+		ensureExtractedPaths({ ...extractOpts, paths: pathList });
 	}
 
 	let fullOutput = "-- GENERATED FILE -- do not hand-edit, regenerate with scripts/gen_wmo_tiles.js\n"
@@ -337,8 +623,10 @@ async function main() {
 		+ "-- corners, redundant with cx/cy/width/height/yawDeg but computed\n"
 		+ "-- directly (not re-derived from those) -- TWM_DebugTiles draws the\n"
 		+ "-- outline from these via Line, point-to-point, not by re-rotating\n"
-		+ "-- anything in Lua a second time.\n\n"
-		+ "Twm_WMOTiles = {\n";
+		+ "-- anything in Lua a second time.\n"
+		+ "-- Twm_WMOTiles itself is declared once, centrally, in mapdata_zones.lua\n"
+		+ "-- (this file, and its dungeons/raids/arenas siblings, only assign their\n"
+		+ "-- own Twm_WMOTiles[\"<name>\"] key) -- see Twm_WDTValidTiles there for why.\n\n";
 
 	for (const mapName of mapNames) {
 		// Placements are pre-sorted by their own height too, purely so
@@ -353,8 +641,12 @@ async function main() {
 			const wmoPath = idToPath[p.nameId];
 			if (!wmoPath) continue; // not a real WMO (e.g. an M2 doodad -- MDDF, not MODF, shouldn't happen, but be safe)
 
-			const stem = wmoPath.replace(/\.wmo$/i, '').replace('world/wmo/', 'world/minimaps/wmo/');
-			const tiles = tilesByStem[stem];
+			const wmoId = wmoIdByNameId[p.nameId];
+			if (wmoId == null) {
+				console.error(`  (skipping ${mapName}'s ${wmoPath} -- couldn't read its own WMOID from MOHD, not extracted locally?)`);
+				continue;
+			}
+			const tiles = tilesByWmoId.get(String(wmoId));
 			if (!tiles || tiles.length === 0) continue; // no minimap art baked for this WMO at all
 
 			const pitchRollMag = Math.max(Math.abs(p.rot[0]), Math.abs(p.rot[2]));
@@ -379,7 +671,7 @@ async function main() {
 			const groupNums = [...new Set(tiles.map(t => t.groupNum))];
 			const groupBoxes = {};
 			for (const g of groupNums) {
-				const groupPath = path.join(opts.flavorDir, wmoPath.replace(/\.wmo$/i, `_${String(g).padStart(3, '0')}.wmo`));
+				const groupPath = path.join(flavorDirPath, wmoPath.replace(/\.wmo$/i, `_${String(g).padStart(3, '0')}.wmo`));
 				if (!fs.existsSync(groupPath)) {
 					console.error(`  (skipping ${mapName}'s ${wmoPath} group ${g} -- ${groupPath} not extracted)`);
 					continue;
@@ -457,6 +749,13 @@ async function main() {
 			const trueGlobalMaxY = Math.max(...Object.values(groupBoxes).map(b => Math.max(b.min[1], b.max[1])));
 
 			for (const { t, box, localX1, localY1raw } of rawTiles) {
+				// A bad/misplaced baked tile texture (e.g. a leftover
+				// placeholder), hand-listed in skip_lists.js's
+				// skipTileFileDataId -- shouldn't render no matter which
+				// system references that same FileDataID (see parse_wdt.js
+				// for the ADT-side half of this same filter).
+				if (skipTileIdSet.has(String(t.fileID))) continue;
+
 				// Real crop size (see this file's header) replaces the
 				// nominal TILE_UNITS for THIS tile's own span. X: localX1 is
 				// the raw (unreflected) near edge regardless, so just add
@@ -468,12 +767,13 @@ async function main() {
 				// edge; a real crop's far edge isn't always TILE_UNITS away
 				// from the near one anymore).
 				let realW = TILE_UNITS * PPU, realH = TILE_UNITS * PPU; // 256x256 fallback
-				const blpPath = path.join(opts.flavorDir, t.listfilePath);
-				if (fs.existsSync(blpPath)) {
+				const tileListfilePath = fileIdToPath[t.fileID];
+				const blpPath = tileListfilePath && path.join(flavorDirPath, tileListfilePath);
+				if (blpPath && fs.existsSync(blpPath)) {
 					const dim = blpDimensions(blpPath);
 					realW = dim.width; realH = dim.height;
 				} else {
-					console.error(`  (warning: ${mapName}'s ${t.listfilePath} not extracted locally -- assuming full 256x256, size may be wrong)`);
+					console.error(`  (warning: ${mapName}'s tile FileDataID ${t.fileID} not extracted locally -- assuming full 256x256, size may be wrong)`);
 				}
 
 				const localX2 = localX1 + realW / PPU;
@@ -560,14 +860,13 @@ async function main() {
 		// groups can themselves span the whole height range.
 		mapTiles.sort((a, b) => a.z - b.z);
 
-		fullOutput += `    ["${mapName}"] = {\n`;
+		fullOutput += `Twm_WMOTiles["${mapName}"] = {\n`;
 		for (const t of mapTiles) {
 			const corners = t.corners.map(c => `${c[0]}, ${c[1]}`).join(', ');
-			fullOutput += `        {${t.fileID}, ${t.cx}, ${t.cy}, ${t.width}, ${t.height}, ${t.yawDeg}, ${t.z}, ${corners}},\n`;
+			fullOutput += `    {${t.fileID}, ${t.cx}, ${t.cy}, ${t.width}, ${t.height}, ${t.yawDeg}, ${t.z}, ${corners}},\n`;
 		}
-		fullOutput += '    },\n';
+		fullOutput += '}\n';
 	}
-	fullOutput += '}\n';
 
 	fs.writeFileSync(opts.out, fullOutput);
 	console.error(`\nWritten: ${opts.out}`);

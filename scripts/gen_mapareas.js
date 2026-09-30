@@ -10,6 +10,7 @@ const fs = require('fs');
 const path = require('path');
 const { parseCsvFile: parseCsv, findCsv } = require('./csv');
 const { INSTANCE_TYPE_COMMON, UI_MAP_TYPE_CONTINENT, UI_MAP_TYPE_ZONE, UI_MAP_TYPE_ORPHAN, UI_MAP_SYSTEM_WORLD } = require('./dbc_enums');
+const { flavorDir, ensureDb2Csv, envOr } = require('./extract');
 
 // Reads mapdata_zones.lua's own Twm_CapitalAreaIDs table (the single
 // source of truth for which AreaIDs are capitals) instead of keeping a
@@ -117,16 +118,44 @@ function findContinents(uiMapRows, assignRows, mapRows, uiMapType, uiMapSystem) 
 	return continents;
 }
 
-function main() {
-	const csvDir = process.argv[2];
-	const outFile = process.argv[3]; // optional -- see below
+function parseArgs(argv) {
+	const opts = { workDir: null, flavor: null, out: null, force: false, proxy: null };
+	for (let i = 0; i < argv.length; i++) {
+		const a = argv[i];
+		if (a === '--work-dir') opts.workDir = argv[++i];
+		else if (a === '--flavor') opts.flavor = argv[++i];
+		else if (a === '--out') opts.out = argv[++i];
+		else if (a === '--force') opts.force = true;
+		else if (a === '--proxy') opts.proxy = argv[++i];
+		else {
+			console.error(`Unknown argument: ${a}`);
+			process.exit(1);
+		}
+	}
+	return opts;
+}
 
-	if (!csvDir) {
-		console.error('Usage: node gen_mapareas.js <csv-dir> [<out-file.lua>]');
-		console.error('  <out-file.lua> is optional -- omit it to just print the continent name');
-		console.error('  list (for parse_wdt.js / wow.export folder names) without writing anything.');
+function main() {
+	const opts = parseArgs(process.argv.slice(2));
+
+	opts.workDir = envOr(opts.workDir, 'WORK_DIR');
+	opts.flavor = envOr(opts.flavor, 'FLAVOR');
+	opts.proxy = envOr(opts.proxy, 'PROXY');
+
+	if (!opts.workDir || !opts.flavor) {
+		console.error('Usage: node gen_mapareas.js --work-dir <dir> --flavor <product> [--out <out-file.lua>] [--force] [--proxy <url>]');
+		console.error('  --out is optional -- omit it to just print the continent name list');
+		console.error('  (for parse_wdt.js / wow.export folder names) without writing anything.');
 		process.exit(1);
 	}
+	const outFile = opts.out;
+
+	const dl = { workDir: opts.workDir, flavor: opts.flavor, force: opts.force, proxy: opts.proxy };
+	const csvDir = flavorDir(opts.workDir, opts.flavor);
+	ensureDb2Csv({ ...dl, table: 'Map' });
+	ensureDb2Csv({ ...dl, table: 'UiMap' });
+	ensureDb2Csv({ ...dl, table: 'UiMapAssignment' });
+	ensureDb2Csv({ ...dl, table: 'AreaTable' });
 
 	const mapRows = parseCsv(findCsv(csvDir, 'Map.'));
 	const uiMapRows = parseCsv(findCsv(csvDir, 'UiMap.'));
@@ -155,7 +184,7 @@ function main() {
 	const lowerAlt = continents.map(c => escapeRegExp(c.name.toLowerCase())).join('|');
 	console.log(`minimaps/(${lowerAlt})/noliq`);
 	console.log(`(${lowerAlt})\\.wdt`);
-	console.log(`maps/(${lowerAlt})/\\w+_\\d+_\\d+\\.adt`);
+	console.log(`maps/(${lowerAlt})/[^/]+_\\d+_\\d+\\.adt`);
 
 	// uiMapID -> {continent, areaID}: a few zones (Draenei/Blood Elf isles)
 	// are filed under a different continent's MapID than C_Map's own
@@ -250,4 +279,5 @@ function main() {
 	}
 }
 
-main();
+module.exports = { findContinents };
+if (require.main === module) { main(); }

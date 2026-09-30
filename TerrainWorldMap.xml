@@ -323,9 +323,12 @@
 		<HighlightTexture file="Interface\Buttons\UI-Common-MouseHilight" alphaMode="ADD"/>
 	</Button>
 
-	<!-- Only shown (TerrainWorldMap.lua) when the current map has
-	     Twm_WMOTiles data; most maps never will. -->
-	<CheckButton name="TWMFrameShowWMOOverlayButton" parent="TWMFrameViewFrame" inherits="UICheckButtonTemplate" hidden="true">
+	<!-- Only shown, always together with TWMFrameShowWMOOverlayButton below
+	     (TerrainWorldMap.lua's TWM_UpdateOverlayButtons), when the current
+	     map has BOTH real ADT terrain AND Twm_WMOTiles data; most maps
+	     have only one or the other, so this pair is the exception, not the
+	     default. Positioned above (see next CheckButton's anchor). -->
+	<CheckButton name="TWMFrameShowTerrainButton" parent="TWMFrameViewFrame" inherits="UICheckButtonTemplate" hidden="true">
 		<Size>
 			<AbsDimension x="24" y="24"/>
 		</Size>
@@ -333,6 +336,48 @@
 			<Anchor point="TOPRIGHT" relativePoint="TOPRIGHT">
 				<Offset>
 					<AbsDimension x="-8" y="-8"/>
+				</Offset>
+			</Anchor>
+		</Anchors>
+		<Scripts>
+			<OnLoad>
+				self:SetFrameLevel(self:GetFrameLevel() + 4);
+				_G[self:GetName().."Label"]:SetText(TWM_OPTIONS_SHOW_TERRAIN);
+			</OnLoad>
+			<OnClick>
+				TWMFrameShowTerrainButton_OnClick(self);
+			</OnClick>
+		</Scripts>
+		<Layers>
+			<Layer level="ARTWORK">
+				<FontString name="$parentLabel" inherits="GameFontHighlightSmall" justifyH="RIGHT">
+					<Size>
+						<AbsDimension x="150" y="24"/>
+					</Size>
+					<Anchors>
+						<Anchor point="RIGHT" relativePoint="LEFT">
+							<Offset>
+								<AbsDimension x="0" y="0"/>
+							</Offset>
+						</Anchor>
+					</Anchors>
+				</FontString>
+			</Layer>
+		</Layers>
+	</CheckButton>
+
+	<!-- Only shown, always together with TWMFrameShowTerrainButton above;
+	     see its own comment. Anchored below it, not independently to
+	     the ViewFrame, so the pair always stacks correctly regardless of
+	     either one's own visibility. -->
+	<CheckButton name="TWMFrameShowWMOOverlayButton" parent="TWMFrameViewFrame" inherits="UICheckButtonTemplate" hidden="true">
+		<Size>
+			<AbsDimension x="24" y="24"/>
+		</Size>
+		<Anchors>
+			<Anchor point="TOP" relativeTo="TWMFrameShowTerrainButton" relativePoint="BOTTOM">
+				<Offset>
+					<AbsDimension x="0" y="-4"/>
 				</Offset>
 			</Anchor>
 		</Anchors>

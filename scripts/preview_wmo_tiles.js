@@ -26,13 +26,26 @@
 // Keep), the same offline technique this session used for Orgrimmar's own
 // Y-anchor bugfix (see .claude-docs/gotchas.md's "WMO-tile world position").
 //
+// --dump-tiles-dir <dir> additionally (or instead of --out -- see printUsage)
+// writes every individual baked WMO minimap tile out as its own PNG, at its
+// real (possibly-cropped) native size, named "<FileDataID>.png" -- useful to
+// eyeball each raw tile texture on its own, not just the composited overlay.
+// FileDataID is resolved from the SAME community listfile pass already done
+// to turn a MODF's nameId into a WMO path, just matched the other direction
+// (local relative path -> ID) -- CASCConsole extracts files under exactly
+// the listfile's own path/casing, so a plain string match is reliable.
+//
 // Usage:
-//   node preview_wmo_tiles.js --flavor-dir <dir> --listfile <community-listfile.csv> --out <out.png> [--with-adt-tiles] <MapDirectoryName>
+//   node preview_wmo_tiles.js --work-dir <dir> --flavor <product> (--client-dir <path> | --online) (--out <out.png> | --dump-tiles-dir <dir>) [--with-adt-tiles] <MapDirectoryName>
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
 const { PNG } = require('pngjs');
 const { Blp, BLP_IMAGE_FORMAT } = require('@wowserhq/format');
+const { flavorDir, listfilePath, ensureExtracted, envOr } = require('./extract');
+const { getValidTiles } = require('./parse_wdt');
+
+const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 function chunkID(a, b, c, d) { return (a.charCodeAt(0) << 24) | (b.charCodeAt(0) << 16) | (c.charCodeAt(0) << 8) | d.charCodeAt(0); }
 const ID_MPHD = chunkID('M', 'P', 'H', 'D');
@@ -46,12 +59,23 @@ const TILE_UNITS = 256 / PPU; // 128
 const ROT_EPSILON = 0.05; // degrees, same tolerance as gen_wmo_tiles.js
 
 // Every MODF entry in a map's own _obj0.adt files, deduped by nameId --
-// verbatim copy of gen_wmo_tiles.js's findModfPlacements.
-function findAdtPlacements(mapDir) {
+// verbatim copy of gen_wmo_tiles.js's findModfPlacements, including its
+// validTileKeys cross-check (a stray _obj0.adt in CASC for a tile the WDT's
+// own MAIN/MAID chunk doesn't consider real terrain shouldn't be trusted --
+// see .claude-docs/gotchas.md).
+function findAdtPlacements(mapDir, validTileKeys) {
 	const entries = [];
 	const seen = new Set();
 	for (const f of fs.readdirSync(mapDir)) {
 		if (!f.endsWith('_obj0.adt')) continue;
+		const m = f.match(/_(\d+)_(\d+)_obj0\.adt$/i);
+		if (m) {
+			const key = `${m[1].padStart(2, '0')}x${m[2].padStart(2, '0')}`;
+			if (!validTileKeys.has(key)) {
+				console.error(`  (ignoring ${f} -- not a real, obj0ADT-backed tile per this map's own WDT)`);
+				continue;
+			}
+		}
 		const buf = fs.readFileSync(path.join(mapDir, f));
 		let offset = 0;
 		while (offset + 8 <= buf.length) {
@@ -232,16 +256,25 @@ const DIGITS = {
 };
 
 function parseArgs(argv) {
-	const opts = { flavorDir: null, listfile: null, out: null, withAdtTiles: false, noOutlines: false, bg: [20, 20, 20] };
+	const opts = {
+		workDir: null, flavor: null, clientDir: null, online: false, clientLocale: 'enUS',
+		out: null, dumpTilesDir: null, withAdtTiles: false, noOutlines: false, bg: [20, 20, 20], force: false, proxy: null,
+	};
 	const mapNames = [];
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i];
-		if (a === '--flavor-dir') opts.flavorDir = argv[++i];
-		else if (a === '--listfile') opts.listfile = argv[++i];
+		if (a === '--work-dir') opts.workDir = argv[++i];
+		else if (a === '--flavor') opts.flavor = argv[++i];
+		else if (a === '--client-dir') opts.clientDir = argv[++i];
+		else if (a === '--online') opts.online = true;
+		else if (a === '--client-locale') opts.clientLocale = argv[++i];
 		else if (a === '--out') opts.out = argv[++i];
+		else if (a === '--dump-tiles-dir') opts.dumpTilesDir = argv[++i];
 		else if (a === '--with-adt-tiles') opts.withAdtTiles = true;
 		else if (a === '--no-outlines') opts.noOutlines = true;
 		else if (a === '--bg') opts.bg = argv[++i].split(',').map(Number);
+		else if (a === '--force') opts.force = true;
+		else if (a === '--proxy') opts.proxy = argv[++i];
 		else if (a.startsWith('--')) throw new Error(`Unknown option: ${a}`);
 		else mapNames.push(a);
 	}
@@ -249,7 +282,7 @@ function parseArgs(argv) {
 }
 
 function printUsage() {
-	console.error('Usage: node preview_wmo_tiles.js --flavor-dir <dir> --listfile <community-listfile.csv> --out <out.png> [--with-adt-tiles] [--no-outlines] [--bg r,g,b] <MapDirectoryName>');
+	console.error('Usage: node preview_wmo_tiles.js --work-dir <dir> --flavor <product> (--client-dir <path> | --online) (--out <out.png> | --dump-tiles-dir <dir>) [--with-adt-tiles] [--no-outlines] [--bg r,g,b] [--force] [--proxy <url>] <MapDirectoryName>');
 }
 
 async function main() {
@@ -261,14 +294,43 @@ async function main() {
 		printUsage();
 		process.exit(1);
 	}
-	if (!opts.flavorDir || !opts.listfile || !opts.out || mapNames.length !== 1) {
+	opts.workDir = envOr(opts.workDir, 'WORK_DIR');
+	opts.clientDir = envOr(opts.clientDir, 'CLIENT_DIR');
+	opts.flavor = envOr(opts.flavor, 'FLAVOR');
+	opts.proxy = envOr(opts.proxy, 'PROXY');
+
+	if (!opts.workDir || !opts.flavor || (!opts.out && !opts.dumpTilesDir) || mapNames.length !== 1) {
 		printUsage();
 		process.exit(1);
 	}
+	const flavorDirPath = flavorDir(opts.workDir, opts.flavor);
+	const extractOpts = {
+		workDir: opts.workDir, flavor: opts.flavor,
+		clientDir: opts.clientDir, online: opts.online, clientLocale: opts.clientLocale,
+		force: opts.force,
+	};
 	const mapName = mapNames[0];
-	const mapDir = path.join(opts.flavorDir, 'world', 'maps', mapName);
+	const mapDir = path.join(flavorDirPath, 'world', 'maps', mapName);
+	const escapedMap = escapeRegExp(mapName);
 
-	let placements = fs.existsSync(mapDir) ? findAdtPlacements(mapDir) : [];
+	ensureExtracted({
+		...extractOpts,
+		// [^/]+, not \w+ -- see parse_wdt.js's identical fix (a map's
+		// Directory can contain a space/apostrophe, e.g. "Stratholme Raid").
+		pattern: `^world/maps/${escapedMap}/(${escapedMap}\\.wdt|[^/]+_obj0\\.adt)$`,
+		checkPaths: [path.join('world', 'maps', mapName, `${mapName}.wdt`)],
+	});
+	if (opts.withAdtTiles) {
+		ensureExtracted({
+			...extractOpts,
+			pattern: `^world/minimaps/${escapedMap}/map\\d+_\\d+\\.blp$`,
+			checkPaths: [path.join('world', 'minimaps', mapName)],
+		});
+	}
+
+	let placements = fs.existsSync(mapDir)
+		? findAdtPlacements(mapDir, new Set(getValidTiles(path.join(mapDir, `${mapName}.wdt`), 'obj0ADT')))
+		: [];
 	let source = 'ADT MODF';
 	if (placements.length === 0) {
 		placements = findWdtPlacement(path.join(mapDir, `${mapName}.wdt`));
@@ -288,16 +350,23 @@ async function main() {
 		console.log(`${mapName}: ${placements.length} placement(s) via ${source}`);
 	}
 
-	// Resolve each placement's nameId to a WMO path, one listfile pass.
+	// Resolve each placement's nameId to a WMO path, one listfile pass -- also
+	// builds the reverse (path -> FileDataID) map in the SAME pass when
+	// --dump-tiles-dir is set, rather than reading the (large) listfile a
+	// second time just to look up IDs the other direction.
 	const wantedNameIds = new Set(placements.map(p => p.nameId));
 	const idToPath = {};
-	const rl = readline.createInterface({ input: fs.createReadStream(opts.listfile) });
+	const pathToId = opts.dumpTilesDir ? {} : null;
+	const rl = readline.createInterface({ input: fs.createReadStream(listfilePath(opts.workDir)) });
 	for await (const line of rl) {
 		const idx = line.indexOf(';');
 		if (idx === -1) continue;
 		const id = parseInt(line.slice(0, idx), 10);
-		if (wantedNameIds.has(id)) idToPath[id] = line.slice(idx + 1).trim();
+		const p = line.slice(idx + 1).trim();
+		if (wantedNameIds.has(id)) idToPath[id] = p;
+		if (pathToId) pathToId[p] = id;
 	}
+	if (opts.dumpTilesDir) fs.mkdirSync(opts.dumpTilesDir, { recursive: true });
 
 	const mapTiles = [];
 	for (const p of placements) {
@@ -314,9 +383,23 @@ async function main() {
 		}
 		if (Math.abs(p.rot[1]) > ROT_EPSILON) console.log(`  ${wmoPath}: yaw ${p.rot[1].toFixed(2)} degrees`);
 
-		const wmoDir = path.join(opts.flavorDir, path.dirname(wmoPath));
+		const wmoDirRel = path.dirname(wmoPath);
 		const wmoBase = path.basename(wmoPath, '.wmo');
-		const minimapDir = path.join(opts.flavorDir, path.dirname(wmoPath).replace(/^world[\\/]wmo/, 'world/minimaps/wmo'));
+		const minimapDirRel = wmoDirRel.replace(/^world[\\/]wmo/, 'world/minimaps/wmo');
+		const wmoDir = path.join(flavorDirPath, wmoDirRel);
+		const minimapDir = path.join(flavorDirPath, minimapDirRel);
+
+		// Self-extract this WMO's group model files + its baked minimap tiles
+		// -- the exact per-tile file list isn't known yet (that needs a local
+		// directory listing, right below), so this uses the minimap dir's own
+		// existence as a coarse "probably already extracted" cache-hit signal
+		// rather than an exact per-file check (see gen_wmo_tiles.js for the
+		// precise, listfile-driven version used by the main pipeline).
+		ensureExtracted({
+			...extractOpts,
+			pattern: `^(${escapeRegExp(wmoDirRel)}/${escapeRegExp(wmoBase)}_\\d+\\.wmo|${escapeRegExp(minimapDirRel)}/${escapeRegExp(wmoBase)}_\\d+_\\d+_\\d+\\.blp)$`,
+			checkPaths: [minimapDirRel],
+		});
 		if (!fs.existsSync(minimapDir)) { console.error(`  (no minimap dir for ${wmoPath}: ${minimapDir})`); continue; }
 
 		const tileFiles = fs.readdirSync(minimapDir).filter(f => f.startsWith(wmoBase + '_'));
@@ -354,6 +437,20 @@ async function main() {
 			if (!box) continue;
 			const filePath = path.join(minimapDir, t.file);
 			const raw = loadBlpImage(filePath); // loaded once, reused for painting below
+
+			if (pathToId) {
+				const relPath = path.join(minimapDirRel, t.file).replace(/\\/g, '/');
+				const fileID = pathToId[relPath];
+				if (fileID) {
+					const tilePng = new PNG({ width: raw.width, height: raw.height });
+					tilePng.data.set(raw.data);
+					const outPath = path.join(opts.dumpTilesDir, `${fileID}.png`);
+					fs.writeFileSync(outPath, PNG.sync.write(tilePng));
+					console.log(`  dumped ${outPath} (${raw.width}x${raw.height})`);
+				} else {
+					console.error(`  (no listfile entry for ${relPath}, can't name a dump by FileDataID -- skipping)`);
+				}
+			}
 
 			const localX1 = Math.min(box.min[0], box.max[0]) + t.blockX * TILE_UNITS;
 			const localY1raw = Math.min(box.min[1], box.max[1]) + t.blockY * TILE_UNITS;
@@ -398,7 +495,7 @@ async function main() {
 
 	console.log(`${mapTiles.length} WMO tile(s) across ${new Set(mapTiles.map(t => t.groupNum)).size} group(s)`);
 
-	const adtTiles = opts.withAdtTiles ? findAdtMinimapTiles(opts.flavorDir, mapName) : [];
+	const adtTiles = opts.withAdtTiles ? findAdtMinimapTiles(flavorDirPath, mapName) : [];
 	if (opts.withAdtTiles) {
 		if (adtTiles.length === 0) console.error(`  (--with-adt-tiles: no real ADT minimap tiles found for ${mapName})`);
 		else console.log(`${adtTiles.length} real ADT minimap tiles found (backdrop)`);
@@ -407,6 +504,12 @@ async function main() {
 	if (mapTiles.length === 0 && adtTiles.length === 0) {
 		console.error(`${mapName}: nothing left to render`);
 		process.exit(1);
+	}
+
+	if (!opts.out) {
+		// --dump-tiles-dir only, no composite requested -- the actual dump
+		// writes already happened per-tile in the loop above.
+		return;
 	}
 
 	const PAD = 32;

@@ -71,12 +71,23 @@ TWM_CATEGORY_RAIDS = "Raids";
 TWM_CATEGORY_SCENARIOS = "Scenarios";
 TWM_CATEGORY_BATTLEGROUNDS = "Battlegrounds";
 TWM_CATEGORY_ARENAS = "Arenas";
+
+-- Expansion names for the Dungeons/Raids submenu, indexed by Map.db2's own
+-- ExpansionID (0 = Classic). Sourced from this client's own Achievement_Category
+-- data (ruRU/deDE genuinely keep these untranslated -- Blizzard's own
+-- convention, confirmed via game data, not guessed).
+TWM_EXPANSION_0 = "Classic";
+TWM_EXPANSION_1 = "The Burning Crusade";
+TWM_EXPANSION_2 = "Wrath of the Lich King";
+TWM_EXPANSION_3 = "Cataclysm";
+TWM_EXPANSION_4 = "Mists of Pandaria";
 TWM_POINTS_LANDMARKS = "Landmarks";
 TWM_POINTS_GRAVEYARDS = "Graveyards";
 TWM_POINTS_CAPITALS = "Capitals";
 TWM_POINTS_DUNGEONS = "Dungeons";
 TWM_POINTS_FLIGHTMASTERS = "Flight Masters";
 
+TWM_OPTIONS_SHOW_TERRAIN = "Show Terrain";
 TWM_OPTIONS_SHOW_WMO_OVERLAY = "Show WMO Layers";
 TWM_OPTIONS_SHOW_LANDMARKS = "Show Landmarks";
 TWM_OPTIONS_SHOW_GRAVEYARDS = "Show Graveyards";

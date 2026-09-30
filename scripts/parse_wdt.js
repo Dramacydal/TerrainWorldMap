@@ -8,6 +8,8 @@
 
 const fs = require('fs');
 const path = require('path');
+const { flavorDir, listfilePath, ensureDb2Csv, ensureExtracted, envOr, resolveMapKeys } = require('./extract');
+const { skipAdtTiles, skipTileFileDataId, isSkipped } = require('./skip_lists');
 
 const MAP_SIZE = 64;
 const MAP_SIZE_SQ = MAP_SIZE * MAP_SIZE;
@@ -96,7 +98,18 @@ function parseWDT(buf) {
 	return result;
 }
 
-function getValidTiles(filePath) {
+// field selects which MAID FileDataID slot counts as "this tile is real" --
+// default 'rootADT' (real terrain, what Twm_WDTValidTiles itself needs).
+// Callers that care about a SPECIFIC sub-file's own presence (e.g.
+// gen_wmo_tiles.js/preview_wmo_tiles.js checking whether a tile's own
+// _obj0.adt is real before trusting a MODF found in it) should pass
+// 'obj0ADT' instead -- a tile can have real terrain (rootADT set) with no
+// object placements at all (obj0ADT unset), or vice versa; they're
+// independent FileDataIDs, not one combined flag. Pre-split (no MAID)
+// clients have no such per-sub-file granularity at all -- one physical ADT
+// file was everything -- so `field` is ignored on that fallback path
+// (wdt.tiles is just a single existence flag either way).
+function getValidTiles(filePath, field = 'rootADT') {
 	const buf = fs.readFileSync(filePath);
 	const wdt = parseWDT(buf);
 
@@ -112,7 +125,7 @@ function getValidTiles(filePath) {
 			let exists = false;
 			if (hasMaid) {
 				const entry = wdt.entries[idx];
-				exists = !!(entry && entry.rootADT);
+				exists = !!(entry && entry[field]);
 			} else if (wdt.tiles) {
 				exists = !!wdt.tiles[idx];
 			}
@@ -125,7 +138,7 @@ function getValidTiles(filePath) {
 		}
 	}
 
-	console.error(`  valid (rootADT-backed) tiles: ${validTiles.length} / ${MAP_SIZE_SQ}`);
+	console.error(`  valid (${field}-backed) tiles: ${validTiles.length} / ${MAP_SIZE_SQ}`);
 	return validTiles;
 }
 
@@ -291,49 +304,114 @@ function findAdtAreaIDs(dir, parentOf) {
 	return byKey;
 }
 
+const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 function parseArgs(argv) {
-	const opts = { flavorDir: null, out: null, noliquid: false, areaTableDir: null, listfile: null };
-	const continents = [];
+	const opts = {
+		workDir: null, flavor: null, clientDir: null, online: false, clientLocale: 'enUS',
+		out: null, noliquid: false, areaTableDir: null, bakeTileFileIDs: false,
+		force: false, proxy: null, maps: null, candidatesKind: null,
+	};
 
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i];
-		if (a === '--flavor-dir') opts.flavorDir = argv[++i];
+		if (a === '--work-dir') opts.workDir = argv[++i];
+		else if (a === '--flavor') opts.flavor = argv[++i];
+		else if (a === '--client-dir') opts.clientDir = argv[++i];
+		else if (a === '--online') opts.online = true;
+		else if (a === '--client-locale') opts.clientLocale = argv[++i];
 		else if (a === '--out') opts.out = argv[++i];
 		else if (a === '--noliquid') opts.noliquid = true;
 		else if (a === '--areatable-dir') opts.areaTableDir = argv[++i];
-		else if (a === '--listfile') opts.listfile = argv[++i];
-		else if (a.startsWith('--')) throw new Error(`Unknown option: ${a}`);
-		else continents.push(a);
+		else if (a === '--bake-tile-fileids') opts.bakeTileFileIDs = true;
+		else if (a === '--force') opts.force = true;
+		else if (a === '--proxy') opts.proxy = argv[++i];
+		else if (a === '--maps') opts.maps = argv[++i];
+		else if (a === '--candidates') opts.candidatesKind = argv[++i];
+		else throw new Error(`Unknown option: ${a}`);
 	}
 
-	if (opts.areaTableDir === null)
-		opts.areaTableDir = opts.flavorDir;
-
-	return { opts, continents };
+	return opts;
 }
 
 function printUsage() {
-	console.error('Usage: node parse_wdt.js --flavor-dir <dir> --out <out-file.lua> [--noliquid] [--areatable-dir <dir>] [--listfile <community-listfile.csv>] <ContinentName> [<ContinentName> ...]');
-	console.error('  <ContinentName> is case-sensitive (used as-is for the Twm_mapareas/Twm_WDTValidTiles key);');
-	console.error('  paths are derived under --flavor-dir as world/maps/<lowercase>/<lowercase>.wdt etc.');
-	console.error('  --areatable-dir defaults to --flavor-dir if omitted.');
-	console.error('  --listfile bakes in each tile\'s minimap FileDataID (Twm_TileFileID) --');
+	console.error('Usage: node parse_wdt.js --work-dir <dir> --flavor <product> (--client-dir <path> | --online) --out <out-file.lua> (--candidates <continents|battlegrounds|arenas|dungeons|raids|scenarios> | --maps <Name1,Name2,...>) [--noliquid] [--areatable-dir <dir>] [--bake-tile-fileids] [--force] [--proxy <url>]');
+	console.error('  --candidates reads <work-dir>/<flavor>/candidates/<kind>.json (scripts/gen_candidates.js, run that first);');
+	console.error('  --maps is an explicit comma-separated override (case-sensitive Directory names, used as-is for the');
+	console.error('  Twm_mapareas/Twm_WDTValidTiles key) for ad-hoc/manual use. Exactly one of the two is required.');
+	console.error('  WDT/ADT/minimap files are self-extracted (via CASCConsole) into <work-dir>/<flavor>/world/...,');
+	console.error('  skipped if already present unless --force. --client-dir is a local WoW install; --online pulls from the CDN.');
+	console.error('  --areatable-dir overrides where AreaTable.csv is read from (defaults to <work-dir>/<flavor>, self-downloaded).');
+	console.error('  --bake-tile-fileids resolves each tile\'s minimap FileDataID (Twm_TileFileID) from the community listfile --');
 	console.error('  only needed for a flavor where loading by path string doesn\'t work at all.');
 }
 
 function main() {
-	let opts, continents;
+	let opts;
 	try {
-		({ opts, continents } = parseArgs(process.argv.slice(2)));
+		opts = parseArgs(process.argv.slice(2));
 	} catch (e) {
 		console.error(e.message);
 		printUsage();
 		process.exit(1);
 	}
+	opts.workDir = envOr(opts.workDir, 'WORK_DIR');
+	opts.clientDir = envOr(opts.clientDir, 'CLIENT_DIR');
+	opts.flavor = envOr(opts.flavor, 'FLAVOR');
+	opts.proxy = envOr(opts.proxy, 'PROXY');
 
-	if (!opts.flavorDir || !opts.out || continents.length === 0) {
+	if (!opts.workDir || !opts.flavor || !opts.out) {
 		printUsage();
 		process.exit(1);
+	}
+	let continents;
+	try {
+		continents = resolveMapKeys({ maps: opts.maps, candidatesKind: opts.candidatesKind, workDir: opts.workDir, flavor: opts.flavor });
+	} catch (e) {
+		console.error(e.message);
+		printUsage();
+		process.exit(1);
+	}
+	if (continents.length === 0) {
+		console.error(`No maps to process (candidates/${opts.candidatesKind}.json is empty) -- nothing to do.`);
+		process.exit(0);
+	}
+
+	const flavorDirPath = flavorDir(opts.workDir, opts.flavor);
+	const extractOpts = {
+		workDir: opts.workDir, flavor: opts.flavor,
+		clientDir: opts.clientDir, online: opts.online, clientLocale: opts.clientLocale,
+		force: opts.force,
+	};
+
+	if (!opts.areaTableDir) {
+		ensureDb2Csv({ ...extractOpts, table: 'AreaTable', proxy: opts.proxy });
+		opts.areaTableDir = flavorDirPath;
+	}
+
+	// One combined CASCConsole call for every requested map, not one call
+	// per map -- each launch pays its own ~20s CASC/listfile startup cost,
+	// which is negligible for a single continent but adds up to whatever a
+	// real bulk run's map count times ~20s comes to (confirmed: this exact
+	// per-item pattern already had to be batched out of gen_instance_maps.js
+	// after it hung for 20+ minutes on a full dungeon list -- same fix here).
+	{
+		const lowers = continents.map(c => escapeRegExp(c.toLowerCase()));
+		const contAlt = lowers.join('|');
+		// [^/]+ (only excludes the path separator), not \w+ -- a tile ADT's
+		// filename embeds the map's own Directory stem as-is, which can
+		// contain a space or apostrophe ("stratholme raid_37_24.adt",
+		// "zul'gurub_33_52.adt") that \w+ silently never matches. Confirmed
+		// bug: this exact class broke gen_wmo_tiles.js's own obj0 extraction
+		// this session -- see .claude-docs/gotchas.md.
+		const pattern = opts.noliquid
+			? `^world/(maps/(${contAlt})/([^_/]+\\.wdt|[^/]+_\\d+_\\d+\\.adt)|minimaps/(${contAlt})/noliquid_map\\d+_\\d+\\.blp)$`
+			: `^world/maps/(${contAlt})/([^_/]+\\.wdt|[^/]+_\\d+_\\d+\\.adt)$`;
+		const checkPaths = continents.map(c => {
+			const lower = c.toLowerCase();
+			return path.join('world', 'maps', lower, `${lower}.wdt`);
+		});
+		ensureExtracted({ ...extractOpts, pattern, checkPaths });
 	}
 
 	const parentOf = loadAreaParents(opts.areaTableDir);
@@ -347,24 +425,99 @@ function main() {
 		+ "-- ever real if the client actually ships terrain for it, regardless of\n"
 		+ "-- what the (possibly orphaned) minimap preview texture or C_Map zone data\n"
 		+ "-- might otherwise suggest. Value is `true` if no ADT areaID could be\n"
-		+ "-- resolved for that tile (see --flavor-dir's ADT dir), otherwise the tile's own\n"
+		+ "-- resolved for that tile (see the extracted world/maps ADT dir), otherwise the tile's own\n"
 		+ "-- majority-vote AreaID (a real, truthy number) -- resolve to a display\n"
-		+ "-- name via Twm_areadb[id].\n"
-		+ "Twm_WDTValidTiles = {}\n";
+		+ "-- name via Twm_areadb[id]. Twm_WDTValidTiles itself is declared once,\n"
+		+ "-- centrally, in mapdata_zones.lua -- this file (and its sibling\n"
+		+ "-- mapdata_tiles_<kind>.lua split files) only assigns its own keys.\n";
 
 	const noLiquidByContinent = {};
 	const tileFileIDByContinent = {};
-	const listfileMap = opts.listfile ? loadListfile(opts.listfile) : null;
+	const skipTileIdSet = new Set(skipTileFileDataId[opts.flavor] || []);
+	// Needed for --bake-tile-fileids' own output, but ALSO whenever this
+	// flavor's skipTileFileDataId has anything -- a tile's baked minimap
+	// texture has to be resolved to a FileDataID either way to check it
+	// against that list, even on a flavor that never bakes Twm_TileFileID
+	// into its own output.
+	const listfileMap = (opts.bakeTileFileIDs || skipTileIdSet.size > 0) ? loadListfile(listfilePath(opts.workDir)) : null;
+
+	// skip_lists.js is keyed by Map.csv `ID`, not Directory name -- only load
+	// Map.csv (an extra download/parse this script otherwise never needs) when
+	// this flavor's own skipAdtTiles actually has something to check against.
+	// skipMaps itself is NOT checked here (or in gen_wmo_tiles.js) at all --
+	// with --candidates, a skipped map is already absent from
+	// candidates/<kind>.json (gen_candidates.js applies skipMaps once, when
+	// building it), so re-checking here would only ever be dead code; with
+	// --maps, an explicitly hand-listed map is exactly a debug/manual
+	// override, and silently dropping it anyway would defeat that override's
+	// entire point -- skipMaps is a "never a real candidate" list, not a
+	// "never process no matter what" one.
+	let directoryToID = null;
+	if ((skipAdtTiles[opts.flavor] || []).length > 0) {
+		const { parseCsvFile, findCsv } = require('./csv');
+		ensureDb2Csv({ ...extractOpts, table: 'Map', proxy: opts.proxy });
+		directoryToID = {};
+		for (const r of parseCsvFile(findCsv(flavorDirPath, 'Map.')))
+			directoryToID[r.Directory] = r.ID;
+	}
 
 	for (const contName of continents) {
 		const lower = contName.toLowerCase();
-		const wdtPath = path.join(opts.flavorDir, 'world', 'maps', lower, `${lower}.wdt`);
-		const adtDir = path.join(opts.flavorDir, 'world', 'maps', lower);
+		const wdtPath = path.join(flavorDirPath, 'world', 'maps', lower, `${lower}.wdt`);
+		const adtDir = path.join(flavorDirPath, 'world', 'maps', lower);
+
+		const mapID = directoryToID && directoryToID[contName];
 
 		console.error(`${contName}:`);
-		const validTiles = getValidTiles(wdtPath);
+		let validTiles = getValidTiles(wdtPath);
+		if (isSkipped(skipAdtTiles, opts.flavor, mapID)) {
+			console.error(`  forcing zero valid ADT tiles (skip_lists.js's skipAdtTiles)`);
+			validTiles = [];
+		}
 
 		const areaIDByKey = findAdtAreaIDs(adtDir, parentOf);
+
+		if (opts.noliquid) {
+			const minimapDir = path.join(flavorDirPath, 'world', 'minimaps', lower);
+			noLiquidByContinent[contName] = findNoLiquidTiles(minimapDir);
+		}
+
+		// Resolve every valid tile's own baked minimap FileDataID up front --
+		// needed both for --bake-tile-fileids' own output below AND to filter
+		// out any tile whose baked texture is hand-listed in skip_lists.js's
+		// skipTileFileDataId (a bad/misplaced texture -- e.g. a leftover
+		// placeholder -- that shouldn't render no matter which system, ADT or
+		// WMO, happens to reference that same FileDataID; see gen_wmo_tiles.js
+		// for the WMO-side half of this same filter).
+		let fileIDs = null, fileIDsMissing = 0, noLiquidFileIDs = null, noLiquidMissing = 0;
+		if (listfileMap) {
+			({ fileIDs, missing: fileIDsMissing } = findTileFileIDs(listfileMap, lower, validTiles, ''));
+			if (opts.noliquid) {
+				({ fileIDs: noLiquidFileIDs, missing: noLiquidMissing } =
+					findTileFileIDs(listfileMap, lower, noLiquidByContinent[contName] || [], 'noliquid_'));
+			}
+		}
+
+		if (fileIDs && skipTileIdSet.size > 0) {
+			const before = validTiles.length;
+			validTiles = validTiles.filter(key => {
+				const [col, row] = key.split('x');
+				const id = fileIDs[`map${col}_${row}`];
+				return !(id && skipTileIdSet.has(String(id)));
+			});
+			if (validTiles.length !== before)
+				console.error(`  excluded ${before - validTiles.length} ADT tile(s) via skip_lists.js's skipTileFileDataId`);
+		}
+		if (noLiquidFileIDs && skipTileIdSet.size > 0) {
+			const before = noLiquidByContinent[contName].length;
+			noLiquidByContinent[contName] = noLiquidByContinent[contName].filter(key => {
+				const [col, row] = key.split('x');
+				const id = noLiquidFileIDs[`noliquid_map${col}_${row}`];
+				return !(id && skipTileIdSet.has(String(id)));
+			});
+			if (noLiquidByContinent[contName].length !== before)
+				console.error(`  excluded ${before - noLiquidByContinent[contName].length} noLiquid tile(s) via skip_lists.js's skipTileFileDataId`);
+		}
 
 		lua += `\nTwm_WDTValidTiles["${contName}"] = {\n`;
 		for (const key of validTiles)
@@ -380,22 +533,14 @@ function main() {
 			}
 		}
 
-		if (opts.noliquid) {
-			const minimapDir = path.join(opts.flavorDir, 'world', 'minimaps', lower);
-			noLiquidByContinent[contName] = findNoLiquidTiles(minimapDir);
-		}
-
-		if (listfileMap) {
-			const { fileIDs, missing } = findTileFileIDs(listfileMap, lower, validTiles, '');
+		if (opts.bakeTileFileIDs && fileIDs) {
 			if (opts.noliquid) {
-				const { fileIDs: noLiquidFileIDs, missing: noLiquidMissing } =
-					findTileFileIDs(listfileMap, lower, noLiquidByContinent[contName] || [], 'noliquid_');
 				Object.assign(fileIDs, noLiquidFileIDs);
 				console.error(`  resolved ${Object.keys(fileIDs).length} tile FileDataIDs from listfile`
-					+ (missing + noLiquidMissing ? `, ${missing + noLiquidMissing} MISSING (see WARNINGs above)` : ''));
+					+ (fileIDsMissing + noLiquidMissing ? `, ${fileIDsMissing + noLiquidMissing} MISSING (see WARNINGs above)` : ''));
 			} else {
 				console.error(`  resolved ${Object.keys(fileIDs).length} tile FileDataIDs from listfile`
-					+ (missing ? `, ${missing} MISSING (see WARNINGs above)` : ''));
+					+ (fileIDsMissing ? `, ${fileIDsMissing} MISSING (see WARNINGs above)` : ''));
 			}
 			tileFileIDByContinent[contName] = fileIDs;
 		}
@@ -404,10 +549,9 @@ function main() {
 	if (opts.noliquid) {
 		lua += "\n-- Tiles that additionally have a noLiquid_mapXX_YY.blp minimap variant --\n"
 			+ "-- the client swaps to this when IsSubmerged() (see Settings.lua's \"Draw\n"
-			+ "-- underwater\" option). Only declared at all when this flavor's data was\n"
-			+ "-- generated with --noliquid -- TerrainWorldMap.lua feature-detects the\n"
-			+ "-- underwater-texture option/menu-entry on whether this table is non-empty.\n"
-			+ "Twm_NoLiquidTiles = {}\n";
+			+ "-- underwater\" option). TerrainWorldMap.lua feature-detects the\n"
+			+ "-- underwater-texture option/menu-entry on whether this table is non-empty\n"
+			+ "-- (declared once, centrally, in mapdata_zones.lua -- see Twm_WDTValidTiles above).\n";
 		for (const [contName, tiles] of Object.entries(noLiquidByContinent)) {
 			if (tiles.length === 0)
 				continue;
@@ -418,7 +562,7 @@ function main() {
 		}
 	}
 
-	if (listfileMap) {
+	if (opts.bakeTileFileIDs) {
 		lua += "\n-- FileDataID for each tile's own minimap BLP (both the regular and, if\n"
 			+ "-- present, noLiquid variant), resolved from a community listfile at\n"
 			+ "-- generation time (--listfile). Only baked in for a flavor where loading\n"
@@ -428,7 +572,7 @@ function main() {
 			+ "-- TWM_GetTileTexture (TerrainWorldMap.lua) prefers this table when present,\n"
 			+ "-- falling back to the old path string otherwise -- every other flavor is\n"
 			+ "-- untouched. Keyed by the same filename TWM_GetTileFileName returns.\n"
-			+ "Twm_TileFileID = {}\n";
+			+ "-- Declared once, centrally, in mapdata_zones.lua -- see Twm_WDTValidTiles above.\n";
 		for (const [contName, fileIDs] of Object.entries(tileFileIDByContinent)) {
 			if (Object.keys(fileIDs).length === 0)
 				continue;
@@ -443,4 +587,13 @@ function main() {
 	console.error(`\nWritten: ${opts.out}`);
 }
 
-main();
+// Only run as a CLI when invoked directly -- gen_wmo_tiles.js/
+// preview_wmo_tiles.js require() this module just for getValidTiles()
+// (cross-checking a MODF placement's own obj0.adt against the WDT's real,
+// rootADT-backed tile list -- see .claude-docs/gotchas.md), and mustn't
+// trigger this script's own argv parsing/main() as a side effect of that.
+if (require.main === module) {
+	main();
+}
+
+module.exports = { getValidTiles };

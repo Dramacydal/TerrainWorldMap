@@ -16,10 +16,14 @@
 -- Twm_DungeonNames is resolved into the actual TWM_DUNGEONS dropdown
 -- table at load time (TerrainWorldMap.lua), same as Twm_ArenaNames/
 -- Twm_flightmasters' name tables -- see this file's own header comment.
+-- `expansion` is Map.csv's own ExpansionID (a string, like every other ID
+-- in this codebase) -- drives the expansion-selection dropdown level
+-- TerrainWorldMap.lua inserts between this category and the actual list.
 
 Twm_DungeonNames = {
     {
         key = "OrgrimmarInstance",
+        expansion = "0",
         name = {
             enUS = "Ragefire Chasm",
             deDE = "Der Flammenschlund",
@@ -36,6 +40,7 @@ Twm_DungeonNames = {
     },
     {
         key = "Shadowfang",
+        expansion = "0",
         name = {
             enUS = "Shadowfang Keep",
             deDE = "Burg Schattenfang",

@@ -93,6 +93,7 @@ TWM_FRAME_OPTION_DEFAULTS = {
     ["IconSize"] = 1.0,
     ["PointCfg"] = {},
     ["ShowWMOOverlay"] = true,
+    ["ShowTerrain"] = true,
     ["Zoom"] = 256,
     ["Width"] = 539,
     ["Height"] = 628,
@@ -154,6 +155,13 @@ TWM_DebugTiles = false;
 
 function TWM_ToggleTileDebug()
     TWM_DebugTiles = not TWM_DebugTiles;
+    if(not TWM_DebugTiles and TWM_HideCursorCoordLabel) then
+        -- Otherwise the label sticks around showing stale coordinates
+        -- until the mouse happens to leave the view -- OnUpdate simply
+        -- stops refreshing it once TWM_DebugTiles is false (see
+        -- Templates.xml's own gate), it doesn't hide it.
+        TWM_HideCursorCoordLabel();
+    end
     if(TWMFrame.opt) then
         TWMFrame:SetLocation(TWMFrame.opt.Location[1], TWMFrame.opt.Location[2], true);
     end
@@ -362,18 +370,22 @@ end
 -- TWM_DUNGEONS/TWM_RAIDS/TWM_SCENARIOS -- same shape and same reason as
 -- TWM_ARENAS above (Twm_DungeonNames/Twm_RaidNames/Twm_ScenarioNames come
 -- from scripts/gen_instance_maps.js; Scenarios only exists on Mists, the
--- only flavor with any UI_MAP_TYPE_SCENARIO Map rows).
+-- only flavor with any UI_MAP_TYPE_SCENARIO Map rows). Dungeons/Raids also
+-- carry `.expansion` (Map.db2's own ExpansionID, a string like every other
+-- ID in this codebase) -- used to insert an expansion-selection submenu
+-- level below the Dungeons/Raids dropdown category (see
+-- TWM_GetSortedExpansionIDs/TWM_GetExpansionName below).
 if(Twm_DungeonNames) then
     TWM_DUNGEONS = {};
     for _, e in ipairs(Twm_DungeonNames) do
-        TWM_DUNGEONS[TWM_ResolveLocaleName(e.name)] = {e.key};
+        TWM_DUNGEONS[TWM_ResolveLocaleName(e.name)] = {e.key, expansion = e.expansion};
     end
 end
 
 if(Twm_RaidNames) then
     TWM_RAIDS = {};
     for _, e in ipairs(Twm_RaidNames) do
-        TWM_RAIDS[TWM_ResolveLocaleName(e.name)] = {e.key};
+        TWM_RAIDS[TWM_ResolveLocaleName(e.name)] = {e.key, expansion = e.expansion};
     end
 end
 
@@ -465,12 +477,42 @@ local TWM_WMO_DEBUG_COLOR_POOL = {
     {0, 1, 1},     -- cyan
 };
 
+-- Whether `map` has any real ADT terrain at all -- Twm_WDTValidTiles[map] is
+-- written (mapdata_tiles.lua, parse_wdt.js) for EVERY map this addon knows
+-- about, including pure-WMO dungeons/raids, but as an EMPTY table for one of
+-- those (nothing for parse_wdt.js's own tile scan to find) -- so presence
+-- alone isn't enough, must check it's non-empty.
+function TWM_MapHasTerrain(map)
+    local tiles = Twm_WDTValidTiles[map];
+    return tiles ~= nil and next(tiles) ~= nil;
+end
+
+-- Whether the base terrain tile grid (TWMFrameTemplate:SetLocation) should
+-- draw for frame's current map. The "Show Terrain"/"Show WMO Layers"
+-- checkbox pair (TWM_UpdateOverlayButtons) only exists, and only matters,
+-- for a map that genuinely has BOTH real terrain and baked WMO tiles -- a
+-- map with only one of the two always draws that one, unconditionally,
+-- regardless of either persisted option.
+function TWM_ShouldShowTerrain(frame)
+    local map = frame.opt.Map;
+    if(not TWM_MapHasTerrain(map)) then return false; end
+    if(not (Twm_WMOTiles and Twm_WMOTiles[map])) then return true; end
+    return frame.opt.ShowTerrain ~= false;
+end
+
+function TWM_ShouldShowWMOOverlay(frame)
+    local map = frame.opt.Map;
+    if(not (Twm_WMOTiles and Twm_WMOTiles[map])) then return false; end
+    if(not TWM_MapHasTerrain(map)) then return true; end
+    return frame.opt.ShowWMOOverlay and true or false;
+end
+
 function TWM_WMOOverlay_Update(frame)
     local lm = frame:GetName();
     local vf = _G[lm.."ViewFrame"];
     local tiles = Twm_WMOTiles and Twm_WMOTiles[frame.opt.Map];
 
-    if(not tiles or not frame.opt.ShowWMOOverlay) then
+    if(not tiles or not TWM_ShouldShowWMOOverlay(frame)) then
         if(frame.wmoOverlayTextures) then
             for _, tex in ipairs(frame.wmoOverlayTextures) do
                 tex:Hide();
@@ -566,7 +608,7 @@ end
 -- checkbox. Built purely in Lua (OptionsSliderTemplate reused from
 -- Settings.lua's own convention) rather than in XML -- a vertical slider
 -- needs no extra art of its own beyond what that template already provides,
--- and its value range is per-map (set by TWM_UpdateWMOOverlayButton), so
+-- and its value range is per-map (set by TWM_UpdateOverlayButtons), so
 -- there's nothing static worth declaring in XML.
 function TWM_WMOOverlay_EnsureHeightSlider(frame)
     local lm = frame:GetName();
@@ -606,7 +648,7 @@ function TWM_WMOOverlay_EnsureHeightSlider(frame)
     -- SetReverseValues(true), doesn't exist as a method on this client's
     -- Slider mixin (confirmed live: "attempt to call a nil value") --
     -- flipped instead by storing/reading the NEGATED height as the
-    -- slider's own value throughout (TWM_UpdateWMOOverlayButton sets
+    -- slider's own value throughout (TWM_UpdateOverlayButtons sets
     -- SetMinMaxValues(-maxH, -minH) and SetValue(-maxH)), which puts the
     -- slider's own minimum (top, under default vertical layout) at the
     -- map's highest real height and its own maximum (bottom) at the
@@ -630,20 +672,38 @@ function TWM_WMOOverlay_EnsureHeightSlider(frame)
     return slider;
 end
 
--- Show the checkbox (and, when the current map's WMO placements actually
--- span more than one height, the height-cutoff slider) only on maps that
--- have WMO layer data; sync the checkbox to its persisted option and reset
--- the slider to "show everything" for whichever map is now selected.
-function TWM_UpdateWMOOverlayButton(frame)
+-- Shows the "Show Terrain"/"Show WMO Layers" checkbox pair -- always
+-- together, never one without the other -- only when the current map
+-- genuinely has BOTH real ADT terrain and baked WMO tiles; only then is
+-- there an actual choice to make (a map with just one of the two always
+-- draws that one, unconditionally -- see TWM_ShouldShowTerrain/
+-- TWM_ShouldShowWMOOverlay). Syncs each checkbox to its own persisted
+-- option. The height-cutoff slider is independent of whether the
+-- checkboxes are shown -- a pure-WMO map (no terrain at all) still needs
+-- it whenever its own placements span more than one height, even with no
+-- checkbox visible above it (it anchors to the WMO checkbox's position
+-- regardless of whether that checkbox itself is currently shown).
+function TWM_UpdateOverlayButtons(frame)
     local lm = frame:GetName();
-    local button = _G[lm.."ShowWMOOverlayButton"];
-    if(not button) then return; end
+    local terrainButton = _G[lm.."ShowTerrainButton"];
+    local wmoButton = _G[lm.."ShowWMOOverlayButton"];
+    if(not terrainButton or not wmoButton) then return; end
 
-    local tiles = Twm_WMOTiles and Twm_WMOTiles[frame.opt.Map];
+    local map = frame.opt.Map;
+    local tiles = Twm_WMOTiles and Twm_WMOTiles[map];
+    local hybrid = tiles and TWM_MapHasTerrain(map);
+
+    if(hybrid) then
+        terrainButton:Show();
+        terrainButton:SetChecked(frame.opt.ShowTerrain);
+        wmoButton:Show();
+        wmoButton:SetChecked(frame.opt.ShowWMOOverlay);
+    else
+        terrainButton:Hide();
+        wmoButton:Hide();
+    end
+
     if(tiles) then
-        button:Show();
-        button:SetChecked(frame.opt.ShowWMOOverlay);
-
         local minH, maxH = math.huge, -math.huge;
         for _, tile in ipairs(tiles) do
             local h = tile[6];
@@ -672,7 +732,6 @@ function TWM_UpdateWMOOverlayButton(frame)
             slider:Hide();
         end
     else
-        button:Hide();
         local slider = _G[lm.."WMOOverlayHeightSlider"];
         if(slider) then slider:Hide(); end
     end
@@ -682,6 +741,16 @@ function TWMFrameShowWMOOverlayButton_OnClick(self)
     local frame = self:GetParent():GetParent();
     frame.opt.ShowWMOOverlay = self:GetChecked() and true or false;
     TWM_WMOOverlay_Update(frame);
+end
+
+function TWMFrameShowTerrainButton_OnClick(self)
+    local frame = self:GetParent():GetParent();
+    frame.opt.ShowTerrain = self:GetChecked() and true or false;
+    -- Terrain tile content is decided inside SetLocation's own
+    -- needsContentRefresh gate (position/map/forceupdate only) -- force it
+    -- so the toggle takes effect immediately instead of waiting for the
+    -- next real pan/zoom.
+    frame:AdjustLocation(0, 0, true);
 end
 
 -- Twm_ContinentMapID is defined in Data_<Flavor>/mapdata_poi.lua (loads before
@@ -1163,6 +1232,34 @@ function TWM_GetSortedScenarioNames()
     return names;
 end
 
+-- Distinct .expansion values actually present in `list` (TWM_DUNGEONS/
+-- TWM_RAIDS), sorted numerically -- Map.db2's ExpansionID is release order
+-- by construction (0=Classic, 1=The Burning Crusade, ...), and a numeric
+-- sort (not a string one) keeps that true once an ID reaches double digits.
+function TWM_GetSortedExpansionIDs(list)
+    local seen, ids = {}, {};
+    if(list) then
+        for _, entry in pairs(list) do
+            local expID = entry.expansion;
+            if(expID and not seen[expID]) then
+                seen[expID] = true;
+                tinsert(ids, expID);
+            end
+        end
+        table.sort(ids, function(a, b) return tonumber(a) < tonumber(b); end);
+    end
+    return ids;
+end
+
+-- TWM_EXPANSION_<N> (Locale/*.lua) is the official expansion title as it
+-- actually appears in this client's own data (confirmed via Achievement_Category,
+-- not guessed/fan-translated) -- most locales keep the English title
+-- untranslated (Blizzard's own convention, e.g. ruRU/deDE), falls back to a
+-- plain "Expansion N" for an ID this addon hasn't got a name for yet.
+function TWM_GetExpansionName(expID)
+    return _G["TWM_EXPANSION_" .. tostring(expID)] or ("Expansion " .. tostring(expID));
+end
+
 -- Top-level dropdown is a category tree (Continents/Dungeons/Raids/
 -- Scenarios/Battlegrounds/Arenas) instead of a flat continent list --
 -- Continents keeps working exactly as before, just one level deeper --
@@ -1237,24 +1334,46 @@ function TWMFrameDropDown_Initialize()
             UIDropDownMenu_AddButton(info, level);
         end
     elseif(UIDROPDOWNMENU_MENU_VALUE == "dungeons") then
-        local currentMap = _G["TWMFrame"].opt.Map;
-        for i,h in ipairs(TWM_GetSortedDungeonNames()) do
-            info = {
-                    text = h;
-                    func = TWMFrameDropDownButton_Dungeon_OnClick;
-                    checked = (TWM_DUNGEONS[h][1] == currentMap);
-            };
+        -- One level deeper than every other category here: pick an
+        -- expansion first (Map.db2's ExpansionID), then the actual dungeon
+        -- list below, filtered to it -- see gen_instance_maps.js/
+        -- TWM_GetSortedExpansionIDs.
+        for _, expID in ipairs(TWM_GetSortedExpansionIDs(TWM_DUNGEONS)) do
+            info = {text = TWM_GetExpansionName(expID), hasArrow = true, notCheckable = true, value = "dungeons_exp_" .. expID};
             UIDropDownMenu_AddButton(info, level);
         end
     elseif(UIDROPDOWNMENU_MENU_VALUE == "raids") then
+        for _, expID in ipairs(TWM_GetSortedExpansionIDs(TWM_RAIDS)) do
+            info = {text = TWM_GetExpansionName(expID), hasArrow = true, notCheckable = true, value = "raids_exp_" .. expID};
+            UIDropDownMenu_AddButton(info, level);
+        end
+    elseif(type(UIDROPDOWNMENU_MENU_VALUE) == "string" and UIDROPDOWNMENU_MENU_VALUE:match("^dungeons_exp_")) then
+        local expID = UIDROPDOWNMENU_MENU_VALUE:match("^dungeons_exp_(.+)$");
+        local currentMap = _G["TWMFrame"].opt.Map;
+        for i,h in ipairs(TWM_GetSortedDungeonNames()) do
+            if(TWM_DUNGEONS[h].expansion == expID) then
+                info = {
+                        text = h;
+                        func = TWMFrameDropDownButton_Dungeon_OnClick;
+                        arg1 = TWM_DUNGEONS[h][1];
+                        checked = (TWM_DUNGEONS[h][1] == currentMap);
+                };
+                UIDropDownMenu_AddButton(info, level);
+            end
+        end
+    elseif(type(UIDROPDOWNMENU_MENU_VALUE) == "string" and UIDROPDOWNMENU_MENU_VALUE:match("^raids_exp_")) then
+        local expID = UIDROPDOWNMENU_MENU_VALUE:match("^raids_exp_(.+)$");
         local currentMap = _G["TWMFrame"].opt.Map;
         for i,h in ipairs(TWM_GetSortedRaidNames()) do
-            info = {
-                    text = h;
-                    func = TWMFrameDropDownButton_Raid_OnClick;
-                    checked = (TWM_RAIDS[h][1] == currentMap);
-            };
-            UIDropDownMenu_AddButton(info, level);
+            if(TWM_RAIDS[h].expansion == expID) then
+                info = {
+                        text = h;
+                        func = TWMFrameDropDownButton_Raid_OnClick;
+                        arg1 = TWM_RAIDS[h][1];
+                        checked = (TWM_RAIDS[h][1] == currentMap);
+                };
+                UIDropDownMenu_AddButton(info, level);
+            end
         end
     elseif(UIDROPDOWNMENU_MENU_VALUE == "scenarios") then
         local currentMap = _G["TWMFrame"].opt.Map;
@@ -1293,19 +1412,22 @@ function TWMFrameDropDownButton_Arena_OnClick(self)
         end
 end
 
-function TWMFrameDropDownButton_Dungeon_OnClick(self)
-        local i = self:GetID();
-        local h = TWM_GetSortedDungeonNames()[i];
-        if(h) then
-            return _G["TWMFrame"]:SelectMap(TWM_DUNGEONS[h][1]);
+-- Unlike the other categories' OnClick handlers, self:GetID() can't be used
+-- here to index back into TWM_GetSortedDungeonNames()/RaidNames() -- that ID
+-- is the button's position within the expansion-filtered submenu that built
+-- it (TWMFrameDropDown_Initialize's "dungeons_exp_"/"raids_exp_" branches),
+-- not into the full unfiltered name list. Takes the map key directly instead,
+-- passed through as arg1 (WoW's dropdown framework calls
+-- info.func(self, arg1, arg2, checked)) -- no lookup needed at all.
+function TWMFrameDropDownButton_Dungeon_OnClick(self, mapname)
+        if(mapname) then
+            return _G["TWMFrame"]:SelectMap(mapname);
         end
 end
 
-function TWMFrameDropDownButton_Raid_OnClick(self)
-        local i = self:GetID();
-        local h = TWM_GetSortedRaidNames()[i];
-        if(h) then
-            return _G["TWMFrame"]:SelectMap(TWM_RAIDS[h][1]);
+function TWMFrameDropDownButton_Raid_OnClick(self, mapname)
+        if(mapname) then
+            return _G["TWMFrame"]:SelectMap(mapname);
         end
 end
 
@@ -1405,7 +1527,7 @@ function TWMFrameTemplate:SetMap(mapname)
 
     self.opt.Map = mapname;
 
-    TWM_UpdateWMOOverlayButton(self);
+    TWM_UpdateOverlayButtons(self);
 
     local mapdropdown = _G[lm.."DropDown"];
     if(mapdropdown) then
@@ -1455,6 +1577,16 @@ function TWMFrameTemplate:SetMap(mapname)
         UIDropDownMenu_Initialize(mapdropdown2, TWMFrameDropDown2_Initialize);
     end
 
+    -- UIDropDownMenu_Initialize above only STORES the callback -- WoW's
+    -- dropdown framework runs it lazily, the next time the Zone dropdown is
+    -- actually opened, not synchronously here. Without this, self.zonepulldowns
+    -- below would still hold whatever map was last zone-browsed (e.g. a
+    -- continent), and both this fallback and SelectMap's own FitMapToViewport
+    -- call would silently look up a stale, foreign zone key against the new
+    -- map's Twm_mapareas -- get nil back -- and no-op instead of centering.
+    -- Recompute it fresh for the map actually being switched to.
+    self.zonepulldowns = TWM_BuildZonePulldowns(mapname);
+
     self:AdjustLocation(0,0,true);
 
     -- the previous view location likely doesn't correspond to anything on
@@ -1489,24 +1621,32 @@ function TWMFrameDropDown2_OnEvent(self, event)
     end
 end
 
+-- Sorted list of Twm_areadb zone IDs registered for `map` in Twm_mapareas
+-- (real named sub-zones, e.g. a continent's -- dungeons/raids/scenarios/
+-- arenas/battlegrounds have none). Shared by TWMFrameDropDown2_Initialize
+-- (populates the Zone dropdown UI) and SetMap (see its own comment for why
+-- it must call this itself rather than trust self.zonepulldowns).
+function TWM_BuildZonePulldowns(map)
+    local list = {};
+    if(Twm_mapareas[map] ~= nil) then
+        for h,v in pairs(Twm_mapareas[map]) do
+            if(Twm_areadb[h]) then
+                tinsert(list, h);
+            end
+        end
+    end
+    table.sort(list, function (a,b) return Twm_areadb[a] < Twm_areadb[b]; end);
+    return list;
+end
+
 function TWMFrameDropDown2_Initialize()
     --local lm = string.gsub(UIDROPDOWNMENU_INIT_MENU,"DropDown2","");
     local lm = "TWMFrame";
 
     local frame = _G[lm];
-    frame.zonepulldowns = {};
+    frame.zonepulldowns = TWM_BuildZonePulldowns(frame.opt.Map);
     local info;
 
-    if(Twm_mapareas[frame.opt.Map] ~= nil) then
-        for h,v in pairs(Twm_mapareas[frame.opt.Map]) do
-            if(Twm_areadb[h]) then
-                tinsert(frame.zonepulldowns, h);
-            end
-        end
-    end
-
-    table.sort(frame.zonepulldowns,
-        function (a,b) return Twm_areadb[a] < Twm_areadb[b]; end);
     for j,v in ipairs(frame.zonepulldowns) do
         info = {
             text = Twm_areadb[v];
@@ -1514,7 +1654,7 @@ function TWMFrameDropDown2_Initialize()
             func = TWMFrameDropDownButton2_OnClick;
         };
         UIDropDownMenu_AddButton(info);
-    end 
+    end
 
 end
 
@@ -1851,6 +1991,7 @@ function TWMFrameTemplate:SetLocation(x,y,forceupdate,forcePointsUpdate)
     if(needsContentRefresh) then
         local v = {};
         local jx, jy, nsv;
+        local showTerrain = TWM_ShouldShowTerrain(self);
 
         for hx = 1,wzoom_real do
             v[hx] = {};
@@ -1870,7 +2011,7 @@ function TWMFrameTemplate:SetLocation(x,y,forceupdate,forcePointsUpdate)
                 local cbx, cby = TWM_Mini2Big_Coord(col+0.5, row+0.5);
                 local livezone = TWM_GetLiveZoneNameForBigCoord(mymap, cbx, cby, tilekey);
 
-                if(livezone) then
+                if(livezone and showTerrain) then
                     v[hx][hy] = { TWM_GetTileFileName(mymap, col, row) };
                 else
                     v[hx][hy] = dummyv;
@@ -2164,24 +2305,64 @@ function TWMFrameViewFrame_OnDrag(self)
     twm_lastdragy = fy;
 end
 
+-- Lazily creates the cursor-following world-coordinate label used by
+-- TWMFrameViewFrame_UpdateCursorCoord ("/twm debug", TWMFrame's own
+-- standalone window only -- see Templates.xml's OnUpdate gate,
+-- `self:GetParent() == TWMFrame`). Parented to UIParent (not the
+-- ViewFrame) and positioned the same "follow the raw cursor" way
+-- Points.lua's own tooltip is (TWMFrameViewFrame_UpdatePointTooltip) --
+-- avoids TWMFrameViewTemplate's SetClipsChildren cutting it off near an
+-- edge, since a coordinate readout is most useful right at the edge where
+-- a tile boundary is.
+local function TWM_EnsureCursorCoordLabel()
+    if(TWM_CursorCoordLabel) then return TWM_CursorCoordLabel; end
+    local f = CreateFrame("Frame", "TWMFrameCursorCoordLabel", UIParent);
+    f:SetFrameStrata("TOOLTIP");
+    f:SetSize(1, 1);
+    f.text = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall");
+    f.text:SetPoint("TOPLEFT");
+    TWM_CursorCoordLabel = f;
+    return f;
+end
+
+function TWM_HideCursorCoordLabel()
+    if(TWM_CursorCoordLabel) then TWM_CursorCoordLabel:Hide(); end
+end
+
 function TWMFrameViewFrame_UpdateCursorCoord(self)
     local x, y = GetCursorPosition();
     local rx, ry = unpack(TWMFrame.opt.Location);
-    local top = self:GetTop();
     local zoom = TWMFrame.opt.Zoom;
-    
+
     if(self.lastoux == x and self.lastouy == y) then
         return;
     end
     self.lastoux = x;
     self.lastouy = y;
 
-    x = x / self:GetEffectiveScale();
-    y = y / self:GetEffectiveScale();
+    local scale = self:GetEffectiveScale();
+    local sx = x / scale;
+    local sy = y / scale;
 
-    rx = rx + math.floor(x - self:GetLeft())/zoom;
-    ry = ry + 512/zoom-math.floor(y - self:GetBottom())/zoom;
-    local bigx, bigy = TWM_Mini2Big_Coord(rx,ry);
+    -- Screen pixels -> mini coordinate at the cursor, not the viewport's
+    -- own center (contrast TWMFrameTemplate:GetZoneIDs, which does the
+    -- same conversion for the CENTER). x increases rightward same as
+    -- screen space; y is the opposite of WoW's own bottom-up screen axis
+    -- (mini-y increases downward, matching Location's own convention --
+    -- see TWM_WMOOverlay_Update's (Ly-my)*z for the same relationship used
+    -- the other direction). This used to read a hardcoded `512` here
+    -- instead of the ViewFrame's own real (user-resizable) height -- wrong
+    -- for any window not left at its exact original size.
+    rx = rx + (sx - self:GetLeft())/zoom;
+    ry = ry + (self:GetTop() - sy)/zoom;
+    local bigx, bigy = TWM_Mini2Big_Coord(rx, ry);
+
+    local label = TWM_EnsureCursorCoordLabel();
+    label.text:SetText(format("%.1f, %.1f", bigx, bigy));
+    local uiscale = UIParent:GetEffectiveScale();
+    label:ClearAllPoints();
+    label:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x/uiscale + 16, y/uiscale - 16);
+    label:Show();
 end
 
 function TWMFrameTemplate:OnUpdate(elapsed)

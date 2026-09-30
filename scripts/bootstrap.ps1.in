@@ -1,0 +1,26 @@
+# Dot-source this before running any gen_*.js/parse_wdt.js script:
+#   . .\bootstrap.ps1 -Flavor wow_anniversary
+# Every script reads WORK_DIR/CLIENT_DIR/FLAVOR/PROXY from the environment
+# first (envOr in extract.js) -- the env var wins whenever it's set to a
+# non-empty value, --work-dir/--client-dir/--flavor/--proxy are only the
+# fallback for an ad-hoc invocation without having sourced this at all.
+# See scripts/README.md's Setup section.
+#
+# Personal config -- the defaults below are this machine's own paths.
+# Edit them locally; you don't need to commit your own changes here.
+param(
+    [string]$Flavor = "<insert default flavor here>",
+    [string]$WorkDir = "<insert work dir here>",
+    [string]$ClientDir = "<insert wow directory where (where World of Warcraft Launcher.exe is)>",
+    [string]$Proxy = ""
+)
+
+$env:WORK_DIR = $WorkDir
+$env:CLIENT_DIR = $ClientDir
+$env:FLAVOR = $Flavor
+$env:PROXY = $Proxy
+
+Write-Host "WORK_DIR=$env:WORK_DIR"
+Write-Host "CLIENT_DIR=$env:CLIENT_DIR"
+Write-Host "FLAVOR=$env:FLAVOR"
+if ($Proxy) { Write-Host "PROXY=$env:PROXY" }

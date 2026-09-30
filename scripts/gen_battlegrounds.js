@@ -26,75 +26,99 @@
 const fs = require('fs');
 const { parseCsvFile: parseCsv, findCsv } = require('./csv');
 const { INSTANCE_TYPE_BATTLEGROUND } = require('./dbc_enums');
+const { flavorDir, ensureDb2Csv, envOr, readCandidates } = require('./extract');
+const { skipMaps, isSkipped } = require('./skip_lists');
+
+// Every UiMapAssignment row for this MapID, no UiMap.Type filter -- the
+// Map.csv structural filter (findBattlegrounds, or gen_candidates.js's own
+// prior run of it) already uniquely identifies this as a real standalone
+// battleground, and every one checked so far has its own single,
+// self-consistent Type across all its rows anyway (UI_MAP_TYPE_ZONE=3 on
+// Vanilla/TBC/Mists, UI_MAP_TYPE_ORPHAN=6 on WoW: Forever/Camelot,
+// UI_MAP_TYPE_DUNGEON=4 for Silvershard Mines specifically -- Blizzard
+// nests it like a dungeon since it's an underground instance). Whitelisting
+// each Type as it's discovered is exactly how Silvershard Mines got
+// silently missed before, so don't filter on it at all. Returns null if
+// this map genuinely has no UiMapAssignment rows at all (Map.csv row
+// matching the structural filter but no map data generated yet in this
+// build -- e.g. Forever's "Battle for Gilneas" as of this writing).
+function battlegroundDataFor(mapRow, assignRows) {
+	const zoneRows = assignRows.filter(r => r.MapID === mapRow.ID);
+	if (zoneRows.length === 0)
+		return null;
+
+	const box = zoneRows.reduce((acc, r) => {
+		const R0 = parseFloat(r.Region_0), R1 = parseFloat(r.Region_1);
+		const R3 = parseFloat(r.Region_3), R4 = parseFloat(r.Region_4);
+		return {
+			x1: Math.max(acc.x1, R4), x2: Math.min(acc.x2, R1),
+			y1: Math.max(acc.y1, R3), y2: Math.min(acc.y2, R0),
+		};
+	}, { x1: -Infinity, x2: Infinity, y1: -Infinity, y2: Infinity });
+
+	// The UiMapID position-tracking needs (C_Map.GetPlayerMapPosition) is
+	// this same zone row's own UiMapID -- there's no separate wrapper
+	// UiMapID like continents have. If more than one zone row exists,
+	// they should all share one UiMapID (confirmed for every BG checked
+	// so far); warn instead of guessing if that's ever not true.
+	const uiMapIDs = new Set(zoneRows.map(r => r.UiMapID));
+	if (uiMapIDs.size > 1)
+		console.error(`WARNING: ${mapRow.Directory} (${mapRow.MapName_lang}) has ${uiMapIDs.size} distinct UiMapIDs across its zone rows (${[...uiMapIDs].join(',')}) -- picking the first, double check this one by hand`);
+
+	return {
+		key: mapRow.Directory,
+		name: mapRow.MapName_lang,
+		mapID: mapRow.ID,
+		uiMapID: zoneRows[0].UiMapID,
+		box,
+	};
+}
 
 // A standalone battleground: Map.csv row with ParentMapID=-1 (top-level),
 // MapType=1, InstanceType=INSTANCE_TYPE_BATTLEGROUND -- same shape as
 // gen_mapareas.js's continent filter, just the PvP InstanceType instead of
-// the open-world one.
-function findBattlegrounds(mapRows, assignRows) {
+// the open-world one. Also excludes anything hand-listed in skip_lists.js's
+// skipMaps for this flavor -- see that file's own header for what it's for
+// (documented there as already applying here, but never actually did until
+// now). Only ever called from gen_candidates.js now -- this script's own
+// main() below reads the resulting candidates/battlegrounds.json instead of
+// re-running this same discovery a second time.
+function findBattlegrounds(mapRows, assignRows, flavor) {
 	const battlegrounds = [];
 
 	for (const mapRow of mapRows) {
 		if (mapRow.ParentMapID !== '-1' || mapRow.MapType !== '1' || mapRow.InstanceType !== INSTANCE_TYPE_BATTLEGROUND)
 			continue;
-
-		// Every UiMapAssignment row for this MapID, no UiMap.Type filter --
-		// the Map.csv filter above already uniquely identifies this as a
-		// real standalone battleground, and every one checked so far has
-		// its own single, self-consistent Type across all its rows anyway
-		// (UI_MAP_TYPE_ZONE=3 on Vanilla/TBC/Mists, UI_MAP_TYPE_ORPHAN=6 on
-		// WoW: Forever/Camelot, UI_MAP_TYPE_DUNGEON=4 for Silvershard Mines
-		// specifically -- Blizzard nests it like a dungeon since it's an
-		// underground instance). Whitelisting each Type as it's discovered
-		// is exactly how Silvershard Mines got silently missed before,
-		// so don't filter on it at all.
-		const zoneRows = assignRows.filter(r => r.MapID === mapRow.ID);
-		if (zoneRows.length === 0)
+		if (isSkipped(skipMaps, flavor, mapRow.ID))
 			continue;
 
-		const box = zoneRows.reduce((acc, r) => {
-			const R0 = parseFloat(r.Region_0), R1 = parseFloat(r.Region_1);
-			const R3 = parseFloat(r.Region_3), R4 = parseFloat(r.Region_4);
-			return {
-				x1: Math.max(acc.x1, R4), x2: Math.min(acc.x2, R1),
-				y1: Math.max(acc.y1, R3), y2: Math.min(acc.y2, R0),
-			};
-		}, { x1: -Infinity, x2: Infinity, y1: -Infinity, y2: Infinity });
+		const bg = battlegroundDataFor(mapRow, assignRows);
+		if (!bg)
+			continue;
 
-		// The UiMapID position-tracking needs (C_Map.GetPlayerMapPosition) is
-		// this same zone row's own UiMapID -- there's no separate wrapper
-		// UiMapID like continents have. If more than one zone row exists,
-		// they should all share one UiMapID (confirmed for every BG checked
-		// so far); warn instead of guessing if that's ever not true.
-		const uiMapIDs = new Set(zoneRows.map(r => r.UiMapID));
-		if (uiMapIDs.size > 1)
-			console.error(`WARNING: ${mapRow.Directory} (${mapRow.MapName_lang}) has ${uiMapIDs.size} distinct UiMapIDs across its zone rows (${[...uiMapIDs].join(',')}) -- picking the first, double check this one by hand`);
-
-		battlegrounds.push({
-			key: mapRow.Directory,
-			name: mapRow.MapName_lang,
-			mapID: mapRow.ID,
-			uiMapID: zoneRows[0].UiMapID,
-			box,
-		});
+		battlegrounds.push(bg);
 	}
 
 	return battlegrounds;
 }
 
 function parseArgs(argv) {
-	const opts = { flavorDir: null, out: null };
+	const opts = { workDir: null, flavor: null, out: null, force: false, proxy: null };
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i];
-		if (a === '--flavor-dir') opts.flavorDir = argv[++i];
+		if (a === '--work-dir') opts.workDir = argv[++i];
+		else if (a === '--flavor') opts.flavor = argv[++i];
 		else if (a === '--out') opts.out = argv[++i];
+		else if (a === '--force') opts.force = true;
+		else if (a === '--proxy') opts.proxy = argv[++i];
 		else throw new Error(`Unknown option: ${a}`);
 	}
 	return opts;
 }
 
 function printUsage() {
-	console.error('Usage: node gen_battlegrounds.js --flavor-dir <dir with Map/UiMap/UiMapAssignment CSVs> --out <out-file.lua>');
+	console.error('Usage: node gen_battlegrounds.js --work-dir <dir> --flavor <product> --out <out-file.lua> [--force] [--proxy <url>]');
+	console.error('  Requires scripts/gen_candidates.js to have been run first (reads candidates/battlegrounds.json for its own candidate list).');
 }
 
 function main() {
@@ -107,22 +131,40 @@ function main() {
 		process.exit(1);
 	}
 
-	if (!opts.flavorDir || !opts.out) {
+	opts.workDir = envOr(opts.workDir, 'WORK_DIR');
+	opts.flavor = envOr(opts.flavor, 'FLAVOR');
+	opts.proxy = envOr(opts.proxy, 'PROXY');
+
+	if (!opts.workDir || !opts.flavor || !opts.out) {
 		printUsage();
 		process.exit(1);
 	}
 
-	const mapRows = parseCsv(findCsv(opts.flavorDir, 'Map.'));
-	const assignRows = parseCsv(findCsv(opts.flavorDir, 'UiMapAssignment.'));
+	const dl = { workDir: opts.workDir, flavor: opts.flavor, force: opts.force, proxy: opts.proxy };
+	ensureDb2Csv({ ...dl, table: 'Map' });
+	ensureDb2Csv({ ...dl, table: 'UiMapAssignment' });
+	const flavorDirPath = flavorDir(opts.workDir, opts.flavor);
 
-	const battlegrounds = findBattlegrounds(mapRows, assignRows);
+	const mapRows = parseCsv(findCsv(flavorDirPath, 'Map.'));
+	const assignRows = parseCsv(findCsv(flavorDirPath, 'UiMapAssignment.'));
+
+	// Candidate discovery/filtering (structural Map.csv filter + skipMaps)
+	// happens exactly once, in gen_candidates.js's own findBattlegrounds call
+	// -- this script just looks each candidate's own Map.csv row back up by
+	// ID and recomputes its box/uiMapID from assignRows (battlegroundDataFor,
+	// not stored in the lightweight candidates JSON), instead of re-running
+	// the same discovery filter against Map.csv a second time.
+	const byID = {};
+	for (const r of mapRows) byID[r.ID] = r;
+	const battlegrounds = readCandidates(opts.workDir, opts.flavor, 'battlegrounds').map(c => {
+		const mapRow = byID[c.id];
+		if (!mapRow) {
+			console.error(`WARNING: candidates/battlegrounds.json has ${c.key} (ID=${c.id}) but it's no longer in Map.csv -- stale candidates file? Re-run gen_candidates.js. Skipping.`);
+			return null;
+		}
+		return battlegroundDataFor(mapRow, assignRows);
+	}).filter(Boolean);
 	console.error(`${battlegrounds.length} battlegrounds found:`, battlegrounds.map(b => `${b.key} (${b.name}, MapID=${b.mapID}, UiMapID=${b.uiMapID})`));
-
-	// stdout: case-sensitive Directory names, for parse_wdt.js's trailing
-	// <ContinentName> args (battlegrounds slot into that same per-continent
-	// tile-validity pipeline, they're real ADT terrain like any open-world
-	// zone -- just a separate, smaller map).
-	console.log(battlegrounds.map(b => b.key).join(' '));
 
 	let fullOutput = "-- GENERATED FILE -- do not hand-edit, regenerate with scripts/gen_battlegrounds.js\n"
 		+ "-- and replace this file wholesale. See scripts/README.md for details.\n"
@@ -149,4 +191,5 @@ function main() {
 	console.error(`\nWritten: ${opts.out}`);
 }
 
-main();
+module.exports = { findBattlegrounds };
+if (require.main === module) { main(); }

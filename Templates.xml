@@ -73,6 +73,9 @@
 			</OnEnter>
 			<OnLeave>
 				self.inme = false;
+				if(TWM_HideCursorCoordLabel) then
+					TWM_HideCursorCoordLabel();
+				end
 			</OnLeave>
 			<OnDragStart>
 				self.dragme = true;
@@ -91,7 +94,7 @@
 				if(self.dragme) then
 					TWMFrameViewFrame_OnDrag(self);
 				end
-				if(self.inme and self:GetParent() == TWMFrame and TWMOption.ShowCursorCoords) then
+				if(self.inme and self:GetParent() == TWMFrame and TWM_DebugTiles) then
 					TWMFrameViewFrame_UpdateCursorCoord(self);
 				end
 				if(self.inpoint) then

@@ -55,6 +55,7 @@
 const fs = require('fs');
 const path = require('path');
 const { parseCsvFile, findCsv } = require('./csv');
+const { flavorDir, ensureDb2Csv, ensureExtracted, envOr, resolveMapKeys } = require('./extract');
 
 const TILE_SIZE = 1600 / 3; // 533.33333...
 const CHUNK_SIZE = TILE_SIZE / 16; // 33.33333...
@@ -222,43 +223,96 @@ function extractMapareasKeys(luaText, contName) {
 	return keys;
 }
 
+const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 function parseArgs(argv) {
-	const opts = { flavorDir: null, out: null, areaTableDir: null, mapareasFile: null };
-	const continents = [];
+	const opts = {
+		workDir: null, flavor: null, clientDir: null, online: false, clientLocale: 'enUS',
+		out: null, areaTableDir: null, mapareasFile: null, force: false, proxy: null,
+		maps: null, candidatesKind: null,
+	};
 
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i];
-		if (a === '--flavor-dir') opts.flavorDir = argv[++i];
+		if (a === '--work-dir') opts.workDir = argv[++i];
+		else if (a === '--flavor') opts.flavor = argv[++i];
+		else if (a === '--client-dir') opts.clientDir = argv[++i];
+		else if (a === '--online') opts.online = true;
+		else if (a === '--client-locale') opts.clientLocale = argv[++i];
 		else if (a === '--out') opts.out = argv[++i];
 		else if (a === '--areatable-dir') opts.areaTableDir = argv[++i];
 		else if (a === '--mapareas-file') opts.mapareasFile = argv[++i];
-		else if (a.startsWith('--')) throw new Error(`Unknown option: ${a}`);
-		else continents.push(a);
+		else if (a === '--force') opts.force = true;
+		else if (a === '--proxy') opts.proxy = argv[++i];
+		else if (a === '--maps') opts.maps = argv[++i];
+		else if (a === '--candidates') opts.candidatesKind = argv[++i];
+		else throw new Error(`Unknown option: ${a}`);
 	}
 
-	if (opts.areaTableDir === null)
-		opts.areaTableDir = opts.flavorDir;
-
-	return { opts, continents };
+	return opts;
 }
 
 function printUsage() {
-	console.error('Usage: node gen_poi_areas.js --flavor-dir <dir> --mapareas-file <mapdata_continents.lua> --out <out-file.lua> [--areatable-dir <dir>] <ContinentName> [<ContinentName> ...]');
+	console.error('Usage: node gen_poi_areas.js --work-dir <dir> --flavor <product> (--client-dir <path> | --online) --mapareas-file <mapdata_continents.lua|mapdata_battlegrounds.lua> --out <out-file.lua> (--candidates <continents|battlegrounds> | --maps <Name1,Name2,...>) [--areatable-dir <dir>]');
+	console.error('  --candidates reads <work-dir>/<flavor>/candidates/<kind>.json (scripts/gen_candidates.js, run that first) --');
+	console.error('  continents for the usual pass, battlegrounds for the separate battleground-zone pass (--mapareas-file');
+	console.error('  pointed at mapdata_battlegrounds.lua instead). --maps is an explicit comma-separated override.');
+	console.error('  Root ADTs are self-extracted (via CASCConsole) if not already present under <work-dir>/<flavor>/world/...');
 }
 
 function main() {
-	let opts, continents;
+	let opts;
 	try {
-		({ opts, continents } = parseArgs(process.argv.slice(2)));
+		opts = parseArgs(process.argv.slice(2));
 	} catch (e) {
 		console.error(e.message);
 		printUsage();
 		process.exit(1);
 	}
+	opts.workDir = envOr(opts.workDir, 'WORK_DIR');
+	opts.clientDir = envOr(opts.clientDir, 'CLIENT_DIR');
+	opts.flavor = envOr(opts.flavor, 'FLAVOR');
+	opts.proxy = envOr(opts.proxy, 'PROXY');
 
-	if (!opts.flavorDir || !opts.out || !opts.mapareasFile || continents.length === 0) {
+	if (!opts.workDir || !opts.flavor || !opts.out || !opts.mapareasFile) {
 		printUsage();
 		process.exit(1);
+	}
+	let continents;
+	try {
+		continents = resolveMapKeys({ maps: opts.maps, candidatesKind: opts.candidatesKind, workDir: opts.workDir, flavor: opts.flavor });
+	} catch (e) {
+		console.error(e.message);
+		printUsage();
+		process.exit(1);
+	}
+	if (continents.length === 0) {
+		console.error(`No maps to process (candidates/${opts.candidatesKind}.json is empty) -- nothing to do.`);
+		process.exit(0);
+	}
+
+	const flavorDirPath = flavorDir(opts.workDir, opts.flavor);
+	const extractOpts = {
+		workDir: opts.workDir, flavor: opts.flavor,
+		clientDir: opts.clientDir, online: opts.online, clientLocale: opts.clientLocale,
+		force: opts.force,
+	};
+
+	if (!opts.areaTableDir) {
+		ensureDb2Csv({ ...extractOpts, table: 'AreaTable', proxy: opts.proxy });
+		opts.areaTableDir = flavorDirPath;
+	}
+
+	for (const contName of continents) {
+		const lower = escapeRegExp(contName.toLowerCase());
+		ensureExtracted({
+			...extractOpts,
+			// [^/]+ (only excludes the path separator), not \w+ -- see
+			// parse_wdt.js's own identical fix for why (a tile's filename can
+			// embed a Directory stem containing a space/apostrophe).
+			pattern: `^world/maps/${lower}/([^_/]+\\.wdt|[^/]+_\\d+_\\d+\\.adt)$`,
+			checkPaths: [path.join('world', 'maps', contName.toLowerCase(), `${contName.toLowerCase()}.wdt`)],
+		});
 	}
 
 	const { parentOf, nameOf } = loadAreaTable(opts.areaTableDir);
@@ -287,7 +341,7 @@ function main() {
 		}
 
 		const lower = contName.toLowerCase();
-		const adtDir = path.join(opts.flavorDir, 'world', 'maps', lower);
+		const adtDir = path.join(flavorDirPath, 'world', 'maps', lower);
 		const zoneBoxes = extractMapareasBoxes(mapareasLua, contName);
 		const { centroids, totalSkipped } = centroidsForContinent(adtDir, parentOf, zoneBoxes);
 

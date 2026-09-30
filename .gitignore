@@ -1,6 +1,7 @@
 .claude/
 .vscode/
 scripts/node_modules
+scripts/bootstrap.ps1
 *.csv
 *.wdt
 icon_large.png

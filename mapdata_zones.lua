@@ -23,6 +23,21 @@ Twm_areadb = setmetatable({}, {
 -- loads right after this file).
 Twm_mapareas = {}
 
+-- Which map tiles have real terrain (scripts/parse_wdt.js) and which WMO
+-- placements have baked minimap tiles (scripts/gen_wmo_tiles.js). Declared
+-- here, once, for the same reason Twm_poi_areas is below: each category
+-- (continents/battlegrounds/arenas/dungeons/raids/scenarios) now lives in
+-- its own Data_<Flavor>/mapdata_tiles_<kind>.lua / mapdata_wmo_tiles_<kind>.lua
+-- file (scripts/gen_candidates.js's own --candidates <kind> split), each
+-- assigning only its own Twm_WDTValidTiles["<name>"] / Twm_WMOTiles["<name>"]
+-- keys -- declaring the whole table here first is what lets them coexist
+-- regardless of .toc load order, instead of one re-declaring `= {}` and
+-- silently wiping out whatever another already wrote.
+Twm_WDTValidTiles = {}
+Twm_NoLiquidTiles = {}
+Twm_WMOTiles = {}
+Twm_TileFileID = {}
+
 -- Named sub-area/POI labels, keyed by top-level map name. Per-continent and
 -- (when generated) per-battleground blocks live in their own
 -- Data_<Flavor>/mapdata_poi_areas*.lua files (scripts/gen_poi_areas.js),

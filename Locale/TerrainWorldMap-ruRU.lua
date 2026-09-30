@@ -66,12 +66,22 @@ TWM_CATEGORY_RAIDS = "Рейды";
 TWM_CATEGORY_SCENARIOS = "Сценарии";
 TWM_CATEGORY_BATTLEGROUNDS = "Поля боя";
 TWM_CATEGORY_ARENAS = "Арены";
+
+-- Официальный русский клиент не переводит эти названия (проверено по
+-- игровым данным Achievement_Category, а не на глаз) - те же английские
+-- названия, что и в enUS.
+TWM_EXPANSION_0 = "Classic";
+TWM_EXPANSION_1 = "The Burning Crusade";
+TWM_EXPANSION_2 = "Wrath of the Lich King";
+TWM_EXPANSION_3 = "Cataclysm";
+TWM_EXPANSION_4 = "Mists of Pandaria";
 TWM_POINTS_LANDMARKS = "Достопримечательности";
 TWM_POINTS_GRAVEYARDS = "Кладбища";
 TWM_POINTS_CAPITALS = "Столицы";
 TWM_POINTS_DUNGEONS = "Подземелья";
 TWM_POINTS_FLIGHTMASTERS = "Лётные мастера";
 
+TWM_OPTIONS_SHOW_TERRAIN = "Показывать ландшафт";
 TWM_OPTIONS_SHOW_WMO_OVERLAY = "Показывать слои WMO";
 TWM_OPTIONS_SHOW_LANDMARKS = "Показывать достопримечательности";
 TWM_OPTIONS_SHOW_GRAVEYARDS = "Показывать кладбища";

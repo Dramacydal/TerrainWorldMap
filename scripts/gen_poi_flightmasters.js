@@ -12,7 +12,7 @@
 // AreaID/MapID of its own to resolve a live, locale-correct name from at
 // render time -- every locale's name has to be baked in here instead, from
 // TaxiNodes.db2 fetched once per locale (wago.tools:
-// /db2/TaxiNodes/csv?product=<product>&locale=<locale>, see --locales-dir).
+// /db2/TaxiNodes/csv?product=<product>&locale=<locale>, self-downloaded per locale).
 //
 // Faction ("Alliance"/"Horde"/"Neutral"):
 // TaxiNodes.Flags is a bitmask, bit 0x1 = usable by Alliance, bit 0x2 =
@@ -69,7 +69,9 @@
 // side).
 
 const fs = require('fs');
+const path = require('path');
 const { parseCsvFile, findCsv } = require('./csv');
+const { flavorDir, ensureDb2Csv, envOr } = require('./extract');
 
 // Client locales TaxiNodes.Name_lang is fetched for (wago.tools:
 // /db2/TaxiNodes/csv?product=<product>&locale=<locale>) -- flight masters
@@ -118,20 +120,23 @@ function factionFor(flagsStr) {
 }
 
 function parseArgs(argv) {
-	const opts = { flavorDir: null, localesDir: null, mapareasFile: null, out: null };
+	const opts = { workDir: null, flavor: null, mapareasFile: null, out: null, force: false, proxy: null };
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i];
-		if (a === '--flavor-dir') opts.flavorDir = argv[++i];
-		else if (a === '--locales-dir') opts.localesDir = argv[++i];
+		if (a === '--work-dir') opts.workDir = argv[++i];
+		else if (a === '--flavor') opts.flavor = argv[++i];
 		else if (a === '--mapareas-file') opts.mapareasFile = argv[++i];
 		else if (a === '--out') opts.out = argv[++i];
+		else if (a === '--force') opts.force = true;
+		else if (a === '--proxy') opts.proxy = argv[++i];
 		else throw new Error(`Unknown option: ${a}`);
 	}
 	return opts;
 }
 
 function printUsage() {
-	console.error('Usage: node gen_poi_flightmasters.js --flavor-dir <dir with TaxiPath.*.csv, TaxiPathNode.*.csv and Map.*.csv> --locales-dir <dir with TaxiNodes.<locale>.csv for each of ' + LOCALES.join('/') + '> --mapareas-file <target flavor mapdata_continents.lua> --out <out-file.lua>');
+	console.error('Usage: node gen_poi_flightmasters.js --work-dir <dir> --flavor <product> --mapareas-file <target flavor mapdata_continents.lua> --out <out-file.lua> [--force] [--proxy <url>]');
+	console.error('  TaxiNodes.<locale>.csv is self-downloaded for each of ' + LOCALES.join('/') + '.');
 }
 
 function main() {
@@ -144,18 +149,31 @@ function main() {
 		process.exit(1);
 	}
 
-	if (!opts.flavorDir || !opts.localesDir || !opts.mapareasFile || !opts.out) {
+	opts.workDir = envOr(opts.workDir, 'WORK_DIR');
+	opts.flavor = envOr(opts.flavor, 'FLAVOR');
+	opts.proxy = envOr(opts.proxy, 'PROXY');
+
+	if (!opts.workDir || !opts.flavor || !opts.mapareasFile || !opts.out) {
 		printUsage();
 		process.exit(1);
 	}
 
+	const dl = { workDir: opts.workDir, flavor: opts.flavor, force: opts.force, proxy: opts.proxy };
+	ensureDb2Csv({ ...dl, table: 'TaxiPath' });
+	ensureDb2Csv({ ...dl, table: 'TaxiPathNode' });
+	ensureDb2Csv({ ...dl, table: 'Map' });
+	for (const locale of LOCALES)
+		ensureDb2Csv({ ...dl, table: 'TaxiNodes', locale });
+	const flavorDirPath = flavorDir(opts.workDir, opts.flavor);
+	const localesDir = path.join(flavorDirPath, 'locales');
+
 	// enUS is both a name locale AND the structural source of truth --
 	// Flags/CharacterBitNumber/Pos/ContinentID are identical across every
 	// locale's export of the same DB2 row, only Name_lang differs.
-	const taxiNodeRows = parseCsvFile(findCsv(opts.localesDir, 'TaxiNodes.enUS.'));
-	const taxiPathRows = parseCsvFile(findCsv(opts.flavorDir, 'TaxiPath.'));
-	const taxiPathNodeRows = parseCsvFile(findCsv(opts.flavorDir, 'TaxiPathNode.'));
-	const mapRows = parseCsvFile(findCsv(opts.flavorDir, 'Map.'));
+	const taxiNodeRows = parseCsvFile(findCsv(localesDir, 'TaxiNodes.enUS.'));
+	const taxiPathRows = parseCsvFile(findCsv(flavorDirPath, 'TaxiPath.'));
+	const taxiPathNodeRows = parseCsvFile(findCsv(flavorDirPath, 'TaxiPathNode.'));
+	const mapRows = parseCsvFile(findCsv(flavorDirPath, 'Map.'));
 	const continentNames = extractContinentNames(fs.readFileSync(opts.mapareasFile, 'utf8'));
 
 	// Name_lang for every other locale, keyed by TaxiNode ID -- missing
@@ -167,7 +185,7 @@ function main() {
 		if (locale === 'enUS') continue;
 		let rows;
 		try {
-			rows = parseCsvFile(findCsv(opts.localesDir, `TaxiNodes.${locale}.`));
+			rows = parseCsvFile(findCsv(localesDir, `TaxiNodes.${locale}.`));
 		} catch (e) {
 			console.error(`Skipping ${locale}: ${e.message}`);
 			continue;
