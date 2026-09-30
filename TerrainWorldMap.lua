@@ -227,6 +227,7 @@ function TWM_HideTileDebugBorder(tex)
         tex.debugBorder.right:Hide();
     end
     TWM_HideWMODebugCorners(tex);
+    TWM_HideWMODebugLabel(tex);
 end
 
 function TWM_ShowTileDebugBorder(border)
@@ -274,16 +275,28 @@ function TWM_HideWMODebugCorners(tex)
 end
 
 -- corners = {bigX1,bigY1, bigX2,bigY2, bigX3,bigY3, bigX4,bigY4} (Big
--- coordinates, already in the tile's own real corner order -- consecutive
--- pairs are adjacent corners, so edges are 1-2, 2-3, 3-4, 4-1). Shows each
--- line itself -- no separate TWM_ShowWMODebugCorners needed.
-function TWM_PositionWMODebugCorners(lines, vf, corners, Lx, Ly, z)
+-- coordinates, already in the tile's own real corner order) -> the same 4
+-- points, converted to on-screen (ViewFrame-relative) pixels. Shared by
+-- TWM_PositionWMODebugCorners (the border) and TWM_PositionWMODebugLabel
+-- (the FileDataID text, positioned at these same 4 points' average) --
+-- deliberately the ONE conversion, not two independently-computed ones,
+-- so the label can never visually disagree with the border it's labeling.
+function TWM_WMOCornersToScreenPoints(corners, Lx, Ly, z)
     local pts = {};
     for i = 1, 4 do
         local bx, by = corners[i * 2 - 1], corners[i * 2];
         local mx, my = TWM_Big2Mini_Coord(bx, by);
         pts[i] = { (mx - Lx) * z, (Ly - my) * z };
     end
+    return pts;
+end
+
+-- corners = {bigX1,bigY1, bigX2,bigY2, bigX3,bigY3, bigX4,bigY4} (Big
+-- coordinates, already in the tile's own real corner order -- consecutive
+-- pairs are adjacent corners, so edges are 1-2, 2-3, 3-4, 4-1). Shows each
+-- line itself -- no separate TWM_ShowWMODebugCorners needed.
+function TWM_PositionWMODebugCorners(lines, vf, corners, Lx, Ly, z)
+    local pts = TWM_WMOCornersToScreenPoints(corners, Lx, Ly, z);
     for i = 1, 4 do
         local a, b = pts[i], pts[i % 4 + 1];
         local line = lines[i];
@@ -292,6 +305,43 @@ function TWM_PositionWMODebugCorners(lines, vf, corners, Lx, Ly, z)
         line:SetEndPoint("TOPLEFT", vf, b[1], b[2]);
         line:Show();
     end
+end
+
+-- FileDataID label, centered on the tile's own real (possibly rotated)
+-- quad -- same color as its debug border, text itself never rotated (a
+-- rotated frame's own center point doesn't move under its own rotation, so
+-- an unrotated label at that center reads correctly regardless of yaw).
+function TWM_EnsureWMODebugLabel(vf, tex, color)
+    color = color or TWM_TILE_DEBUG_BORDER_YELLOW;
+    if(not tex.debugFileIDLabel) then
+        local label = vf:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall");
+        label:SetDrawLayer("OVERLAY", 7); -- same reserved sublevel as the border lines
+        tex.debugFileIDLabel = label;
+    end
+    tex.debugFileIDLabel:SetTextColor(color[1], color[2], color[3], 1);
+    return tex.debugFileIDLabel;
+end
+
+function TWM_HideWMODebugLabel(tex)
+    if(not tex.debugFileIDLabel) then return; end
+    tex.debugFileIDLabel:Hide();
+end
+
+-- Positioned at the average of the SAME 4 screen points the border itself
+-- uses (TWM_WMOCornersToScreenPoints), not a separately-computed cx/cy --
+-- see that function's own header for why.
+function TWM_PositionWMODebugLabel(label, vf, corners, Lx, Ly, z, fileID)
+    local pts = TWM_WMOCornersToScreenPoints(corners, Lx, Ly, z);
+    local cx, cy = 0, 0;
+    for i = 1, 4 do
+        cx = cx + pts[i][1];
+        cy = cy + pts[i][2];
+    end
+    cx, cy = cx / 4, cy / 4;
+    label:SetText(tostring(fileID));
+    label:ClearAllPoints();
+    label:SetPoint("CENTER", vf, "TOPLEFT", cx, cy);
+    label:Show();
 end
 
 -- Whether a map tile has real terrain, per this client's own WDT data
@@ -510,9 +560,9 @@ end
 function TWM_WMOOverlay_Update(frame)
     local lm = frame:GetName();
     local vf = _G[lm.."ViewFrame"];
-    local tiles = Twm_WMOTiles and Twm_WMOTiles[frame.opt.Map];
+    local groups = Twm_WMOTiles and Twm_WMOTiles[frame.opt.Map];
 
-    if(not tiles or not TWM_ShouldShowWMOOverlay(frame)) then
+    if(not groups or not TWM_ShouldShowWMOOverlay(frame)) then
         if(frame.wmoOverlayTextures) then
             for _, tex in ipairs(frame.wmoOverlayTextures) do
                 tex:Hide();
@@ -521,6 +571,24 @@ function TWM_WMOOverlay_Update(frame)
         end
         return;
     end
+
+    -- Twm_WMOTiles[map] is an array of {group_id, group_name, tiles}
+    -- (WMO tile group management -- TWM_IsWMOGroupEnabled/
+    -- TWM_EnsureWMOGroupCheckboxes), not a flat tile array -- flatten every
+    -- ENABLED group's own tiles into one list, then height-sort it, before
+    -- the per-tile draw loop below. Sorting/draw-order has to happen AFTER
+    -- this filter, not be baked in at generation time, since which tiles
+    -- are even visible now depends on live checkbox state, not just the
+    -- (still independent, still applied per-tile below) height cutoff.
+    local tiles = {};
+    for _, group in ipairs(groups) do
+        if(TWM_IsWMOGroupEnabled(frame, group.group_id)) then
+            for _, tile in ipairs(group.tiles) do
+                tinsert(tiles, tile);
+            end
+        end
+    end
+    table.sort(tiles, function(a, b) return (a[7] or 0) < (b[7] or 0); end);
 
     local textures = TWM_WMOOverlay_EnsureTextures(frame, #tiles);
     local Lx, Ly = frame.opt.Location[1], frame.opt.Location[2];
@@ -590,10 +658,14 @@ function TWM_WMOOverlay_Update(frame)
                 -- independent of the SetPoint/SetRotation call above -- see
                 -- TWM_PositionWMODebugCorners' own header for why.
                 local color = TWM_WMO_DEBUG_COLOR_POOL[((i - 1) % #TWM_WMO_DEBUG_COLOR_POOL) + 1];
+                local corners = { tile[8], tile[9], tile[10], tile[11], tile[12], tile[13], tile[14], tile[15] };
                 local lines = TWM_EnsureWMODebugCorners(vf, tex, color);
-                TWM_PositionWMODebugCorners(lines, vf, { tile[8], tile[9], tile[10], tile[11], tile[12], tile[13], tile[14], tile[15] }, Lx, Ly, z);
+                TWM_PositionWMODebugCorners(lines, vf, corners, Lx, Ly, z);
+                local label = TWM_EnsureWMODebugLabel(vf, tex, color);
+                TWM_PositionWMODebugLabel(label, vf, corners, Lx, Ly, z, fileID);
             else
                 TWM_HideWMODebugCorners(tex);
+                TWM_HideWMODebugLabel(tex);
             end
         end
     end
@@ -604,72 +676,230 @@ function TWM_WMOOverlay_Update(frame)
     end
 end
 
--- Lazily creates the vertical height-cutoff slider, anchored below the
--- checkbox. Built purely in Lua (OptionsSliderTemplate reused from
--- Settings.lua's own convention) rather than in XML -- a vertical slider
--- needs no extra art of its own beyond what that template already provides,
--- and its value range is per-map (set by TWM_UpdateOverlayButtons), so
--- there's nothing static worth declaring in XML.
+-- Lazily creates the horizontal height-cutoff slider, anchored to the left
+-- of TWMFOO (the gear/engineering-icon button, ViewFrame's own BOTTOMRIGHT
+-- corner) -- a fixed position, independent of the WMO group checkbox
+-- list's own height. Built purely in Lua (OptionsSliderTemplate reused
+-- from Settings.lua's own convention) since its value range is per-map
+-- (set by TWM_UpdateOverlayButtons).
+--
+-- Parented to `frame` (TWMFrame), not the ViewFrame, strata "DIALOG" --
+-- ViewFrame's own SetClipsChildren(true) would otherwise clip it.
+--
+-- Horizontal, not vertical: a horizontal Slider's own default already puts
+-- its minimum at the LEFT and maximum at the RIGHT, so "rightmost =
+-- tallest" needs no value negation (SetReverseValues doesn't exist on this
+-- client, and a vertical Slider defaults the opposite way).
 function TWM_WMOOverlay_EnsureHeightSlider(frame)
     local lm = frame:GetName();
     local name = lm.."WMOOverlayHeightSlider";
     local slider = _G[name];
-    if(slider) then return slider; end
+    if(not slider) then
+        slider = CreateFrame("Slider", name, frame, "OptionsSliderTemplate");
+        slider:SetFrameStrata("DIALOG");
+        slider:SetOrientation("HORIZONTAL");
+        slider:SetSize(120, 16);
+        slider:SetHitRectInsets(0, 0, 0, 0);
+        -- OptionsSliderTemplate's own default thumb art
+        -- (UI-SliderBar-Button-Horizontal) is already the right shape for a
+        -- horizontal bar -- no texture swap needed here (that swap only
+        -- existed because this used to be a vertical slider).
+        --
+        -- Its baked-in Low/High labels would read as plain min/max numbers
+        -- either side of the thumb -- blanked, same as before, in favor of
+        -- one custom label of our own to the slider's LEFT (below).
+        _G[name.."Low"]:SetText("");
+        _G[name.."High"]:SetText("");
+        _G[name.."Text"]:SetText("");
 
-    local button = _G[lm.."ShowWMOOverlayButton"];
-    slider = CreateFrame("Slider", name, _G[lm.."ViewFrame"], "OptionsSliderTemplate");
-    slider:SetOrientation("VERTICAL");
-    slider:SetSize(16, 120);
-    slider:SetHitRectInsets(0, 0, 0, 0);
-    slider:ClearAllPoints();
-    slider:SetPoint("TOP", button, "BOTTOM", 0, -12);
-    slider:SetFrameLevel(button:GetFrameLevel());
-    -- OptionsSliderTemplate's thumb art (UI-SliderBar-Button-Horizontal) is
-    -- a wide, short grip meant to be dragged left/right -- sideways-looking
-    -- on a vertical bar. Swap to the vertical counterpart and match its
-    -- (taller-than-wide) proportions. Guarded: GetThumbTexture is a very
-    -- old, standard Slider method, but SetReverseValues (see below) turned
-    -- out to not exist on this client at all, so this codebase can no
-    -- longer assume any given Slider method is present without checking.
-    local thumb = slider.GetThumbTexture and slider:GetThumbTexture();
-    if(thumb) then
-        thumb:SetTexture("Interface\\Buttons\\UI-SliderBar-Button-Vertical");
-        thumb:SetSize(16, 24);
+        local label = slider:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall");
+        label:SetPoint("RIGHT", slider, "LEFT", -8, 0);
+        label:SetText(TWM_WMO_HEIGHT_CUTOFF);
+
+        slider:SetScript("OnValueChanged", function(self, value)
+            local _, sliderMax = self:GetMinMaxValues();
+            if(value >= sliderMax - TWM_WMO_OVERLAY_HEIGHT_EPSILON) then
+                -- Rightmost position: never filter, full stop -- see this
+                -- function's own header comment for why nil (not sliderMax
+                -- itself) is what "show everything" means here.
+                frame.wmoOverlayHeightCutoff = nil;
+            else
+                frame.wmoOverlayHeightCutoff = value;
+            end
+            TWM_WMOOverlay_Update(frame);
+        end);
     end
-    -- OptionsSliderTemplate's baked-in Low/High/Text labels read as a
-    -- horizontal min/max/title strip -- blank them rather than leave
-    -- sideways-looking text next to a vertical bar.
-    _G[name.."Low"]:SetText("");
-    _G[name.."High"]:SetText("");
-    _G[name.."Text"]:SetText("");
-    -- WoW's Slider defaults a vertical orientation to max-at-bottom,
-    -- min-at-top -- backwards from the natural "higher = further up"
-    -- reading a height control should have. The obvious fix,
-    -- SetReverseValues(true), doesn't exist as a method on this client's
-    -- Slider mixin (confirmed live: "attempt to call a nil value") --
-    -- flipped instead by storing/reading the NEGATED height as the
-    -- slider's own value throughout (TWM_UpdateOverlayButtons sets
-    -- SetMinMaxValues(-maxH, -minH) and SetValue(-maxH)), which puts the
-    -- slider's own minimum (top, under default vertical layout) at the
-    -- map's highest real height and its own maximum (bottom) at the
-    -- lowest -- exactly the reversed reading needed, with no dependency on
-    -- an API this client doesn't have.
-    slider:SetScript("OnValueChanged", function(self, value)
-        local sliderMin = self:GetMinMaxValues();
-        local actualHeight = -value;
-        local actualMax = -sliderMin;
-        if(actualHeight >= actualMax - TWM_WMO_OVERLAY_HEIGHT_EPSILON) then
-            -- Topmost position: never filter, full stop -- see this
-            -- function's own header comment for why nil (not actualMax
-            -- itself) is what "show everything" means here.
-            frame.wmoOverlayHeightCutoff = nil;
-        else
-            frame.wmoOverlayHeightCutoff = actualHeight;
-        end
-        TWM_WMOOverlay_Update(frame);
-    end);
+
+    slider:ClearAllPoints();
+    slider:SetPoint("RIGHT", TWMFOO, "LEFT", -16, 0);
 
     return slider;
+end
+
+-- Whether the given WMO group (group_id, a string) is enabled for `frame`'s
+-- current map -- runtime-only, never persisted, reset to "every group
+-- enabled" on every map switch and on the frame being shown again (see its
+-- OnShow hook). Absence from the table means enabled -- a freshly-reset
+-- empty table already reads as "everything checked".
+function TWM_IsWMOGroupEnabled(frame, groupId)
+    return not (frame.wmoGroupEnabled and frame.wmoGroupEnabled[groupId] == false);
+end
+
+function TWMFrameWMOGroupButton_OnClick(self)
+    local frame = self.twmFrame;
+    frame.wmoGroupEnabled[self.groupId] = self:GetChecked() and true or false;
+    TWM_WMOOverlay_Update(frame);
+end
+
+-- Fixed viewport height for the WMO group checkbox list (below) -- a map
+-- with many WMO placements can have dozens of groups; capping this keeps
+-- the height-cutoff slider anchored elsewhere from ever depending on the
+-- list's own length. No backdrop/border on the scroll frame or its
+-- content -- reads as a plain checkbox list, not a bordered panel.
+local TWM_WMO_GROUP_LIST_MAX_HEIGHT = 180;
+local TWM_WMO_GROUP_ROW_HEIGHT = 24;
+local TWM_WMO_GROUP_CONTENT_WIDTH = 220;
+-- The list's own anchor (wmoButton) sits at the ViewFrame's TOPRIGHT
+-- corner, i.e. the outer window edge, not the settings-panel background's
+-- own edge -- shifted left by this amount so the checkbox column and
+-- scrollbar stay inside the panel and the scrollbar lines up under the
+-- "Show WMO Layers" checkbox above it.
+local TWM_WMO_GROUP_LIST_RIGHT_INSET = 24;
+
+-- Lazily creates the scrollable list's own frames (scroll frame + content +
+-- scrollbar) -- pooled per `frame`, same convention as everything else
+-- here. Parented to `frame` (TWMFrame), not the ViewFrame, strata "DIALOG"
+-- -- ViewFrame's own SetClipsChildren(true) would otherwise clip it. The
+-- ScrollFrame's own clipping (built into the frame type) is what hides
+-- scrolled-out rows.
+--
+-- Scrollbar is `UIPanelScrollBarTemplate` (a real vertical scrollbar, not
+-- `OptionsSliderTemplate` reused vertically -- that one's groove art is a
+-- fixed-size, CENTER-anchored texture that never stretches to fit a tall
+-- narrow bar). Its own up/down arrow buttons are anchored OUTSIDE the
+-- slider's declared rect (up button's BOTTOM == slider's TOP, down
+-- button's TOP == slider's BOTTOM) -- they extend the control above/below
+-- whatever height the slider is given, not consume space within it.
+-- TWM_WMO_GROUP_SCROLLBAR_ARROW_HEIGHT reserves room for both, so the
+-- whole control (arrows + track) fits inside TWM_WMO_GROUP_LIST_MAX_HEIGHT
+-- instead of the up-arrow overlapping the row above.
+local TWM_WMO_GROUP_SCROLLBAR_ARROW_HEIGHT = 16;
+
+function TWM_EnsureWMOGroupScrollFrame(frame)
+    if(frame.wmoGroupScroll) then return frame.wmoGroupScroll, frame.wmoGroupScrollContent, frame.wmoGroupScrollBar; end
+    local lm = frame:GetName();
+
+    local scroll = CreateFrame("ScrollFrame", lm.."WMOGroupScrollFrame", frame);
+    scroll:SetFrameStrata("DIALOG");
+    scroll:SetWidth(TWM_WMO_GROUP_CONTENT_WIDTH);
+
+    local content = CreateFrame("Frame", lm.."WMOGroupScrollContent", scroll);
+    content:SetWidth(TWM_WMO_GROUP_CONTENT_WIDTH);
+    content:SetHeight(1);
+    content:SetPoint("TOPLEFT");
+    scroll:SetScrollChild(content);
+
+    local scrollbar = CreateFrame("Slider", lm.."WMOGroupScrollBar", frame, "UIPanelScrollBarTemplate");
+    scrollbar:SetFrameStrata("DIALOG");
+    scrollbar:SetValueStep(TWM_WMO_GROUP_ROW_HEIGHT);
+    scrollbar:SetScript("OnValueChanged", function(self, value)
+        scroll:SetVerticalScroll(value);
+    end);
+    scroll:EnableMouseWheel(true);
+    scroll:SetScript("OnMouseWheel", function(self, delta)
+        local lo, hi = scrollbar:GetMinMaxValues();
+        scrollbar:SetValue(math.max(lo, math.min(hi, scrollbar:GetValue() - delta * TWM_WMO_GROUP_ROW_HEIGHT)));
+    end);
+
+    frame.wmoGroupScroll = scroll;
+    frame.wmoGroupScrollContent = content;
+    frame.wmoGroupScrollBar = scrollbar;
+    return scroll, content, scrollbar;
+end
+
+-- Hides the group checkbox list entirely -- every pooled checkbox, plus
+-- the scroll frame and its scrollbar (which, unlike the checkboxes, aren't
+-- created at all until the first time the list has something to show, so
+-- both are guarded with their own nil-checks).
+function TWM_HideWMOGroupCheckboxes(frame)
+    if(frame.wmoGroupButtons) then
+        for _, cb in ipairs(frame.wmoGroupButtons) do cb:Hide(); end
+    end
+    if(frame.wmoGroupScroll) then frame.wmoGroupScroll:Hide(); end
+    if(frame.wmoGroupScrollBar) then frame.wmoGroupScrollBar:Hide(); end
+end
+
+-- One checkbox per WMO group ("<group_id>: <group_name>"), inside the
+-- scrollable, height-capped list above -- pooled the same way
+-- TWM_WMOOverlay_EnsureTextures pools tile textures. `groups` is already
+-- group_id-ascending (gen_wmo_tiles.js's own sort), so no runtime sort
+-- needed here. Returns the scroll frame (fixed height regardless of group
+-- count) for the height slider to anchor below.
+--
+-- Checkboxes/labels are children of the scroll CONTENT frame, not `frame`
+-- directly -- positioned within content's own declared width (checkbox at
+-- its own right edge, label to its left, same convention as "Show
+-- Terrain"/"Show WMO Layers") so the ScrollFrame's own clip (to CONTENT's
+-- bounds, not `frame`'s) doesn't cut either of them off.
+function TWM_EnsureWMOGroupCheckboxes(frame, groups, anchor)
+    local lm = frame:GetName();
+    local scroll, content, scrollbar = TWM_EnsureWMOGroupScrollFrame(frame);
+
+    frame.wmoGroupButtons = frame.wmoGroupButtons or {};
+    for i = #frame.wmoGroupButtons + 1, #groups do
+        local cb = CreateFrame("CheckButton", lm.."WMOGroupButton"..i, content, "UICheckButtonTemplate");
+        cb:SetFrameStrata("DIALOG");
+        cb:SetSize(20, 20);
+        local label = cb:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall");
+        label:SetJustifyH("RIGHT");
+        label:SetWidth(TWM_WMO_GROUP_CONTENT_WIDTH - 30);
+        label:SetPoint("RIGHT", cb, "LEFT", -4, 1);
+        cb.label = label;
+        cb.twmFrame = frame;
+        cb:SetScript("OnClick", TWMFrameWMOGroupButton_OnClick);
+        frame.wmoGroupButtons[i] = cb;
+    end
+
+    for i, group in ipairs(groups) do
+        local cb = frame.wmoGroupButtons[i];
+        cb.groupId = group.group_id;
+        cb.label:SetText(group.group_id..": "..group.group_name);
+        cb:SetChecked(TWM_IsWMOGroupEnabled(frame, group.group_id));
+        cb:ClearAllPoints();
+        cb:SetPoint("TOPRIGHT", content, "TOPRIGHT", -4, -(i - 1) * TWM_WMO_GROUP_ROW_HEIGHT);
+        cb:Show();
+    end
+    for i = #groups + 1, #frame.wmoGroupButtons do
+        frame.wmoGroupButtons[i]:Hide();
+    end
+
+    local contentHeight = #groups * TWM_WMO_GROUP_ROW_HEIGHT;
+    content:SetHeight(math.max(contentHeight, 1));
+
+    scroll:ClearAllPoints();
+    scroll:SetPoint("TOPRIGHT", anchor, "BOTTOMRIGHT", -TWM_WMO_GROUP_LIST_RIGHT_INSET, -4);
+    scroll:SetHeight(math.min(contentHeight, TWM_WMO_GROUP_LIST_MAX_HEIGHT));
+    scroll:SetVerticalScroll(0);
+    scroll:Show();
+
+    -- Scrollbar only appears once the real content actually overflows the
+    -- capped viewport -- not Blizzard's usual "always visible, just
+    -- disabled" look.
+    local overflow = contentHeight - TWM_WMO_GROUP_LIST_MAX_HEIGHT;
+    if(overflow > 0) then
+        scrollbar:ClearAllPoints();
+        -- Offset down by one arrow-button height -- see
+        -- TWM_EnsureWMOGroupScrollFrame's own header for why.
+        scrollbar:SetPoint("TOPLEFT", scroll, "TOPRIGHT", 4, -TWM_WMO_GROUP_SCROLLBAR_ARROW_HEIGHT);
+        scrollbar:SetHeight(TWM_WMO_GROUP_LIST_MAX_HEIGHT - 2 * TWM_WMO_GROUP_SCROLLBAR_ARROW_HEIGHT);
+        scrollbar:SetMinMaxValues(0, overflow);
+        scrollbar:SetValue(0);
+        scrollbar:Show();
+    else
+        scrollbar:Hide();
+    end
+
+    return scroll;
 end
 
 -- Shows the "Show Terrain"/"Show WMO Layers" checkbox pair -- always
@@ -681,8 +911,9 @@ end
 -- option. The height-cutoff slider is independent of whether the
 -- checkboxes are shown -- a pure-WMO map (no terrain at all) still needs
 -- it whenever its own placements span more than one height, even with no
--- checkbox visible above it (it anchors to the WMO checkbox's position
--- regardless of whether that checkbox itself is currently shown).
+-- checkbox visible above it (it anchors below the WMO group checkbox list,
+-- or the WMO checkbox itself when that list is empty/hidden, regardless of
+-- whether the Show Terrain/Show WMO Layers pair itself is currently shown).
 function TWM_UpdateOverlayButtons(frame)
     local lm = frame:GetName();
     local terrainButton = _G[lm.."ShowTerrainButton"];
@@ -690,8 +921,8 @@ function TWM_UpdateOverlayButtons(frame)
     if(not terrainButton or not wmoButton) then return; end
 
     local map = frame.opt.Map;
-    local tiles = Twm_WMOTiles and Twm_WMOTiles[map];
-    local hybrid = tiles and TWM_MapHasTerrain(map);
+    local groups = Twm_WMOTiles and Twm_WMOTiles[map];
+    local hybrid = groups and TWM_MapHasTerrain(map);
 
     if(hybrid) then
         terrainButton:Show();
@@ -703,14 +934,31 @@ function TWM_UpdateOverlayButtons(frame)
         wmoButton:Hide();
     end
 
-    if(tiles) then
+    -- Runtime-only per-group checkbox state, reset here -- see
+    -- TWM_IsWMOGroupEnabled's own header for the full "when"/"why".
+    frame.wmoGroupEnabled = {};
+
+    if(groups) then
         local minH, maxH = math.huge, -math.huge;
-        for _, tile in ipairs(tiles) do
-            local h = tile[6];
-            if(h) then
-                if(h < minH) then minH = h; end
-                if(h > maxH) then maxH = h; end
+        for _, group in ipairs(groups) do
+            for _, tile in ipairs(group.tiles) do
+                -- {fileID, cx, cy, width, height, yawDeg, z} -- z (world
+                -- height, tile[7]) is what the cutoff slider itself
+                -- filters on (TWM_WMOOverlay_Update); this used to read
+                -- tile[6] (yawDeg) instead -- a real, separate bug, fixed
+                -- here while touching this loop for group support anyway.
+                local h = tile[7];
+                if(h) then
+                    if(h < minH) then minH = h; end
+                    if(h > maxH) then maxH = h; end
+                end
             end
+        end
+
+        if(TWMOption.WMOTileManagement) then
+            TWM_EnsureWMOGroupCheckboxes(frame, groups, wmoButton);
+        else
+            TWM_HideWMOGroupCheckboxes(frame);
         end
 
         local slider = TWM_WMOOverlay_EnsureHeightSlider(frame);
@@ -720,11 +968,13 @@ function TWM_UpdateOverlayButtons(frame)
         -- cutoff" means.
         frame.wmoOverlayHeightCutoff = nil;
         if(maxH > minH) then
-            -- Negated -- see TWM_WMOOverlay_EnsureHeightSlider's
-            -- OnValueChanged comment for why (no SetReverseValues on this
-            -- client).
-            slider:SetMinMaxValues(-maxH, -minH);
-            slider:SetValue(-maxH);
+            -- Horizontal slider, min at LEFT/max at RIGHT (its own real
+            -- default -- see TWM_WMOOverlay_EnsureHeightSlider's own header
+            -- for why that needs no negation trick here, unlike the
+            -- vertical version this used to be), so this is the plain,
+            -- un-negated range/value directly.
+            slider:SetMinMaxValues(minH, maxH);
+            slider:SetValue(maxH);
             slider:Show();
         else
             -- Only one distinct height among this map's placements --
@@ -732,6 +982,7 @@ function TWM_UpdateOverlayButtons(frame)
             slider:Hide();
         end
     else
+        TWM_HideWMOGroupCheckboxes(frame);
         local slider = _G[lm.."WMOOverlayHeightSlider"];
         if(slider) then slider:Hide(); end
     end
@@ -968,6 +1219,12 @@ function TWMFrame_OnLoadExtra()
             self.needsZoomRefreshOnShow = nil;
             RefreshZoomNextFrame(self);
         end
+        -- WMO tile group checkbox state is runtime-only, never persisted --
+        -- resets here too (not just on an actual map switch, SetMap's own
+        -- call), so closing the frame and reopening it back to the SAME
+        -- map still comes back with every group checked, per spec (see
+        -- TWM_IsWMOGroupEnabled).
+        TWM_UpdateOverlayButtons(self);
     end);
 end
 
@@ -2325,44 +2582,93 @@ local function TWM_EnsureCursorCoordLabel()
     return f;
 end
 
+-- Copy-to-clipboard for the coordinate label above. Lua has no direct
+-- OS-clipboard-write API at all -- the only way any WoW addon reaches the
+-- real clipboard is indirectly, via an EditBox: a native Ctrl+C keystroke
+-- while an EditBox is focused with its text highlighted is handled by the
+-- game client itself (same native path as copying a chat link), not by
+-- this addon. So this doesn't "detect Ctrl+C" and copy on that event --
+-- it just keeps this EditBox focused+highlighted with the current
+-- coordinate text FOR AS LONG AS Ctrl is held, so the user's own physical
+-- Ctrl+C, whenever they press it, lands on an already-ready EditBox.
+-- Deliberately not focused all the time (only while Ctrl is actually held)
+-- -- an EditBox with focus swallows other keyboard input (WASD movement,
+-- etc.), which would be a surprising side effect of merely hovering the
+-- mouse over the debug view.
+local function TWM_EnsureCursorCoordCopyBox()
+    if(TWM_CursorCoordCopyBox) then return TWM_CursorCoordCopyBox; end
+    local eb = CreateFrame("EditBox", "TWMFrameCursorCoordCopyBox", UIParent);
+    eb:SetFrameStrata("TOOLTIP");
+    eb:SetAutoFocus(false);
+    eb:SetFontObject("GameFontNormalSmall");
+    eb:SetSize(160, 16);
+    eb:SetMultiLine(false);
+    eb:Hide();
+    TWM_CursorCoordCopyBox = eb;
+    return eb;
+end
+
+function TWM_HideCursorCoordCopyBox()
+    if(not TWM_CursorCoordCopyBox) then return; end
+    TWM_CursorCoordCopyBox:ClearFocus();
+    TWM_CursorCoordCopyBox:Hide();
+end
+
 function TWM_HideCursorCoordLabel()
     if(TWM_CursorCoordLabel) then TWM_CursorCoordLabel:Hide(); end
+    TWM_HideCursorCoordCopyBox();
 end
 
 function TWMFrameViewFrame_UpdateCursorCoord(self)
     local x, y = GetCursorPosition();
-    local rx, ry = unpack(TWMFrame.opt.Location);
-    local zoom = TWMFrame.opt.Zoom;
 
-    if(self.lastoux == x and self.lastouy == y) then
-        return;
+    if(self.lastoux ~= x or self.lastouy ~= y) then
+        self.lastoux = x;
+        self.lastouy = y;
+
+        local rx, ry = unpack(TWMFrame.opt.Location);
+        local zoom = TWMFrame.opt.Zoom;
+        local scale = self:GetEffectiveScale();
+        local sx = x / scale;
+        local sy = y / scale;
+
+        -- Screen pixels -> mini coordinate at the cursor, not the viewport's
+        -- own center (contrast TWMFrameTemplate:GetZoneIDs, which does the
+        -- same conversion for the CENTER). x increases rightward same as
+        -- screen space; y is the opposite of WoW's own bottom-up screen axis
+        -- (mini-y increases downward, matching Location's own convention --
+        -- see TWM_WMOOverlay_Update's (Ly-my)*z for the same relationship used
+        -- the other direction). This used to read a hardcoded `512` here
+        -- instead of the ViewFrame's own real (user-resizable) height -- wrong
+        -- for any window not left at its exact original size.
+        rx = rx + (sx - self:GetLeft())/zoom;
+        ry = ry + (self:GetTop() - sy)/zoom;
+        local bigx, bigy = TWM_Mini2Big_Coord(rx, ry);
+
+        local label = TWM_EnsureCursorCoordLabel();
+        label.text:SetText(format("%.1f, %.1f", bigx, bigy));
+        local uiscale = UIParent:GetEffectiveScale();
+        label:ClearAllPoints();
+        label:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x/uiscale + 16, y/uiscale - 16);
+        label:Show();
     end
-    self.lastoux = x;
-    self.lastouy = y;
 
-    local scale = self:GetEffectiveScale();
-    local sx = x / scale;
-    local sy = y / scale;
-
-    -- Screen pixels -> mini coordinate at the cursor, not the viewport's
-    -- own center (contrast TWMFrameTemplate:GetZoneIDs, which does the
-    -- same conversion for the CENTER). x increases rightward same as
-    -- screen space; y is the opposite of WoW's own bottom-up screen axis
-    -- (mini-y increases downward, matching Location's own convention --
-    -- see TWM_WMOOverlay_Update's (Ly-my)*z for the same relationship used
-    -- the other direction). This used to read a hardcoded `512` here
-    -- instead of the ViewFrame's own real (user-resizable) height -- wrong
-    -- for any window not left at its exact original size.
-    rx = rx + (sx - self:GetLeft())/zoom;
-    ry = ry + (self:GetTop() - sy)/zoom;
-    local bigx, bigy = TWM_Mini2Big_Coord(rx, ry);
-
-    local label = TWM_EnsureCursorCoordLabel();
-    label.text:SetText(format("%.1f, %.1f", bigx, bigy));
-    local uiscale = UIParent:GetEffectiveScale();
-    label:ClearAllPoints();
-    label:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x/uiscale + 16, y/uiscale - 16);
-    label:Show();
+    -- Checked every tick, independent of the mouse-moved gate above (the
+    -- user holding Ctrl with the cursor perfectly still must still work) --
+    -- see TWM_EnsureCursorCoordCopyBox's own header for the mechanism.
+    if(TWM_CursorCoordLabel and TWM_CursorCoordLabel:IsShown()) then
+        if(IsControlKeyDown()) then
+            local copyBox = TWM_EnsureCursorCoordCopyBox();
+            copyBox:SetText(TWM_CursorCoordLabel.text:GetText());
+            copyBox:ClearAllPoints();
+            copyBox:SetPoint("TOPLEFT", TWM_CursorCoordLabel, "TOPLEFT", 0, 0);
+            copyBox:Show();
+            copyBox:HighlightText();
+            copyBox:SetFocus();
+        else
+            TWM_HideCursorCoordCopyBox();
+        end
+    end
 end
 
 function TWMFrameTemplate:OnUpdate(elapsed)

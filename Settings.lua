@@ -170,11 +170,41 @@ end
 local BrowserPanel = CreateFrame("Frame");
 BrowserPanel.name = TWM_OPTIONS_TAB_BROWSER;
 
-local browserTitle = BrowserPanel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge");
+-- This tab's own option list has grown past one screen's worth of height,
+-- and Blizzard's canvas-category Settings panels (unlike the declarative
+-- Settings-list ones) don't scroll on their own -- wrapped in a real
+-- ScrollFrame + UIPanelScrollBarTemplate scrollbar so it no longer spills
+-- past the window's own bottom edge. Same recipe as
+-- TerrainWorldMap.lua's WMO group checkbox list (TWM_EnsureWMOGroupScrollFrame):
+-- the scrollbar's own up/down arrow buttons render OUTSIDE its declared
+-- rect, so TWM_BROWSER_SCROLLBAR_ARROW_HEIGHT reserves room for both above
+-- and below it.
+local TWM_BROWSER_SCROLLBAR_ARROW_HEIGHT = 16;
+local browserScroll = CreateFrame("ScrollFrame", nil, BrowserPanel);
+browserScroll:SetPoint("TOPLEFT", BrowserPanel, "TOPLEFT", 0, 0);
+browserScroll:SetPoint("BOTTOMRIGHT", BrowserPanel, "BOTTOMRIGHT", -20, 0);
+
+local browserContent = CreateFrame("Frame", nil, browserScroll);
+browserContent:SetPoint("TOPLEFT");
+browserScroll:SetScrollChild(browserContent);
+
+local browserScrollBar = CreateFrame("Slider", nil, BrowserPanel, "UIPanelScrollBarTemplate");
+browserScrollBar:SetPoint("TOPLEFT", browserScroll, "TOPRIGHT", 4, -TWM_BROWSER_SCROLLBAR_ARROW_HEIGHT);
+browserScrollBar:SetPoint("BOTTOMLEFT", browserScroll, "BOTTOMRIGHT", 4, TWM_BROWSER_SCROLLBAR_ARROW_HEIGHT);
+browserScrollBar:SetScript("OnValueChanged", function(self, value)
+    browserScroll:SetVerticalScroll(value);
+end);
+browserScroll:EnableMouseWheel(true);
+browserScroll:SetScript("OnMouseWheel", function(self, delta)
+    local lo, hi = browserScrollBar:GetMinMaxValues();
+    browserScrollBar:SetValue(math.max(lo, math.min(hi, browserScrollBar:GetValue() - delta * 40)));
+end);
+
+local browserTitle = browserContent:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge");
 browserTitle:SetPoint("TOPLEFT", 16, -16);
 browserTitle:SetText(TWM_OPTIONS_BROWSER_TITLE);
 
-local trackOnShowButton = CreateCheckbox(BrowserPanel, "TWMOptionTrackOnShow", TWM_OPTIONS_TRACKONSHOW);
+local trackOnShowButton = CreateCheckbox(browserContent, "TWMOptionTrackOnShow", TWM_OPTIONS_TRACKONSHOW);
 trackOnShowButton:SetPoint("TOPLEFT", browserTitle, "BOTTOMLEFT", 0, -24);
 trackOnShowButton:SetScript("OnClick", function(self)
     for h,v in pairs(TWMOption.Frames) do
@@ -187,15 +217,23 @@ trackOnShowButton:SetScript("OnClick", function(self)
 end);
 SetTooltip(trackOnShowButton, TWM_OPTIONS_TRACKONSHOW, TWM_TOOLTIP_OPT_TRACKONSHOW);
 
-local showLandmarksButton = CreateCheckbox(BrowserPanel, "TWMOptionShowLandmarks", TWM_OPTIONS_SHOW_LANDMARKS);
-showLandmarksButton:SetPoint("TOPLEFT", trackOnShowButton, "BOTTOMLEFT", 0, -12);
+local wmoTileManagementButton = CreateCheckbox(browserContent, "TWMOptionWMOTileManagement", TWM_OPTIONS_WMO_TILE_MANAGEMENT);
+wmoTileManagementButton:SetPoint("TOPLEFT", trackOnShowButton, "BOTTOMLEFT", 0, -12);
+wmoTileManagementButton:SetScript("OnClick", function(self)
+    TWMOption.WMOTileManagement = self:GetChecked() and true or false;
+    TWM_UpdateOverlayButtons(TWMFrame);
+end);
+SetTooltip(wmoTileManagementButton, TWM_OPTIONS_WMO_TILE_MANAGEMENT, TWM_TOOLTIP_OPT_WMOTILEMANAGEMENT);
+
+local showLandmarksButton = CreateCheckbox(browserContent, "TWMOptionShowLandmarks", TWM_OPTIONS_SHOW_LANDMARKS);
+showLandmarksButton:SetPoint("TOPLEFT", wmoTileManagementButton, "BOTTOMLEFT", 0, -12);
 showLandmarksButton:SetScript("OnClick", function(self)
     TWMOption.Frames["TWMFrame"].PointCfg["landmarks"] = not self:GetChecked();
     TWMPoints_ForceUpdate(TWMFrame);
 end);
 SetTooltip(showLandmarksButton, TWM_OPTIONS_SHOW_LANDMARKS, TWM_TOOLTIP_OPT_SHOWLANDMARKS);
 
-local showGraveyardsButton = CreateCheckbox(BrowserPanel, "TWMOptionShowGraveyards", TWM_OPTIONS_SHOW_GRAVEYARDS);
+local showGraveyardsButton = CreateCheckbox(browserContent, "TWMOptionShowGraveyards", TWM_OPTIONS_SHOW_GRAVEYARDS);
 showGraveyardsButton:SetPoint("TOPLEFT", showLandmarksButton, "BOTTOMLEFT", 0, -12);
 showGraveyardsButton:SetScript("OnClick", function(self)
     TWMOption.Frames["TWMFrame"].PointCfg["graveyards"] = not self:GetChecked();
@@ -203,7 +241,7 @@ showGraveyardsButton:SetScript("OnClick", function(self)
 end);
 SetTooltip(showGraveyardsButton, TWM_OPTIONS_SHOW_GRAVEYARDS, TWM_TOOLTIP_OPT_SHOWGRAVEYARDS);
 
-local showCapitalsButton = CreateCheckbox(BrowserPanel, "TWMOptionShowCapitals", TWM_OPTIONS_SHOW_CAPITALS);
+local showCapitalsButton = CreateCheckbox(browserContent, "TWMOptionShowCapitals", TWM_OPTIONS_SHOW_CAPITALS);
 showCapitalsButton:SetPoint("TOPLEFT", showGraveyardsButton, "BOTTOMLEFT", 0, -12);
 showCapitalsButton:SetScript("OnClick", function(self)
     TWMOption.Frames["TWMFrame"].PointCfg["capitals"] = not self:GetChecked();
@@ -211,7 +249,7 @@ showCapitalsButton:SetScript("OnClick", function(self)
 end);
 SetTooltip(showCapitalsButton, TWM_OPTIONS_SHOW_CAPITALS, TWM_TOOLTIP_OPT_SHOWCAPITALS);
 
-local showDungeonsButton = CreateCheckbox(BrowserPanel, "TWMOptionShowDungeons", TWM_OPTIONS_SHOW_DUNGEONS);
+local showDungeonsButton = CreateCheckbox(browserContent, "TWMOptionShowDungeons", TWM_OPTIONS_SHOW_DUNGEONS);
 showDungeonsButton:SetPoint("TOPLEFT", showCapitalsButton, "BOTTOMLEFT", 0, -12);
 showDungeonsButton:SetScript("OnClick", function(self)
     TWMOption.Frames["TWMFrame"].PointCfg["dungeons"] = not self:GetChecked();
@@ -219,7 +257,7 @@ showDungeonsButton:SetScript("OnClick", function(self)
 end);
 SetTooltip(showDungeonsButton, TWM_OPTIONS_SHOW_DUNGEONS, TWM_TOOLTIP_OPT_SHOWDUNGEONS);
 
-local showFlightmastersButton = CreateCheckbox(BrowserPanel, "TWMOptionShowFlightmasters", TWM_OPTIONS_SHOW_FLIGHTMASTERS);
+local showFlightmastersButton = CreateCheckbox(browserContent, "TWMOptionShowFlightmasters", TWM_OPTIONS_SHOW_FLIGHTMASTERS);
 showFlightmastersButton:SetPoint("TOPLEFT", showDungeonsButton, "BOTTOMLEFT", 0, -12);
 showFlightmastersButton:SetScript("OnClick", function(self)
     TWMOption.Frames["TWMFrame"].PointCfg["flightmasters"] = not self:GetChecked();
@@ -227,7 +265,7 @@ showFlightmastersButton:SetScript("OnClick", function(self)
 end);
 SetTooltip(showFlightmastersButton, TWM_OPTIONS_SHOW_FLIGHTMASTERS, TWM_TOOLTIP_OPT_SHOWFLIGHTMASTERS);
 
-local showEnemyFlightmastersButton = CreateCheckbox(BrowserPanel, "TWMOptionShowEnemyFlightmasters", TWM_OPTIONS_SHOW_ENEMY_FLIGHTMASTERS);
+local showEnemyFlightmastersButton = CreateCheckbox(browserContent, "TWMOptionShowEnemyFlightmasters", TWM_OPTIONS_SHOW_ENEMY_FLIGHTMASTERS);
 showEnemyFlightmastersButton:SetPoint("TOPLEFT", showFlightmastersButton, "BOTTOMLEFT", 16, -12);
 showEnemyFlightmastersButton:SetScript("OnClick", function(self)
     TWMOption.ShowEnemyFlightmasters = self:GetChecked() and true or false;
@@ -235,7 +273,7 @@ showEnemyFlightmastersButton:SetScript("OnClick", function(self)
 end);
 SetTooltip(showEnemyFlightmastersButton, TWM_OPTIONS_SHOW_ENEMY_FLIGHTMASTERS, TWM_TOOLTIP_OPT_SHOWENEMYFLIGHTMASTERS);
 
-local showFlightPathsButton = CreateCheckbox(BrowserPanel, "TWMOptionShowFlightPaths", TWM_OPTIONS_TOGGLE_FLIGHTPATHS);
+local showFlightPathsButton = CreateCheckbox(browserContent, "TWMOptionShowFlightPaths", TWM_OPTIONS_TOGGLE_FLIGHTPATHS);
 showFlightPathsButton:SetPoint("TOPLEFT", showEnemyFlightmastersButton, "BOTTOMLEFT", -16, -12);
 showFlightPathsButton:SetScript("OnClick", function(self)
     TWMOption.ShowFlightPaths = self:GetChecked() and true or false;
@@ -243,7 +281,7 @@ showFlightPathsButton:SetScript("OnClick", function(self)
 end);
 SetTooltip(showFlightPathsButton, TWM_OPTIONS_TOGGLE_FLIGHTPATHS, TWM_TOOLTIP_OPT_TOGGLEFLIGHTPATHS);
 
-local flightPathThicknessSlider = CreateSlider(BrowserPanel, "TWMOptionFlightPathThicknessSlider", TWM_OPTIONS_FLIGHTPATH_THICKNESS, 1, 4, 0.5);
+local flightPathThicknessSlider = CreateSlider(browserContent, "TWMOptionFlightPathThicknessSlider", TWM_OPTIONS_FLIGHTPATH_THICKNESS, 1, 4, 0.5);
 flightPathThicknessSlider:SetPoint("TOPLEFT", showFlightPathsButton, "BOTTOMLEFT", 4, -32);
 flightPathThicknessSlider:SetScript("OnValueChanged", function(self)
     local v = self:GetValue();
@@ -252,7 +290,7 @@ flightPathThicknessSlider:SetScript("OnValueChanged", function(self)
 end);
 SetTooltip(flightPathThicknessSlider, TWM_OPTIONS_FLIGHTPATH_THICKNESS, TWM_TOOLTIP_OPT_FLIGHTPATHTHICKNESS);
 
-local flightPathInterpolationSlider = CreateSlider(BrowserPanel, "TWMOptionFlightPathInterpolationSlider", TWM_OPTIONS_FLIGHTPATH_INTERPOLATION, 0, 10, 1);
+local flightPathInterpolationSlider = CreateSlider(browserContent, "TWMOptionFlightPathInterpolationSlider", TWM_OPTIONS_FLIGHTPATH_INTERPOLATION, 0, 10, 1);
 flightPathInterpolationSlider:SetPoint("TOPLEFT", flightPathThicknessSlider, "BOTTOMLEFT", 0, -32);
 flightPathInterpolationSlider:SetScript("OnValueChanged", function(self)
     local v = Round(self:GetValue());
@@ -261,7 +299,7 @@ flightPathInterpolationSlider:SetScript("OnValueChanged", function(self)
 end);
 SetTooltip(flightPathInterpolationSlider, TWM_OPTIONS_FLIGHTPATH_INTERPOLATION, TWM_TOOLTIP_OPT_FLIGHTPATHINTERPOLATION);
 
-local alphaSlider = CreateSlider(BrowserPanel, "TWMOptionAlphaSlider", TWM_OPTIONS_ALPHA, .1, 1, .05);
+local alphaSlider = CreateSlider(browserContent, "TWMOptionAlphaSlider", TWM_OPTIONS_ALPHA, .1, 1, .05);
 alphaSlider:SetPoint("TOPLEFT", flightPathInterpolationSlider, "BOTTOMLEFT", 0, -32);
 alphaSlider:SetScript("OnValueChanged", function(self)
     local v = self:GetValue();
@@ -271,7 +309,7 @@ alphaSlider:SetScript("OnValueChanged", function(self)
 end);
 SetTooltip(alphaSlider, TWM_OPTIONS_ALPHA, TWM_TOOLTIP_OPT_ALPHA);
 
-local iconSizeSlider = CreateSlider(BrowserPanel, "TWMOptionIconSizeSlider", TWM_OPTIONS_ICONSIZE, 0.5, 3.0, 0.1);
+local iconSizeSlider = CreateSlider(browserContent, "TWMOptionIconSizeSlider", TWM_OPTIONS_ICONSIZE, 0.5, 3.0, 0.1);
 iconSizeSlider:SetPoint("TOPLEFT", alphaSlider, "BOTTOMLEFT", 0, -32);
 iconSizeSlider:SetScript("OnValueChanged", function(self)
     local v = self:GetValue();
@@ -283,7 +321,7 @@ iconSizeSlider:SetScript("OnValueChanged", function(self)
 end);
 SetTooltip(iconSizeSlider, TWM_OPTIONS_ICONSIZE, TWM_TOOLTIP_OPT_ICONSIZE);
 
-local resetPositionButton = CreateFrame("Button", "TWMOptionResetPosition", BrowserPanel, "UIPanelButtonTemplate");
+local resetPositionButton = CreateFrame("Button", "TWMOptionResetPosition", browserContent, "UIPanelButtonTemplate");
 resetPositionButton:SetSize(160, 22);
 resetPositionButton:SetPoint("TOPLEFT", iconSizeSlider, "BOTTOMLEFT", -4, -32);
 resetPositionButton:SetText(TWM_OPTIONS_RESETPOSITION);
@@ -301,10 +339,12 @@ resetPositionButton:SetScript("OnClick", function()
 
     TWMOption.ShowEnemyFlightmasters = false;
     TWMOption.ShowFlightPaths = false;
+    TWMOption.WMOTileManagement = false;
     if(TWM_SetFlightPathThickness) then TWM_SetFlightPathThickness(nil); end
     if(TWM_SetFlightPathInterpolation) then TWM_SetFlightPathInterpolation(nil); end
 
     TWMPoints_ForceUpdate(TWMFrame);
+    TWM_UpdateOverlayButtons(TWMFrame);
     BrowserPanel.OnRefresh();
 end);
 SetTooltip(resetPositionButton, TWM_OPTIONS_RESETPOSITION, TWM_TOOLTIP_OPT_RESETPOSITION);
@@ -327,6 +367,7 @@ function BrowserPanel.OnRefresh()
     end
     showEnemyFlightmastersButton:SetChecked(TWMOption.ShowEnemyFlightmasters);
     showFlightPathsButton:SetChecked(TWMOption.ShowFlightPaths);
+    wmoTileManagementButton:SetChecked(TWMOption.WMOTileManagement);
     if(TWM_GetFlightPathThickness) then
         local v = TWM_GetFlightPathThickness();
         flightPathThicknessSlider:SetValue(v);
@@ -336,6 +377,27 @@ function BrowserPanel.OnRefresh()
         local v = TWM_GetFlightPathInterpolation();
         flightPathInterpolationSlider:SetValue(v);
         UpdateSliderLabel("TWMOptionFlightPathInterpolationSlider", TWM_OPTIONS_FLIGHTPATH_INTERPOLATION, v, 0);
+    end
+
+    -- Width matched to the scroll frame's own real width here (not a
+    -- second TOPRIGHT anchor on the scroll child itself -- tried that,
+    -- broke the scroll child's layout resolution entirely, blanking the
+    -- whole tab). Height measured, not hand-tracked --
+    -- content:GetTop()/resetPositionButton:GetBottom() reflect the real,
+    -- already-resolved anchor chain above, so this stays correct as
+    -- options are added/removed later without a matching manual height
+    -- constant to keep in sync.
+    browserContent:SetWidth(browserScroll:GetWidth());
+    local contentHeight = (browserContent:GetTop() or 0) - (resetPositionButton:GetBottom() or 0) + 24;
+    browserContent:SetHeight(math.max(contentHeight, 1));
+    local overflow = contentHeight - browserScroll:GetHeight();
+    if(overflow > 0) then
+        browserScrollBar:SetMinMaxValues(0, overflow);
+        browserScrollBar:SetValue(0);
+        browserScrollBar:Show();
+    else
+        browserScroll:SetVerticalScroll(0);
+        browserScrollBar:Hide();
     end
 end
 

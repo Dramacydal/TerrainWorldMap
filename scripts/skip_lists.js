@@ -42,6 +42,19 @@
 //   FileDataID can turn up reused in either place). For a specific known-bad
 //   texture (e.g. a leftover Blizzard placeholder) rather than a whole map's
 //   worth of tiles being wrong.
+// - checkedWmoAreasByMap: an ALLOWLIST, not a blocklist like the four above
+//   -- {flavor: {mapID: [[xmin,ymin,xmax,ymax], ...]}}, Big-coordinate
+//   literal min/max boxes (NOT this codebase's occasional inverted-axis box
+//   convention elsewhere -- named unambiguously so there's no doubt which
+//   number is which). When a map has an entry, gen_wmo_tiles.js keeps a WMO
+//   tile only if that tile's own axis-aligned bounding box (from its 4 real
+//   corners) is FULLY contained in at least one listed area -- a map with
+//   no entry is completely unaffected. For a map with real, otherwise-
+//   unexplainable "garbage" WMO tiles (genuine WMOMinimapTexture rows, not
+//   a bug in this pipeline's own math, but spatially outside the real
+//   playable area -- see the RazorfenDowns investigation in
+//   .claude-docs/gotchas.md) where fencing off the real area by eye is more
+//   tractable than finding a data-level discriminator.
 
 const skipMaps = {
 	// CashTest (Directory "TEST_01", MapID 29) -- an ancient Blizzard dev
@@ -102,12 +115,23 @@ const skipTileFileDataId = {
 	// producing the same bad tiles, so this is real bad source data, not a
 	// bug in this pipeline's own math.
 	wow_anniversary: [
-		'528239', '528240', '528241', '528242', // RazorfenDowns group 1, blockX=1 column
+		'528239', '528240', '528241', '528242', '528243', // RazorfenDowns group 1, blockX=1 column
 	],
 	wow_classic: [
 	],
 	wow_classic_beta: [
 	],
+};
+
+const checkedWmoAreasByMap = {
+	wow_classic_era: {
+	},
+	wow_anniversary: {
+	},
+	wow_classic: {
+	},
+	wow_classic_beta: {
+	},
 };
 
 // mapID is a string (Map.csv's own ID column comes through as a string from
@@ -118,4 +142,15 @@ function isSkipped(list, flavor, mapID) {
 	return !!(mapID && list[flavor] && list[flavor].includes(mapID));
 }
 
-module.exports = { skipMaps, skipAdtTiles, skipWmoTiles, skipTileFileDataId, isSkipped };
+// tileBox: {xmin, ymin, xmax, ymax} (a WMO tile's own axis-aligned bounding
+// box, from its 4 real corners -- see gen_wmo_tiles.js). Returns true (tile
+// allowed) when this map has no entry at all -- checkedWmoAreasByMap is opt-
+// in per map, everything else is unaffected.
+function isWmoTileInCheckedArea(flavor, mapID, tileBox) {
+	const areas = checkedWmoAreasByMap[flavor] && checkedWmoAreasByMap[flavor][mapID];
+	if (!areas || areas.length === 0) return true;
+	return areas.some(([xmin, ymin, xmax, ymax]) =>
+		tileBox.xmin >= xmin && tileBox.ymin >= ymin && tileBox.xmax <= xmax && tileBox.ymax <= ymax);
+}
+
+module.exports = { skipMaps, skipAdtTiles, skipWmoTiles, skipTileFileDataId, checkedWmoAreasByMap, isSkipped, isWmoTileInCheckedArea };

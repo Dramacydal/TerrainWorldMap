@@ -54,6 +54,7 @@ TWM_TOOLTIP_OPT_CHILDMAPTILES = "Zeichnet zus\195\164tzlich jede Zone, die in Bl
 TWM_TOOLTIP_OPT_WORLDVIEWTILES = "Zeichnet echte Gel\195\164ndekacheln auf der herausgezoomten Kontinent-/Weltansicht der Weltkarte. Dies kann beim Betrachten dieser Karte zu Rucklern f\195\188hren, weshalb die Funktion optional ist.";
 TWM_TOOLTIP_OPT_CITYMAPTILES = "Zeichnet echte Gel\195\164ndekacheln auf Stadtkarten (z. B. Sturmwind, Orgrimmar), die von der Weltkarte ge\195\182ffnet werden. Deaktiviere dies, wenn du lieber die originale Stadtkarten-Grafik sehen m\195\182chtest - f\195\188r Unterstadt z. B. passt das echte Gel\195\164nde nicht gut.";
 TWM_TOOLTIP_OPT_TRACKONSHOW = "Zentriert und zoomt das TerrainWorldMap-Fenster bei jedem \195\150ffnen automatisch auf deine aktuelle Position.";
+TWM_TOOLTIP_OPT_WMOTILEMANAGEMENT = "Erm\195\182glicht es, Gruppen gebackener WMO-Minikartenkacheln auf der Karte manuell ein- oder auszublenden.";
 TWM_TOOLTIP_OPT_SHOWLANDMARKS = "Zeigt Unterzonen-Markierungen - Gasth\195\164user, H\195\182hlen, Seen und \195\164hnliche Orte von Interesse - auf der Karte.";
 TWM_TOOLTIP_OPT_SHOWGRAVEYARDS = "Zeigt Friedhof-Markierungen auf der Karte.";
 TWM_TOOLTIP_OPT_SHOWCAPITALS = "Zeigt Hauptstadt-Markierungen auf der Karte.";
@@ -93,6 +94,8 @@ TWM_POINTS_FLIGHTMASTERS = "Flugmeister";
 
 TWM_OPTIONS_SHOW_TERRAIN = "Zeige Gel\195\164nde";
 TWM_OPTIONS_SHOW_WMO_OVERLAY = "Zeige WMO-Ebenen";
+TWM_OPTIONS_WMO_TILE_MANAGEMENT = "WMO-Kachelverwaltung";
+TWM_WMO_HEIGHT_CUTOFF = "H\195\182hengrenze";
 TWM_OPTIONS_SHOW_LANDMARKS = "Zeige wichtige Orte";
 TWM_OPTIONS_SHOW_GRAVEYARDS = "Zeige Friedh\195\182fe";
 TWM_OPTIONS_SHOW_CAPITALS = "Zeige Hauptst\195\164dte";

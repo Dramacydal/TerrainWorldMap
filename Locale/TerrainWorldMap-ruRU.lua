@@ -45,6 +45,7 @@ TWM_TOOLTIP_OPT_CHILDMAPTILES = "Также отображает любую зо
 TWM_TOOLTIP_OPT_WORLDVIEWTILES = "Отображает реальные тайлы рельефа на отдалённом виде карты континента/мира. Эта функция может добавлять подтормаживания при просмотре соответствующей карты, поэтому сделана опциональной.";
 TWM_TOOLTIP_OPT_CITYMAPTILES = "Отображает реальные тайлы рельефа на картах городов (например, Штормграда, Оргриммара), открываемых с карты мира. Отключите эту функцию, если хотите оригинальную карту для столиц. Например, для Подгорода реальный ландшафт не подходит.";
 TWM_TOOLTIP_OPT_TRACKONSHOW = "Автоматически центрирует и приближает окно TerrainWorldMap к вашему текущему положению при каждом открытии.";
+TWM_TOOLTIP_OPT_WMOTILEMANAGEMENT = "Позволяет вручную включать/отключать отрисовку групп тайлов на карте.";
 TWM_TOOLTIP_OPT_SHOWLANDMARKS = "Отображение подзон - таверн, пещер, озёр и подобных точек интереса - на карте.";
 TWM_TOOLTIP_OPT_SHOWGRAVEYARDS = "Отображение меток кладбищ на карте.";
 TWM_TOOLTIP_OPT_SHOWCAPITALS = "Отображение меток столиц на карте.";
@@ -83,6 +84,8 @@ TWM_POINTS_FLIGHTMASTERS = "Лётные мастера";
 
 TWM_OPTIONS_SHOW_TERRAIN = "Показывать ландшафт";
 TWM_OPTIONS_SHOW_WMO_OVERLAY = "Показывать слои WMO";
+TWM_OPTIONS_WMO_TILE_MANAGEMENT = "Управление тайлами WMO";
+TWM_WMO_HEIGHT_CUTOFF = "Порог высоты";
 TWM_OPTIONS_SHOW_LANDMARKS = "Показывать достопримечательности";
 TWM_OPTIONS_SHOW_GRAVEYARDS = "Показывать кладбища";
 TWM_OPTIONS_SHOW_CAPITALS = "Показывать столицы";

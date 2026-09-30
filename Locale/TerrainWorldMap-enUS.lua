@@ -50,6 +50,7 @@ TWM_TOOLTIP_OPT_CHILDMAPTILES = "Also draws any zone that Blizzard's map hierarc
 TWM_TOOLTIP_OPT_WORLDVIEWTILES = "Overlays real terrain tiles on the zoomed-out continent/world view of the World Map. This can cause some stuttering while viewing that map, which is why it's made optional.";
 TWM_TOOLTIP_OPT_CITYMAPTILES = "Overlays real terrain tiles on city maps (e.g. Stormwind, Orgrimmar) opened from the World Map. Turn this off if you'd rather see the original city map artwork - for example, the real terrain doesn't suit Undercity well.";
 TWM_TOOLTIP_OPT_TRACKONSHOW = "Automatically centers and zooms the TerrainWorldMap window on your current position every time it's opened.";
+TWM_TOOLTIP_OPT_WMOTILEMANAGEMENT = "Lets you manually show or hide groups of baked WMO minimap tiles on the map.";
 TWM_TOOLTIP_OPT_SHOWLANDMARKS = "Toggles sub-zone markers - inns, caves, lakes, and similar points of interest - shown on the map.";
 TWM_TOOLTIP_OPT_SHOWGRAVEYARDS = "Toggles graveyard markers on the map.";
 TWM_TOOLTIP_OPT_SHOWCAPITALS = "Toggles capital city markers on the map.";
@@ -89,6 +90,8 @@ TWM_POINTS_FLIGHTMASTERS = "Flight Masters";
 
 TWM_OPTIONS_SHOW_TERRAIN = "Show Terrain";
 TWM_OPTIONS_SHOW_WMO_OVERLAY = "Show WMO Layers";
+TWM_OPTIONS_WMO_TILE_MANAGEMENT = "WMO Tile Management";
+TWM_WMO_HEIGHT_CUTOFF = "Height Cutoff";
 TWM_OPTIONS_SHOW_LANDMARKS = "Show Landmarks";
 TWM_OPTIONS_SHOW_GRAVEYARDS = "Show Graveyards";
 TWM_OPTIONS_SHOW_CAPITALS = "Show Capitals";

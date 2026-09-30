@@ -43,17 +43,34 @@
 // guessed at.
 //
 // Since a tile is no longer necessarily axis-aligned once yaw is nonzero,
-// Twm_WMOTiles' own tuple shape changed from an axis-aligned box
-// {fileID, x1, x2, y1, y2, height} to a center+size+angle one, plus the real
-// corners: {fileID, cx, cy, width, height, yawDeg, z, c1x,c1y, c2x,c2y,
-// c3x,c3y, c4x,c4y} -- see the output writer below and
-// TerrainWorldMap.lua's TWM_WMOOverlay_Update (Texture:SetPoint/SetRotation
-// for the tile itself, Line-based debug border from the corners) for the
-// reader side. width/height/z keep the same meaning as before (z is the
-// world-height value the cutoff slider reads), just shifted by one field
-// for yawDeg. The 4 corners are redundant with cx/cy/width/height/yawDeg --
-// kept anyway so the debug border can draw the tile's true outline directly
+// each tile tuple is a center+size+angle one, plus the real corners:
+// {fileID, cx, cy, width, height, yawDeg, z, c1x,c1y, c2x,c2y, c3x,c3y,
+// c4x,c4y} -- see the output writer below and TerrainWorldMap.lua's
+// TWM_WMOOverlay_Update (Texture:SetPoint/SetRotation for the tile itself,
+// Line-based debug border from the corners) for the reader side.
+// width/height/z keep the same meaning as before (z is the world-height
+// value the cutoff slider reads), just shifted by one field for yawDeg.
+// The 4 corners are redundant with cx/cy/width/height/yawDeg -- kept
+// anyway so the debug border can draw the tile's true outline directly
 // instead of re-deriving it from those in Lua a second time.
+//
+// Twm_WMOTiles["<name>"] itself is an array of GROUPS, not a flat tile
+// array (WMO tile group management -- lets the addon show a per-group
+// checkbox list, TerrainWorldMap.lua's TWM_EnsureWMOGroupCheckboxes):
+// {group_id, group_name, tiles = {<tile tuple>, ...}}, sorted by (wmoId,
+// GroupNum) ascending. group_id is "<wmoId>-<GroupNum>" (a string) -- NOT
+// just WMOMinimapTexture.csv's own GroupNum by itself, because a map can
+// have more than one WMO placed on it (e.g. PVPLordaeron: the actual arena
+// building plus an unrelated second building), and each placement numbers
+// its own groups from 0 independently -- grouping by GroupNum alone
+// silently merged different placements' same-numbered groups into one,
+// scrambling names and tiles together. wmoId (WMOMinimapTexture.csv's own
+// WMOID, already resolved per placement below) is unique per real placed
+// building, so prefixing it makes group_id unique per real physical group
+// on the whole map. group_name is read from the root WMO file's own MOGN/
+// MOGI chunks (readWmoGroupNames below), falling back to a plain
+// "Group <GroupNum>" for a group with no real name (MOGI's own nameOffset
+// -1).
 //
 // yawDeg is written out as -MODF.rotation[1] -- the SAME value already used
 // (as radians) to rotate local coordinates in the position formula below,
@@ -139,7 +156,7 @@ const path = require('path');
 const readline = require('readline');
 const { Blp } = require('@wowserhq/format');
 const { flavorDir, listfilePath, ensureExtracted, ensureExtractedPaths, ensureDb2Csv, envOr, resolveMapKeys } = require('./extract');
-const { skipWmoTiles, skipTileFileDataId, isSkipped } = require('./skip_lists');
+const { skipWmoTiles, skipTileFileDataId, checkedWmoAreasByMap, isSkipped, isWmoTileInCheckedArea } = require('./skip_lists');
 const { getValidTiles } = require('./parse_wdt');
 
 const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -157,6 +174,8 @@ const ID_MPHD = chunkID('M', 'P', 'H', 'D');
 const ID_MODF = chunkID('M', 'O', 'D', 'F');
 const ID_MOGP = chunkID('M', 'O', 'G', 'P');
 const ID_MOHD = chunkID('M', 'O', 'H', 'D');
+const ID_MOGN = chunkID('M', 'O', 'G', 'N');
+const ID_MOGI = chunkID('M', 'O', 'G', 'I');
 
 const MINI2BIG = 1600 / 3; // 533.3333..., matches TerrainWorldMap.lua's MINI2BIGX/Y
 const MAP_ORIGIN = 32 * MINI2BIG; // 17066.666...
@@ -264,6 +283,43 @@ function readWmoId(rootWmoPath) {
 		offset = dataStart + size;
 	}
 	return null;
+}
+
+function readCString(buf, offset) {
+	let end = offset;
+	while (end < buf.length && buf[end] !== 0) end++;
+	return buf.toString('utf8', offset, end);
+}
+
+// MOGI (root WMO file, nGroups x 32-byte entries: flags(4) + bbox min/max
+// C3Vector(12+12) + nameOffset int32(4)) gives each group's own offset into
+// MOGN (root file, a blob of null-terminated strings -- same convention as
+// MOTX's texture-path blob), or -1 if that group genuinely has no name.
+// Group index here is 0-based and matches WMOMinimapTexture.csv's own
+// GroupNum column directly (confirmed empirically against a real extracted
+// root file: pvp_lordaeron_arena.wmo's 5 MOGI entries resolved to "Arena"/
+// "InteriorStatues"/"InteriorStatuesTop" plus 2 unnamed (-1) groups).
+// Returns Map<groupIndex, name|null>, empty if this WMO has no MOGI at all.
+function readWmoGroupNames(rootWmoPath) {
+	const buf = fs.readFileSync(rootWmoPath);
+	let offset = 0;
+	let mogn = null, mogi = null;
+	while (offset + 8 <= buf.length) {
+		const magic = buf.readUInt32LE(offset);
+		const size = buf.readUInt32LE(offset + 4);
+		const dataStart = offset + 8;
+		if (magic === ID_MOGN) mogn = buf.slice(dataStart, dataStart + size);
+		else if (magic === ID_MOGI) mogi = buf.slice(dataStart, dataStart + size);
+		offset = dataStart + size;
+	}
+	const names = new Map();
+	if (!mogi) return names;
+	const count = Math.floor(mogi.length / 32);
+	for (let i = 0; i < count; i++) {
+		const nameOffset = mogi.readInt32LE(i * 32 + 28);
+		names.set(i, (mogn && nameOffset >= 0 && nameOffset < mogn.length) ? readCString(mogn, nameOffset) : null);
+	}
+	return names;
 }
 
 // WMOMinimapTexture.csv -> Map<WMOID (string), [{groupNum, blockX, blockY,
@@ -532,10 +588,12 @@ async function main() {
 	if (wantedWmoPaths.length > 0) ensureExtractedPaths({ ...extractOpts, paths: wantedWmoPaths });
 
 	const wmoIdByNameId = {};
+	const groupNamesByNameId = {};
 	for (const [nameId, wmoPath] of Object.entries(idToPath)) {
 		const localPath = path.join(flavorDirPath, wmoPath);
 		if (!fs.existsSync(localPath)) continue;
 		wmoIdByNameId[nameId] = readWmoId(localPath);
+		groupNamesByNameId[nameId] = readWmoGroupNames(localPath);
 	}
 
 	// WMOMinimapTexture.csv: the authoritative {groupNum, blockX, blockY,
@@ -615,10 +673,11 @@ async function main() {
 		+ "-- axis-aligned {fileID, x1, x2, y1, y2, height} box before yaw support\n"
 		+ "-- -- a rotated tile isn't axis-aligned, so center+size+angle replaced\n"
 		+ "-- it; TerrainWorldMap.lua's TWM_WMOOverlay_Update reads this shape.\n"
-		+ "-- Entries are emitted in ascending z order (lowest first) so the\n"
-		+ "-- addon's own draw order stacks higher tiles visually on top, and so\n"
-		+ "-- the height-cutoff slider (TerrainWorldMap.lua) has a stable order\n"
-		+ "-- to hide from the top down. Trailing {c1x,c1y, c2x,c2y, c3x,c3y,\n"
+		+ "-- Tiles within each group are emitted in ascending z order for\n"
+		+ "-- readability, but the addon's own draw order/height-cutoff filtering\n"
+		+ "-- is recomputed at runtime across every group's tiles combined (which\n"
+		+ "-- ones are even visible depends on live per-group checkbox state) --\n"
+		+ "-- see TWM_WMOOverlay_Update. Trailing {c1x,c1y, c2x,c2y, c3x,c3y,\n"
 		+ "-- c4x,c4y} (8 more fields, Big coordinates) are the tile's own real 4\n"
 		+ "-- corners, redundant with cx/cy/width/height/yawDeg but computed\n"
 		+ "-- directly (not re-derived from those) -- TWM_DebugTiles draws the\n"
@@ -628,7 +687,21 @@ async function main() {
 		+ "-- (this file, and its dungeons/raids/arenas siblings, only assign their\n"
 		+ "-- own Twm_WMOTiles[\"<name>\"] key) -- see Twm_WDTValidTiles there for why.\n\n";
 
+	// checkedWmoAreasByMap (skip_lists.js) is an opt-in per-map allowlist --
+	// only load Map.csv for the Directory->ID lookup it needs when this
+	// flavor's own list actually has at least one map worth checking.
+	let directoryToIDForAreas = null;
+	if (Object.keys(checkedWmoAreasByMap[opts.flavor] || {}).length > 0) {
+		const { parseCsvFile, findCsv } = require('./csv');
+		ensureDb2Csv({ ...extractOpts, table: 'Map', proxy: opts.proxy });
+		directoryToIDForAreas = {};
+		for (const r of parseCsvFile(findCsv(flavorDirPath, 'Map.')))
+			directoryToIDForAreas[r.Directory] = r.ID;
+	}
+
 	for (const mapName of mapNames) {
+		const mapID = directoryToIDForAreas && directoryToIDForAreas[mapName];
+
 		// Placements are pre-sorted by their own height too, purely so
 		// groupBoxes below is computed in a predictable order across
 		// multiple placements -- the actual output order
@@ -819,6 +892,18 @@ async function main() {
 				const c3 = toBig(-localY2, localX2);
 				const c4 = toBig(-localY1, localX2);
 
+				// checkedWmoAreasByMap (skip_lists.js) -- an opt-in per-map
+				// allowlist: when this map has one, a tile only survives if
+				// its own axis-aligned bbox (from these same 4 real corners)
+				// is fully inside at least one listed area. No entry for this
+				// map at all (the overwhelmingly common case) is a no-op.
+				const cornerXs = [c1[0], c2[0], c3[0], c4[0]], cornerYs = [c1[1], c2[1], c3[1], c4[1]];
+				const tileBox = {
+					xmin: Math.min(...cornerXs), xmax: Math.max(...cornerXs),
+					ymin: Math.min(...cornerYs), ymax: Math.max(...cornerYs),
+				};
+				if (mapID && !isWmoTileInCheckedArea(opts.flavor, mapID, tileBox)) continue;
+
 				// Per-GROUP height, not just the placement's own MODF.position[1]
 				// -- a single WMO placement can have groups at meaningfully
 				// different real heights (e.g. a raised walkway/balcony group
@@ -831,8 +916,25 @@ async function main() {
 				// value and defeat the height-cutoff slider's purpose for
 				// exactly the arenas that actually have multiple levels.
 				const groupHeightCenter = (box.min[2] + box.max[2]) / 2;
+				const groupNames = groupNamesByNameId[p.nameId];
 				mapTiles.push({
 					fileID: t.fileID,
+					// groupNum alone (the WMO's own local group index) is NOT
+					// unique across a map with more than one WMO placement --
+					// two unrelated buildings both number their own groups
+					// from 0 (confirmed: PVPLordaeron places both the actual
+					// arena WMO -- 5 real groups, Arena/InteriorStatues/... --
+					// and a second, unrelated building -- 11 more groups --
+					// whose group 0-4 collided with the arena's own and
+					// silently overwrote its names/tiles when grouped by
+					// groupNum alone). wmoId (WMOMinimapTexture.WMOID, already
+					// resolved above) is unique per real placed building, so
+					// prefixing it makes group_id unique per real physical
+					// group on the whole map.
+					wmoId,
+					groupNum: t.groupNum,
+					groupId: `${wmoId}-${t.groupNum}`,
+					groupName: (groupNames && groupNames.get(t.groupNum)) || `Group ${t.groupNum}`,
 					cx: (c1[0] + c2[0] + c3[0] + c4[0]) / 4,
 					cy: (c1[1] + c2[1] + c3[1] + c4[1]) / 4,
 					width: Math.hypot(c4[0] - c1[0], c4[1] - c1[1]),
@@ -855,15 +957,44 @@ async function main() {
 		console.error(`${mapName}: ${mapTiles.length} WMO minimap tiles placed`);
 		if (mapTiles.length === 0) continue;
 
-		// Sort by height ascending -- necessary (not just the placement-level
-		// pre-sort above) now that height is per-group: a single placement's
-		// groups can themselves span the whole height range.
+		// Sort by height ascending within each group -- cosmetic/readability
+		// only now (TerrainWorldMap.lua recomputes the true cross-group draw
+		// order at runtime, since which tiles are even visible depends on
+		// live per-group checkbox state -- see TWM_WMOOverlay_Update).
 		mapTiles.sort((a, b) => a.z - b.z);
 
-		fullOutput += `Twm_WMOTiles["${mapName}"] = {\n`;
+		// Grouped by groupId (see its own header comment above for why it's
+		// "<wmoId>-<groupNum>", not just groupNum), one Twm_WMOTiles["<name>"]
+		// block per map, each group's own {group_id, group_name, tiles}
+		// sub-table -- see this file's header for the shape and why (WMO
+		// tile group management, TerrainWorldMap.lua). Sorted by (wmoId,
+		// groupNum) ascending here -- numerically, not a string sort of the
+		// compound group_id itself (which would put "10-0" before "2-0") --
+		// so the addon's own group checkbox list needs no runtime sort.
+		const byGroup = new Map();
 		for (const t of mapTiles) {
-			const corners = t.corners.map(c => `${c[0]}, ${c[1]}`).join(', ');
-			fullOutput += `    {${t.fileID}, ${t.cx}, ${t.cy}, ${t.width}, ${t.height}, ${t.yawDeg}, ${t.z}, ${corners}},\n`;
+			if (!byGroup.has(t.groupId)) byGroup.set(t.groupId, { groupName: t.groupName, wmoId: t.wmoId, groupNum: t.groupNum, tiles: [] });
+			byGroup.get(t.groupId).tiles.push(t);
+		}
+		const groupIds = [...byGroup.keys()].sort((a, b) => {
+			const ga = byGroup.get(a), gb = byGroup.get(b);
+			return (ga.wmoId - gb.wmoId) || (ga.groupNum - gb.groupNum);
+		});
+
+		fullOutput += `Twm_WMOTiles["${mapName}"] = {\n`;
+		for (const groupId of groupIds) {
+			const group = byGroup.get(groupId);
+			const groupName = group.groupName.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+			fullOutput += `    {\n`;
+			fullOutput += `        group_id = "${groupId}",\n`;
+			fullOutput += `        group_name = "${groupName}",\n`;
+			fullOutput += `        tiles = {\n`;
+			for (const t of group.tiles) {
+				const corners = t.corners.map(c => `${c[0]}, ${c[1]}`).join(', ');
+				fullOutput += `            {${t.fileID}, ${t.cx}, ${t.cy}, ${t.width}, ${t.height}, ${t.yawDeg}, ${t.z}, ${corners}},\n`;
+			}
+			fullOutput += `        },\n`;
+			fullOutput += `    },\n`;
 		}
 		fullOutput += '}\n';
 	}

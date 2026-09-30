@@ -4,6 +4,30 @@ tags: [memory/repo, gotcha]
 
 # Gotchas
 
+## A WMO group's own local index (`GroupNum`) is not unique across a whole map
+
+`gen_wmo_tiles.js`'s WMO tile group management feature (`Twm_WMOTiles[map]` as
+an array of `{group_id, group_name, tiles}`, checkbox per group) first keyed
+`group_id` by `WMOMinimapTexture.GroupNum` alone. That's only unique *within
+one placed WMO* — a map with more than one WMO placement (the common case for
+outdoor maps: PVPLordaeron places at least 10 distinct buildings, not just the
+arena) has each placement numbering its own groups from 0 independently, so
+two unrelated buildings' group 0/1/2/... collide. Grouping by `GroupNum` alone
+silently merged them: whichever placement processed last overwrote the
+earlier one's name and tiles in the output. Confirmed live comparing
+PVPLordaeron's generated group names against a direct wow.export inspection
+of its actual arena WMO (`world/wmo/pvp/buildings/lordaeron/pvp_lordaeron_arena.wmo`,
+`WMOID=4839`, verified byte-for-byte via a raw MOGI/MOGN dump: 5 real groups,
+2 unnamed + "Arena"/"InteriorStatues"/"InteriorStatuesTop") — the shipped data
+showed a completely different name set, because a *different* building's
+groups had overwritten the arena's own.
+
+Fixed: `group_id` is now `"<WMOID>-<GroupNum>"` (`WMOID` already resolved per
+placement from the root WMO's own `MOHD` offset 32 — see the listfile gotcha
+below) — unique per real physical group on the whole map, not just within one
+building. Sorting is numeric on the `(WMOID, GroupNum)` pair, not a string
+sort of the compound ID (which would put `"10-0"` before `"2-0"`).
+
 ## The community listfile can list a WMO minimap tile that doesn't exist in this build
 
 `gen_wmo_tiles.js` used to find a WMO's baked minimap tiles by pattern-matching
