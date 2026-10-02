@@ -1,4 +1,11 @@
 
+-- Frame levels reserved above ViewFrame for the WMO overlay's per-group
+-- frames (TerrainWorldMap.lua, TWM_WMOOverlay_Update): one frame per group,
+-- level = ViewFrame + 1 + draw rank, so the stacking order is unlimited
+-- (draw sublevels only give 16 steps). Every other ViewFrame child (point
+-- markers, buttons, flight paths) is lifted above that range by this amount.
+TWM_WMO_FRAME_BAND = 600;
+
 local sets = {};
 local frames = {};
 
@@ -283,7 +290,7 @@ function TWMPoints_GetPoint(frame, id)
     f.Foreground:SetShadowOffset(-1, 0);
     f.Foreground:SetPoint("TOPLEFT", f);
 
-    f:SetFrameLevel(f:GetFrameLevel() + 4);
+    f:SetFrameLevel(f:GetFrameLevel() + 4 + TWM_WMO_FRAME_BAND);
     f.Clear = TWMP_Clear;
     f.SetOffset = TWMP_SetOffset;
 
@@ -323,7 +330,7 @@ function TWMPoints_AllocMobilePoint(frame, id)
     f.Foreground:SetShadowOffset(-1, 0);
     f.Foreground:SetPoint("TOPLEFT", f);
 
-    f:SetFrameLevel(f:GetFrameLevel() + 4);
+    f:SetFrameLevel(f:GetFrameLevel() + 4 + TWM_WMO_FRAME_BAND);
     f.Clear = TWMP_Clear;
     f.SetOffset = TWMP_SetOffset;
     f.Update = TWMMP_Update;
@@ -444,7 +451,7 @@ function TWMP_Clear(point)
     -- sets/flightmasters.lua, to always draw above every other marker type)
     -- must not leave that raised level stuck on the frame the next time
     -- it's recycled for some other, non-elevated point type.
-    point:SetFrameLevel(point:GetParent():GetFrameLevel() + 4);
+    point:SetFrameLevel(point:GetParent():GetFrameLevel() + 4 + TWM_WMO_FRAME_BAND);
 end
 
 function TWMP_SetOffset(point, x, y) 

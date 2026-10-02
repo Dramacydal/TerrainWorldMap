@@ -310,7 +310,7 @@ function main() {
 			// [^/]+ (only excludes the path separator), not \w+ -- see
 			// parse_wdt.js's own identical fix for why (a tile's filename can
 			// embed a Directory stem containing a space/apostrophe).
-			pattern: `^world/maps/${lower}/([^_/]+\\.wdt|[^/]+_\\d+_\\d+\\.adt)$`,
+			pattern: `^world/maps/${lower}/([^/]+\\.wdt|[^/]+_\\d+_\\d+\\.adt)$`,
 			checkPaths: [path.join('world', 'maps', contName.toLowerCase(), `${contName.toLowerCase()}.wdt`)],
 		});
 	}

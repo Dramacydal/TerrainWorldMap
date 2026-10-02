@@ -217,16 +217,8 @@ trackOnShowButton:SetScript("OnClick", function(self)
 end);
 SetTooltip(trackOnShowButton, TWM_OPTIONS_TRACKONSHOW, TWM_TOOLTIP_OPT_TRACKONSHOW);
 
-local wmoTileManagementButton = CreateCheckbox(browserContent, "TWMOptionWMOTileManagement", TWM_OPTIONS_WMO_TILE_MANAGEMENT);
-wmoTileManagementButton:SetPoint("TOPLEFT", trackOnShowButton, "BOTTOMLEFT", 0, -12);
-wmoTileManagementButton:SetScript("OnClick", function(self)
-    TWMOption.WMOTileManagement = self:GetChecked() and true or false;
-    TWM_UpdateOverlayButtons(TWMFrame);
-end);
-SetTooltip(wmoTileManagementButton, TWM_OPTIONS_WMO_TILE_MANAGEMENT, TWM_TOOLTIP_OPT_WMOTILEMANAGEMENT);
-
 local showLandmarksButton = CreateCheckbox(browserContent, "TWMOptionShowLandmarks", TWM_OPTIONS_SHOW_LANDMARKS);
-showLandmarksButton:SetPoint("TOPLEFT", wmoTileManagementButton, "BOTTOMLEFT", 0, -12);
+showLandmarksButton:SetPoint("TOPLEFT", trackOnShowButton, "BOTTOMLEFT", 0, -12);
 showLandmarksButton:SetScript("OnClick", function(self)
     TWMOption.Frames["TWMFrame"].PointCfg["landmarks"] = not self:GetChecked();
     TWMPoints_ForceUpdate(TWMFrame);
@@ -321,9 +313,24 @@ iconSizeSlider:SetScript("OnValueChanged", function(self)
 end);
 SetTooltip(iconSizeSlider, TWM_OPTIONS_ICONSIZE, TWM_TOOLTIP_OPT_ICONSIZE);
 
+local wmoTileManagementButton = CreateCheckbox(browserContent, "TWMOptionWMOTileManagement", TWM_OPTIONS_WMO_TILE_MANAGEMENT);
+wmoTileManagementButton:SetPoint("TOPLEFT", iconSizeSlider, "BOTTOMLEFT", -4, -16);
+wmoTileManagementButton:SetScript("OnClick", function(self)
+    TWMOption.WMOTileManagement = self:GetChecked() and true or false;
+    TWM_UpdateOverlayButtons(TWMFrame);
+end);
+SetTooltip(wmoTileManagementButton, TWM_OPTIONS_WMO_TILE_MANAGEMENT, TWM_TOOLTIP_OPT_WMOTILEMANAGEMENT);
+
+local showDevelopmentMapsButton = CreateCheckbox(browserContent, "TWMOptionShowDevelopmentMaps", TWM_OPTIONS_SHOW_DEVELOPMENT_MAPS);
+showDevelopmentMapsButton:SetPoint("TOPLEFT", wmoTileManagementButton, "BOTTOMLEFT", 0, -12);
+showDevelopmentMapsButton:SetScript("OnClick", function(self)
+    TWMOption.ShowDevelopmentMaps = self:GetChecked() and true or false;
+end);
+SetTooltip(showDevelopmentMapsButton, TWM_OPTIONS_SHOW_DEVELOPMENT_MAPS, TWM_TOOLTIP_OPT_SHOWDEVELOPMENTMAPS);
+
 local resetPositionButton = CreateFrame("Button", "TWMOptionResetPosition", browserContent, "UIPanelButtonTemplate");
 resetPositionButton:SetSize(160, 22);
-resetPositionButton:SetPoint("TOPLEFT", iconSizeSlider, "BOTTOMLEFT", -4, -32);
+resetPositionButton:SetPoint("TOPLEFT", showDevelopmentMapsButton, "BOTTOMLEFT", 0, -24);
 resetPositionButton:SetText(TWM_OPTIONS_RESETPOSITION);
 resetPositionButton:SetScript("OnClick", function()
     TWM_ResetFramePosition();
@@ -340,6 +347,7 @@ resetPositionButton:SetScript("OnClick", function()
     TWMOption.ShowEnemyFlightmasters = false;
     TWMOption.ShowFlightPaths = false;
     TWMOption.WMOTileManagement = false;
+    TWMOption.ShowDevelopmentMaps = false;
     if(TWM_SetFlightPathThickness) then TWM_SetFlightPathThickness(nil); end
     if(TWM_SetFlightPathInterpolation) then TWM_SetFlightPathInterpolation(nil); end
 
@@ -368,6 +376,7 @@ function BrowserPanel.OnRefresh()
     showEnemyFlightmastersButton:SetChecked(TWMOption.ShowEnemyFlightmasters);
     showFlightPathsButton:SetChecked(TWMOption.ShowFlightPaths);
     wmoTileManagementButton:SetChecked(TWMOption.WMOTileManagement);
+    showDevelopmentMapsButton:SetChecked(TWMOption.ShowDevelopmentMaps);
     if(TWM_GetFlightPathThickness) then
         local v = TWM_GetFlightPathThickness();
         flightPathThicknessSlider:SetValue(v);

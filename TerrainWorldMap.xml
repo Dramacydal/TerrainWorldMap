@@ -285,7 +285,7 @@
 		</Frames>
 		<Scripts>
 			<OnLoad>
-				self:SetFrameLevel(self:GetFrameLevel() + 4);
+				self:SetFrameLevel(self:GetFrameLevel() + 4 + TWM_WMO_FRAME_BAND);
 			</OnLoad>
 			<OnClick>
 				TWMFOO_OnClick(self);
@@ -309,6 +309,9 @@
 			</Anchor>
 		</Anchors>
 		<Scripts>
+			<OnLoad>
+				self:SetFrameLevel(self:GetFrameLevel() + TWM_WMO_FRAME_BAND);
+			</OnLoad>
 			<OnClick>
 				if(not TWMFrameZoomFrame:IsShown()) then
 					TWMFrameZoomFrame:Show();
@@ -341,7 +344,7 @@
 		</Anchors>
 		<Scripts>
 			<OnLoad>
-				self:SetFrameLevel(self:GetFrameLevel() + 4);
+				self:SetFrameLevel(self:GetFrameLevel() + 4 + TWM_WMO_FRAME_BAND);
 				_G[self:GetName().."Label"]:SetText(TWM_OPTIONS_SHOW_TERRAIN);
 			</OnLoad>
 			<OnClick>
@@ -383,7 +386,7 @@
 		</Anchors>
 		<Scripts>
 			<OnLoad>
-				self:SetFrameLevel(self:GetFrameLevel() + 4);
+				self:SetFrameLevel(self:GetFrameLevel() + 4 + TWM_WMO_FRAME_BAND);
 				_G[self:GetName().."Label"]:SetText(TWM_OPTIONS_SHOW_WMO_OVERLAY);
 			</OnLoad>
 			<OnClick>

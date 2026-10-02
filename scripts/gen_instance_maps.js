@@ -1,7 +1,7 @@
 // Regenerates Data_<Flavor>/mapdata_dungeons.lua / mapdata_raids.lua /
 // mapdata_scenarios.lua (Twm_mapareas entries for each map, plus
 // Twm_DungeonNames/Twm_RaidNames/Twm_ScenarioNames) from Map.csv DBC data
-// plus an already-generated mapdata_tiles.lua. See README.md for usage.
+// plus an already-generated mapdata_tiles_<kind>.lua. See README.md for usage.
 //
 // One shared script for all three categories (--kind), not three separate
 // files -- unlike gen_battlegrounds.js vs gen_arenas.js (genuinely
@@ -184,7 +184,7 @@ function findCandidates(mapRows, instanceType, flavor) {
 // {x1,x2,y1,y2} union of every tile's own real 4 corners (the trailing 8
 // fields of gen_wmo_tiles.js's 15-field tuple, already-computed Big
 // coordinates -- see that script's header) for Twm_WMOTiles["<name>"] in an
-// already-generated mapdata_wmo_tiles.lua. Preferred over
+// already-generated mapdata_wmo_tiles_<kind>.lua. Preferred over
 // boxFromWdtGlobalPlacement whenever available: that function re-derives a
 // box from the WMO's own MOHD bounding box via a SEPARATE, independently-
 // reasoned placement formula (deliberately skipping gen_wmo_tiles.js's own
@@ -220,7 +220,7 @@ function wmoTileBoundsFor(wmoTilesLua, name) {
 }
 
 // {col, row} min/max across every key in Twm_WDTValidTiles["<name>"] of an
-// already-generated mapdata_tiles.lua -- same "COLxROW" keys parse_wdt.js
+// already-generated mapdata_tiles_<kind>.lua -- same "COLxROW" keys parse_wdt.js
 // itself writes. Verbatim from gen_arenas.js.
 function tileBoundsFor(tilesLua, name) {
 	const marker = `Twm_WDTValidTiles["${name}"] = {`;
@@ -455,6 +455,8 @@ async function main() {
 		+ `-- ${kind.namesVar} is resolved into the actual TWM_${kind.label.toUpperCase()}S dropdown\n`
 		+ "-- table at load time (TerrainWorldMap.lua), same as Twm_ArenaNames/\n"
 		+ "-- Twm_flightmasters' name tables -- see this file's own header comment.\n"
+		+ "-- `mapID` is Map.csv's own ID (a string) -- used by per-flavor visibility\n"
+		+ "-- lists such as Twm_SeasonOnlyMaps (Data_Vanilla/mapdata_seasons.lua).\n"
 		+ "-- `expansion` is Map.csv's own ExpansionID (a string, like every other ID\n"
 		+ "-- in this codebase) -- drives the expansion-selection dropdown level\n"
 		+ "-- TerrainWorldMap.lua inserts between this category and the actual list.\n\n"
@@ -462,6 +464,7 @@ async function main() {
 	for (const a of found.slice().sort((x, y) => x.names.enUS.localeCompare(y.names.enUS))) {
 		fullOutput += `    {\n`;
 		fullOutput += `        key = "${a.key}",\n`;
+		fullOutput += `        mapID = "${a.mapID}",\n`;
 		fullOutput += `        expansion = "${a.expansion}",\n`;
 		fullOutput += `        name = {\n`;
 		for (const locale of LOCALES) {

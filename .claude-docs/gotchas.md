@@ -36,7 +36,9 @@ Razorfen Downs' group 010 (20 tiles) showed up this way and got shipped, but
 those files don't exist in this build's actual CASC archive (0 extracted
 across two attempts, including a full wildcard sweep of the WMO's minimap
 directory) — the listfile is an aggregate across many historical builds, and
-this one apparently dropped them. In-game this rendered as a solid bright
+this one apparently dropped them. (The DB2 table below is not a complete cure
+either: it can also list FileDataIDs that the build lacks — see "WMO tile whose
+BLP is absent from the client is skipped" at the end of this file.) In-game this rendered as a solid bright
 green tile (`SetTexture` on an unresolvable FileDataID).
 
 Fixed by reading each WMO's real tile list from the `WMOMinimapTexture` DB2
@@ -166,7 +168,7 @@ restriction, not missing/moved data.
 
 Fixed with `TWM_GetTileTexture(continent, filename)` (`TerrainWorldMap.lua`):
 returns the numeric FileDataID from `Twm_TileFileID[continent][filename]`
-(`Data_<Flavor>/mapdata_tiles.lua`, baked in by `parse_wdt.js --listfile`)
+(`Data_<Flavor>/mapdata_tiles_<kind>.lua` -- continents/battlegrounds/arenas, baked in by `parse_wdt.js --bake-tile-fileids`)
 when that flavor's data has one, otherwise falls back to the old path
 string — so Vanilla/TBC/Mists are untouched, only Forever needed
 regenerating with the new flag. Both `TerrainWorldMap.lua`'s and
@@ -450,25 +452,27 @@ struct's own documented axis order separately — never assume they match.**
 
 ## WMO-tile world position: the final formula, and the reusable lessons behind it
 
-`gen_wmo_tiles.js`'s local→world formula for WMO minimap tiles (rotation≈0
-placements only), current/correct state:
+`gen_wmo_tiles.js`'s local→world formula for WMO minimap tiles (yaw is
+applied; placements with pitch/roll are skipped), current/correct state:
 
 1. `local.X = box.min[0] + blockX*128`, `local.Y_raw = box.min[1] + blockY*128`
    — `box` is the WMO group's own MOGP bounding box, a plain `(X,Y,Z=height)`
    `C3Vector` (NOT the same axis order as `MODF.position`/`rotation`, which are
    `(X,height,Y)` — index 1 is the real horizontal Y, index 2 is height).
    `blockX`/`blockY` read directly against `box[0]`/`box[1]`, no swap.
-2. Y-flip: compute `trueGlobalMinY`/`trueGlobalMaxY` — the min/max of every
-   GROUP's own real `box.min[1]`/`box.max[1]` used by this placement (group-
-   level, continuous geometry, NOT block-quantized, NOT per-tile), then
-   `local.Y = (trueGlobalMinY + trueGlobalMaxY) - local.Y_raw - 128`. Must be
-   ONE shared value for the whole placement, never per-group — a per-group
-   reference can be numerically identical between groups (block counts
-   coincide) while still being anchored to a different absolute point per
-   group, silently breaking their relative alignment even though within-group
-   adjacency looks fine. Must also be the group's TRUE bbox edge, not a
-   block-quantized one — see step 4 for why that distinction is itself worth
-   ~14 units of real, measured error.
+2. **No flip about a tiled-groups pivot.** The model's local Y is mirrored
+   about local 0 (anchor = raw `MODF.position`): the tile's true model Y range
+   is `[box.min[1] + blockY*128, + realH/PPU]`, passed as the first argument
+   of `toBig` (`Big = (MAP_ORIGIN - pos) + rotateOnly(y, x)`). The earlier
+   version reflected about the centre P of the *tiled groups'* bbox instead of
+   about 0, which is only right when P equals the whole-model bbox centre
+   (single-group maps, e.g. Orgrimmar Arena) and puts everything else off by
+   `rotOnly(-2P, 0)`; the interim fix that re-anchored from `MODF.extents`
+   shifted that error to `rotOnly(2(bcy-P), 0)` (Sunwell: ~127 raw, ~463
+   extents-anchored, both measured). Found via
+   `scripts/audit_wmo_extents.js`: baked extents centre = `pos + R*(bboxCx,
+   -bboxCy)` within 1 unit for 875/951 placements. Remaining outliers are
+   pitch/roll/scaled WMOs and WDT-level placements (see next entry).
 3. 90°-CW orientation fix: Blizzard's own WMO-group minimap baking pipeline
    is rotated 90° from world axes (a real, fixed property — also true for
    WMO dungeon interiors, see the entry above). Apply
@@ -477,7 +481,7 @@ placements only), current/correct state:
    (tried both a computed centroid and the placement's real anchor; both
    worked but are unnecessary, since rotating `local` directly is provably
    identical and needs no runtime pivot at all).
-4. **Two rounds of re-anchoring were needed to get step 2 onto the
+4. **(Historical -- step 2's pivot is gone, see above.) Two rounds of re-anchoring were needed to get step 2 onto the
    placement's own true range, not an implicit zero or a quantized
    approximation of it** — both invisible to every relative/adjacency
    check, only found via one arena's rare independent ground truth
@@ -572,6 +576,17 @@ don't port one where the other applies.
   real ADT-baked tile of the identical building, pixel-for-pixel, was what
   finally surfaced it.
 
+## A WDT-level (pure-WMO) MODF has no usable position/rotation/extents-centre
+
+`pos=0`, `rot=0`, `uniqueId=0xFFFFFFFF`, and its `extents` are the raw
+model-space bbox, so comparing extents' centre to a computed one is
+meaningless for these (only the size is comparable) -- `audit_wmo_extents.js`
+flags them `wdtLevel` and scores size only. MODF dedup in
+`gen_wmo_tiles.js` is by `uniqueId` (one placement repeats across the ADT
+tiles it straddles); deduping by `nameId` silently dropped distinct
+placements of the same WMO (Sunwell's ship x4, Hillsbrad/Stratholme small
+WMOs, ...).
+
 ## An arena's "map key" is Map.csv's `Directory` value, exact case — not the on-disk folder name
 
 Every `Twm_*[map]` table (`Twm_mapareas`, `TWM_ARENAS`, `frame.opt.Map`) is
@@ -623,6 +638,11 @@ of trusting call order. If any other part of this addon ever needs a
 specific, non-obvious stacking order among several same-frame textures,
 use an explicit sublevel the same way -- don't assume creation order will
 hold.
+
+**Superseded for the WMO overlay:** a sublevel only has 16 steps, far fewer than
+real dungeons stack, so the overlay now orders its groups by frame level instead
+(see "WMO overlay stacking" at the end of this file). The explicit-sublevel rule
+above still holds for anything that stays within a few overlapping textures.
 
 ## `Slider:SetReverseValues` doesn't exist at all -- confused with `StatusBar:SetReverseFill`
 
@@ -798,3 +818,31 @@ lightweight JSON) instead of re-deriving. Lesson: "component A now produces
 data B" is not the same claim as "component C now consumes B instead of
 recomputing it" -- verify the actual call site changed, not just that the
 new data source exists and is theoretically available.
+
+## Map box (`Twm_mapareas`) of pure-WMO maps goes stale after a `gen_wmo_tiles.js` regen
+
+`gen_instance_maps.js` derives the box of a pure-WMO dungeon/raid from the corners in `mapdata_wmo_tiles_<kind>.lua`
+(`--wmo-tiles-file`). Regenerating the tiles WITHOUT re-running `gen_instance_maps.js` for the same flavor leaves the
+old box: the map centres on empty space next to the WMO cluster (seen: BlackrockDepths X shifted ~580 units after
+the placement fix). Always re-run both together, per flavor and kind.
+
+## WMO tile whose BLP is absent from the client is skipped, not drawn at a guessed size
+
+`gen_wmo_tiles.js` reads each tile's real width/height from its BLP. If the FileDataID is in `WMOMinimapTexture`
+and the community listfile but the build has no such file (CASC returns nothing), the tile is dropped with a
+`not in client -- skipped` warning. It used to be kept at a 256x256 fallback, which could never render anyway.
+Seen: Mists QuarryofTears/IcecrownCitadel (2510652-55), COTDragonblight (2510634/35); Forever Shadowfang
+(213723, 213755). Map boxes (`gen_instance_maps.js`) are derived from the kept tiles, so re-run it after this.
+
+## WMO overlay stacking: one frame per group, frame levels, and TWM_WMO_FRAME_BAND
+
+Real dungeons stack 30+ groups on top of each other (measured overlap depth: Gnomeregan 31, Karazhan 34), but a
+texture draw layer only has 16 sublevels, so ranking tiles by sublevel (the old `i - 9` clamp) collapsed everything
+past rank ~15 onto one sublevel and the order became arbitrary. `TWM_WMOOverlay_Update` now ranks the enabled groups
+by `tile[7]` (= `anchorHeight + min(bbox z)` of the group, wow.export's own `zOrder`, ties keep data order) and puts
+each group's textures into its own child frame of ViewFrame with level `ViewFrame + 1 + rank`.
+Frame levels are global within a strata, so every other ViewFrame child (point markers, flight masters, flight
+path frame, zoom/terrain/WMO buttons, TWMFOO) is lifted by `TWM_WMO_FRAME_BAND` (Points.lua) -- a new ViewFrame child
+that must draw above the tiles needs `+ TWM_WMO_FRAME_BAND` in its level too. The debug borders/labels live on a
+dedicated frame at `ViewFrame + TWM_WMO_FRAME_BAND`. Side effect: the ADT-tile debug borders (OVERLAY 7 on ViewFrame
+itself) now draw under the WMO tiles.

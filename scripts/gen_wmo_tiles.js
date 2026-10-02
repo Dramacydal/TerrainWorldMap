@@ -1,4 +1,4 @@
-// Regenerates Data_<Flavor>/mapdata_wmo_tiles.lua (Twm_WMOTiles) --
+// Regenerates Data_<Flavor>/mapdata_wmo_tiles_<kind>.lua (Twm_WMOTiles) --
 // minimap tile placement data for maps whose real terrain has no baked
 // minimap art of its own (confirmed on Mists' Dalaran Sewers Arena: real
 // WDT/ADT tiles exist, but zero "world/minimaps/<map>/*.blp" files do),
@@ -105,9 +105,8 @@
 //   small value, confirmed: e.g. Dalaran Sewers' own placement has
 //   position=(16278.01, 6.17, 15765.27), and 6.17 is obviously not a
 //   ground-plane coordinate for content sized in the thousands).
-//   World.X = MODF.position[0] + local.X, World.Y = MODF.position[2] + local.Y
-//   (rotation=0, so no rotation matrix -- direct add of two same-physical-axis
-//   values, each read from its own struct's own axis order -- see below).
+//   World.X = anchor.X + local.X, World.Y = anchor.Y + local.Y (rotated by
+//   this placement's own yaw first -- see rotateOnly below).
 //   Big-X = MAP_ORIGIN - World.X, Big-Y = MAP_ORIGIN - World.Y -- NO
 //   world-axis cross-swap here, unlike gen_mapareas.js's own
 //   "Big-X = world-Y, Big-Y = world-X" convention (that convention is
@@ -121,6 +120,8 @@
 //   cross-swap version put every tile in the transposed quadrant instead,
 //   which is what an earlier version of this script did (visually
 //   reported in-game as looking rotated).
+//   `anchor` is raw MODF.position. The model's local Y is mirrored about
+//   local 0 before the yaw rotation (see the per-placement loop).
 //
 // A WMO group's own local bounding box (MOGP chunk, its own file) sets the
 // origin for that group's tile grid: local.X = bbox.minX + blockX*128,
@@ -156,7 +157,7 @@ const path = require('path');
 const readline = require('readline');
 const { Blp } = require('@wowserhq/format');
 const { flavorDir, listfilePath, ensureExtracted, ensureExtractedPaths, ensureDb2Csv, envOr, resolveMapKeys } = require('./extract');
-const { skipWmoTiles, skipTileFileDataId, checkedWmoAreasByMap, isSkipped, isWmoTileInCheckedArea } = require('./skip_lists');
+const { skipWmoTiles, skipTileFileDataId, skipWmoGroups, checkedWmoAreasByMap, isSkipped, isWmoTileInCheckedArea } = require('./skip_lists');
 const { getValidTiles } = require('./parse_wdt');
 
 const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -183,7 +184,7 @@ const PPU = 2; // pixels per world unit for WMO minimap tiles (fixed, not derive
 const TILE_UNITS = 256 / PPU; // 128 model-units per 256px tile
 const ROT_EPSILON = 0.05; // degrees -- MODF rotation floats aren't always exactly 0.0
 
-// Every MODF entry (deduped by nameId) across a map's own _obj0.adt files --
+// Every MODF entry (deduped by uniqueId -- one placement spanning several ADT tiles repeats; distinct placements of the same WMO don't) across a map's own _obj0.adt files --
 // only the ones the WDT's own MAIN/MAID chunk actually declares as real,
 // obj0ADT-backed tiles (validTileKeys, from parse_wdt.js's getValidTiles(),
 // 'obj0ADT' field -- a tile can have real terrain with no object placements
@@ -217,8 +218,9 @@ function findModfPlacements(mapDir, validTileKeys) {
 				for (let i = 0; i < count; i++) {
 					const b = dataStart + i * 64;
 					const nameId = buf.readUInt32LE(b);
-					if (seen.has(nameId)) continue;
-					seen.add(nameId);
+					const uniqueId = buf.readUInt32LE(b + 4);
+					if (seen.has(uniqueId)) continue;
+					seen.add(uniqueId);
 					entries.push({
 						nameId,
 						pos: [buf.readFloatLE(b + 8), buf.readFloatLE(b + 12), buf.readFloatLE(b + 16)],
@@ -437,6 +439,7 @@ async function main() {
 	// above (those drop a whole map; this drops one bad baked tile texture
 	// wherever it's referenced).
 	const skipTileIdSet = new Set(skipTileFileDataId[opts.flavor] || []);
+	const skipGroupIdSet = new Set(skipWmoGroups[opts.flavor] || []);
 
 	// skip_lists.js is keyed by Map.csv `ID`, not Directory name -- only load
 	// Map.csv (an extra download/parse this script otherwise never needs) when
@@ -540,7 +543,7 @@ async function main() {
 			// two known cases.
 			ensureExtracted({
 				...extractOpts,
-				pattern: `^world/maps/(${contAlt})/([^_/]+\\.wdt|[^/]+_obj0\\.adt)$`,
+				pattern: `^world/maps/(${contAlt})/([^/]+\\.wdt|[^/]+_obj0\\.adt)$`,
 				checkPaths: [],
 			});
 		} else {
@@ -729,15 +732,30 @@ async function main() {
 			}
 			const yawRad = -p.rot[1] * Math.PI / 180;
 			const cosT = Math.cos(yawRad), sinT = Math.sin(yawRad);
-			// rotLocal (already past the fixed 90-degree baking step) ->
-			// Big-coordinate point, rotating by this placement's own real
-			// yaw right before translating by MODF.position -- see this
-			// file's header for the sign derivation.
-			function toBig(rotLocalX, rotLocalY) {
+			// rotateOnly: the rotation-only half of the placement transform
+			// (fixed 90-degree baking step + this placement's own real yaw),
+			// with NO translation added -- i.e. where a local point ends up
+			// in Big-space if this placement's own anchor (MODF.position)
+			// were sitting at Big (0,0). Big = MAP_ORIGIN - World and
+			// World = pos + finalLocal are both linear in `pos`, so
+			// subtracting them out like this is exact, not an approximation
+			// -- confirmed: toBig(x,y) - toBig(0,0) == rotateOnly(x,y) for
+			// any x,y,pos (this is just algebra, not a new assumption).
+			function rotateOnly(rotLocalX, rotLocalY) {
 				const finalLocalX = rotLocalX * cosT - rotLocalY * sinT;
 				const finalLocalY = rotLocalX * sinT + rotLocalY * cosT;
-				const worldX = p.pos[0] + finalLocalX, worldY = p.pos[2] + finalLocalY;
-				return [MAP_ORIGIN - worldX, MAP_ORIGIN - worldY];
+				return [-finalLocalX, -finalLocalY];
+			}
+			// Anchor = raw MODF.position. MODF.extents agrees with it for real
+			// placements: extents center = pos + R*(bboxCx, -bboxCy), i.e. the
+			// model's local Y is mirrored about local 0 (see
+			// audit_wmo_extents.js, 875/951 within 1 unit).
+			const anchorBigX = MAP_ORIGIN - p.pos[0];
+			const anchorBigY = MAP_ORIGIN - p.pos[2];
+			const anchorHeight = p.pos[1];
+			function toBig(rotLocalX, rotLocalY) {
+				const off = rotateOnly(rotLocalX, rotLocalY);
+				return [anchorBigX + off[0], anchorBigY + off[1]];
 			}
 
 			// One group file per distinct groupNum referenced by its tiles.
@@ -788,39 +806,6 @@ async function main() {
 			}).filter(Boolean);
 			if (rawTiles.length === 0) continue;
 
-			// wow.export's own real compute_minimap_layout() computes a
-			// Y-flip using `max_y = max(absY + 256)` -- i.e. the largest
-			// BLOCK-quantized edge, not the group's own true (continuous)
-			// bounding-box edge. That's fine for wow.export's own purpose
-			// (arranging blocks on a canvas, and its own build_world_meta
-			// world-position sidecar inherits the same quantization, so it
-			// never has to matter to them) -- but a group's real geometry
-			// need not exactly fill a whole number of 128-unit blocks (e.g.
-			// Orgrimmar's own group spans 241.6 units of real Y but reads
-			// as 2 full blocks = 256 units, a 14.4-unit slack), so blindly
-			// reusing the block-quantized max re-anchors the WHOLE result
-			// with that same slack baked in as a constant absolute error.
-			// This addon, unlike wow.export, HAS independent ground truth
-			// to check against for one arena (Orgrimmar also has real
-			// ADT-baked outdoor minimap tiles for the same building) -- a
-			// pixel-for-pixel comparison against that confirmed this exact
-			// slack as a real, measurable offset (Orgrimmar's WMO overlay
-			// sat consistently ~14 units off from its own real minimap
-			// tile, unoccluded-edge-measured across 5 rows). Fixed by
-			// reflecting around the group geometry's OWN true combined
-			// range instead of the block-quantized one: `trueGlobalMinY`/
-			// `trueGlobalMaxY` are the min/max of every GROUP's own real
-			// bbox Y bounds used by this placement (not per-tile, not
-			// block-quantized). This is still ONE shared reference for the
-			// whole placement (never per-group -- a per-group reference is
-			// the earlier, already-reverted mistake, see gotchas.md), so it
-			// cannot change any already-verified relative arrangement
-			// (Dalaran's own ~21.575-unit group-to-group offset is
-			// unaffected by construction, confirmed numerically before
-			// shipping this).
-			const trueGlobalMinY = Math.min(...Object.values(groupBoxes).map(b => Math.min(b.min[1], b.max[1])));
-			const trueGlobalMaxY = Math.max(...Object.values(groupBoxes).map(b => Math.max(b.min[1], b.max[1])));
-
 			for (const { t, box, localX1, localY1raw } of rawTiles) {
 				// A bad/misplaced baked tile texture (e.g. a leftover
 				// placeholder), hand-listed in skip_lists.js's
@@ -828,30 +813,26 @@ async function main() {
 				// system references that same FileDataID (see parse_wdt.js
 				// for the ADT-side half of this same filter).
 				if (skipTileIdSet.has(String(t.fileID))) continue;
+				if (skipGroupIdSet.has(`${wmoId}-${t.groupNum}`)) continue;
 
 				// Real crop size (see this file's header) replaces the
 				// nominal TILE_UNITS for THIS tile's own span. X: localX1 is
-				// the raw (unreflected) near edge regardless, so just add
-				// the real width. Y: localY1raw's reflection (localY2 below)
-				// is unaffected by crop size -- only the FAR edge's
-				// reflection changes, using the real height instead of
-				// always TILE_UNITS (the old code's shortcut, "reflect the
-				// near edge, add back TILE_UNITS", assumed a constant far
-				// edge; a real crop's far edge isn't always TILE_UNITS away
-				// from the near one anymore).
-				let realW = TILE_UNITS * PPU, realH = TILE_UNITS * PPU; // 256x256 fallback
+				// the near edge, so just add the real width. Y: same, localY1raw
+				// is the near edge and the far edge is the real height away.
+				// No BLP in the client (listed in WMOMinimapTexture/listfile
+				// but absent from the build) => nothing to draw: skip.
 				const tileListfilePath = fileIdToPath[t.fileID];
 				const blpPath = tileListfilePath && path.join(flavorDirPath, tileListfilePath);
-				if (blpPath && fs.existsSync(blpPath)) {
-					const dim = blpDimensions(blpPath);
-					realW = dim.width; realH = dim.height;
-				} else {
-					console.error(`  (warning: ${mapName}'s tile FileDataID ${t.fileID} not extracted locally -- assuming full 256x256, size may be wrong)`);
+				if (!blpPath || !fs.existsSync(blpPath)) {
+					console.error(`  (warning: ${mapName}'s tile FileDataID ${t.fileID} not in client -- skipped)`);
+					continue;
 				}
+				const dim = blpDimensions(blpPath);
+				const realW = dim.width, realH = dim.height;
 
 				const localX2 = localX1 + realW / PPU;
-				const localY2 = (trueGlobalMinY + trueGlobalMaxY) - localY1raw;
-				const localY1 = localY2 - realH / PPU;
+				const localYNear = localY1raw;
+				const localYFar = localY1raw + realH / PPU;
 
 				// Blizzard's own WMO-group minimap baking pipeline has a
 				// fixed, non-arbitrary 90-degree rotation relative to world
@@ -887,10 +868,10 @@ async function main() {
 				// now, not 2 -- a yawed tile is no longer axis-aligned, so a
 				// 2-corner diagonal can't describe it (see this file's
 				// header for the tuple shape + sign).
-				const c1 = toBig(-localY1, localX1);
-				const c2 = toBig(-localY2, localX1);
-				const c3 = toBig(-localY2, localX2);
-				const c4 = toBig(-localY1, localX2);
+				const c1 = toBig(localYFar, localX1);
+				const c2 = toBig(localYNear, localX1);
+				const c3 = toBig(localYNear, localX2);
+				const c4 = toBig(localYFar, localX2);
 
 				// checkedWmoAreasByMap (skip_lists.js) -- an opt-in per-map
 				// allowlist: when this map has one, a tile only survives if
@@ -915,7 +896,11 @@ async function main() {
 				// only the placement's own height would flatten this into one
 				// value and defeat the height-cutoff slider's purpose for
 				// exactly the arenas that actually have multiple levels.
-				const groupHeightCenter = (box.min[2] + box.max[2]) / 2;
+				// The group's LOWEST Z (min of both bbox corners), not its centre: this is
+				// also wow.export's own draw-order key (wmo-minimap.js,
+				// zOrder = min(boundingBox1.z, boundingBox2.z)), and the
+				// addon stacks groups in ascending order of it.
+				const groupHeightKey = Math.min(box.min[2], box.max[2]);
 				const groupNames = groupNamesByNameId[p.nameId];
 				mapTiles.push({
 					fileID: t.fileID,
@@ -940,7 +925,7 @@ async function main() {
 					width: Math.hypot(c4[0] - c1[0], c4[1] - c1[1]),
 					height: Math.hypot(c2[0] - c1[0], c2[1] - c1[1]),
 					yawDeg: -p.rot[1],
-					z: p.pos[1] + groupHeightCenter,
+					z: anchorHeight + groupHeightKey,
 					// The real 4 corners too (Big coordinates), so
 					// TerrainWorldMap.lua's debug border can draw the tile's
 					// TRUE rotated outline directly (Line, point-to-point) --

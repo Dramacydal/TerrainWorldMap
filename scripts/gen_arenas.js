@@ -1,6 +1,6 @@
 // Regenerates Data_<Flavor>/mapdata_arenas.lua (Twm_mapareas entries for
 // each arena, plus Twm_ArenaNames) from Map.csv DBC data plus an already-
-// generated mapdata_tiles.lua. See README.md for usage.
+// generated mapdata_tiles_<kind>.lua. See README.md for usage.
 //
 // Unlike battlegrounds, an arena has ZERO UiMapAssignment rows at all
 // (confirmed on TBC and Mists: every arena MapID matches zero rows,
@@ -58,7 +58,7 @@ function findArenas(mapRows, flavor) {
 }
 
 // {col, row} min/max across every key in Twm_WDTValidTiles["<name>"] of an
-// already-generated mapdata_tiles.lua -- same "COLxROW" keys parse_wdt.js
+// already-generated mapdata_tiles_<kind>.lua -- same "COLxROW" keys parse_wdt.js
 // itself writes.
 function tileBoundsFor(tilesLua, name) {
 	const marker = `Twm_WDTValidTiles["${name}"] = {`;

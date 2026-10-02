@@ -257,7 +257,7 @@ function main() {
 		ensureExtracted({
 			...extractOpts,
 			// [^/]+, not \w+ -- see parse_wdt.js's identical fix.
-			pattern: `^world/maps/${lower}/([^_/]+\\.wdt|[^/]+_\\d+_\\d+\\.adt)$`,
+			pattern: `^world/maps/${lower}/([^/]+\\.wdt|[^/]+_\\d+_\\d+\\.adt)$`,
 			checkPaths: [path.join('world', 'maps', contName.toLowerCase(), `${contName.toLowerCase()}.wdt`)],
 		});
 	}

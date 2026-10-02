@@ -42,6 +42,10 @@
 //   FileDataID can turn up reused in either place). For a specific known-bad
 //   texture (e.g. a leftover Blizzard placeholder) rather than a whole map's
 //   worth of tiles being wrong.
+// - skipWmoGroups: NOT keyed by map -- one WMO group (all its tiles) that
+//   should never render, as the "<WMOID>-<GroupNum>" group_id string shown in
+//   Twm_WMOTiles / the WMO tile management list (e.g. '1356-10'). Applied in
+//   gen_wmo_tiles.js next to skipTileFileDataId.
 // - checkedWmoAreasByMap: an ALLOWLIST, not a blocklist like the four above
 //   -- {flavor: {mapID: [[xmin,ymin,xmax,ymax], ...]}}, Big-coordinate
 //   literal min/max boxes (NOT this codebase's occasional inverted-axis box
@@ -87,28 +91,49 @@ const skipMaps = {
 
 const skipAdtTiles = {
 	wow_classic_era: [
+		'129', // Razorfen Downs
+		'189', // Scarlet Monastery
 	],
 	wow_anniversary: [
+		'129', // Razorfen Downs
+		'189', // Scarlet Monastery
 	],
 	wow_classic: [
 	],
 	wow_classic_beta: [
+		'129', // Razorfen Downs
+		'189', // Scarlet Monastery
+		'3065', // The Hall of Thanes
 	],
 };
 
 const skipWmoTiles = {
 	wow_classic_era: [
+		'209', // Zul'Farrak
+		'309', // Zul'Gurub
+		'509', // Ruins of Ahn'Qiraj
 	],
 	wow_anniversary: [
+		'209', // Zul'Farrak
+		'269', // Opening of the Dark Portal
+		'309', // Zul'Gurub
+		'509', // Ruins of Ahn'Qiraj
+		'543', // Hellfire Citadel: Ramparts
+		'560', // The Escape From Durnholde
 	],
 	wow_classic: [
 	],
 	wow_classic_beta: [
+		'2999', // Ruins of Lordaeron (dungeon, Directory "2999")
+		'209', // Zul'Farrak
+		'309', // Zul'Gurub,
+		'509', // Ruins of Ahn'Qiraj
 	],
 };
 
 const skipTileFileDataId = {
 	wow_classic_era: [
+		'188515', // tileset/generic/black.blp -- placeholder for classic_md_crypt_d (Karazhan Crypts)
 	],
 	// Razorfen Downs group 1 (WMOID 1356) blockX=1 column -- confirmed
 	// independently via wow.export (separate tool, same underlying data)
@@ -123,8 +148,26 @@ const skipTileFileDataId = {
 	],
 };
 
+// Not keyed by map (a WMOID is unique per WMO). Entries are the group_id
+// strings gen_wmo_tiles.js writes into Twm_WMOTiles: "<WMOID>-<GroupNum>".
+const skipWmoGroups = {
+	wow_classic_era: [
+	],
+	wow_anniversary: [
+	],
+	wow_classic: [
+	],
+	wow_classic_beta: [
+		'1356-10', // Razorfen Downs "gongshow"
+		'1193-19', // Razorfen Kraul "trench001"
+	],
+};
+
 const checkedWmoAreasByMap = {
 	wow_classic_era: {
+		'289': [ // Scholomance
+			[-212.5, -124.7, 337.7, 364.9],
+		],
 	},
 	wow_anniversary: {
 	},
@@ -153,4 +196,4 @@ function isWmoTileInCheckedArea(flavor, mapID, tileBox) {
 		tileBox.xmin >= xmin && tileBox.ymin >= ymin && tileBox.xmax <= xmax && tileBox.ymax <= ymax);
 }
 
-module.exports = { skipMaps, skipAdtTiles, skipWmoTiles, skipTileFileDataId, checkedWmoAreasByMap, isSkipped, isWmoTileInCheckedArea };
+module.exports = { skipMaps, skipAdtTiles, skipWmoTiles, skipTileFileDataId, skipWmoGroups, checkedWmoAreasByMap, isSkipped, isWmoTileInCheckedArea };

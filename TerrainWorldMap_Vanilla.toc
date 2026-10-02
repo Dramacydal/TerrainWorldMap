@@ -13,15 +13,24 @@ Libs\Libs.xml
 Locale\Locales.xml
 
 mapdata_zones.lua
+mapdata_development.lua
 Data_Vanilla\mapdata_continents.lua
 Data_Vanilla\mapdata_poi.lua
 Data_Vanilla\mapdata_battlegrounds.lua
+Data_Vanilla\mapdata_dungeons.lua
+Data_Vanilla\mapdata_raids.lua
+Data_Vanilla\mapdata_seasons.lua
+Data_Vanilla\mapdata_wmo_tiles_dungeons.lua
+Data_Vanilla\mapdata_wmo_tiles_raids.lua
 Data_Vanilla\mapdata_poi_areas.lua
 Data_Vanilla\mapdata_poi_battlegrounds_areas.lua
 Data_Vanilla\mapdata_poi_graveyards.lua
 Data_Vanilla\mapdata_poi_instances.lua
 Data_Vanilla\mapdata_poi_flightmasters.lua
-Data_Vanilla\mapdata_tiles.lua
+Data_Vanilla\mapdata_tiles_continents.lua
+Data_Vanilla\mapdata_tiles_battlegrounds.lua
+Data_Vanilla\mapdata_tiles_dungeons.lua
+Data_Vanilla\mapdata_tiles_raids.lua
 Points.lua
 TaxiRoutes.lua
 Spline.lua

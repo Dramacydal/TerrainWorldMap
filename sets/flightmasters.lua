@@ -37,7 +37,7 @@ function set.setuppoint(point, env, dat)
     -- TWMP_Clear (Points.lua) resets this back to that baseline before a
     -- recycled frame is handed to any other set, so this doesn't stick once
     -- the frame stops being a flight master.
-    point:SetFrameLevel(point:GetParent():GetFrameLevel() + 8);
+    point:SetFrameLevel(point:GetParent():GetFrameLevel() + 8 + TWM_WMO_FRAME_BAND);
 
     bg:Show();
     bg:SetHeight(iconsize);

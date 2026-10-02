@@ -202,6 +202,54 @@ node gen_mapareas.js --work-dir C:\wow-data --flavor wow_classic_era --out Data_
 `gen_candidates.js` has run — its own stdout line 1 above is kept for a
 one-off/no-workdir use, but `parse_wdt.js` below reads the JSON by default.)
 
+## `Data_<Flavor>/mapdata_poi.lua` — hand-maintained, no generator
+
+No script writes this file, and none of the steps here regenerate it (it is
+loaded by every `.toc` right after `mapdata_continents.lua`). Edit it by
+hand when a flavor gains or loses a continent-level map. It holds two tables:
+
+- **`Twm_ContinentMapID`** — `{ [<Map.csv Directory>] = <uiMapID> }`, one entry
+  per continent/standalone island that `candidates/continents.json` (see
+  `gen_candidates.js`) lists for the flavor. The key is the same name
+  `gen_mapareas.js` writes into `Twm_mapareas`; the value is the map's
+  `uiMapID`, which the addon uses to read the live name and the player's
+  position (`C_Map.GetMapInfo`/`C_Map.GetPlayerMapPosition`).
+- **`TWM_MAPS`** — `{ [localized name] = {<Directory>} }` built from the table
+  above via `C_Map.GetMapInfo(Twm_ContinentMapID[...]).name`, so the dropdown
+  label always matches the client's own locale. One line per entry; add a line
+  whenever an entry is added to `Twm_ContinentMapID`.
+
+**Where the uiMapID comes from:** `<work-dir>/<flavor>/UiMapAssignment.csv`
+(downloaded by `gen_mapareas.js`). Take the row whose `MapID` is the
+continent's `Map.csv` `ID` and whose `AreaID` is `0` (the "whole map"
+sentinel, same convention as `Twm_mapareas[continent][0]`); its `UiMapID` is
+the value. When a map has several such rows (e.g. a standalone island with a
+sub-zone like Lost Isles/Kezan), take the one `C_Map.GetMapInfo(uiMapID).name`
+reports for the main map. Kalimdor `1414` and Eastern Kingdoms `1415` are
+stable across Vanilla/TBC/Forever. Alternatively read it in game from
+`C_Map.GetMapChildrenInfo(946, Enum.UIMapType.Continent, true)` (Vanilla/TBC
+do this; Forever's Zephras Isle `"2991"` was derived from the CSV instead).
+
+**`Twm_SeasonOnlyMaps` (Vanilla only, own file `Data_Vanilla/mapdata_seasons.lua`):** `{ [seasonID] = {"<Map.csv ID>", ...} }`,
+hand-maintained list of dungeon/raid maps shown in the dropdown only while
+`C_Seasons.GetActiveSeason()` equals the key (`2` = Season of Discovery). It is
+matched against the `mapID` field that `gen_instance_maps.js` writes into every
+`Twm_DungeonNames`/`Twm_RaidNames`/`Twm_ScenarioNames` entry. The DB2 tables
+checked (`Map`, `LFGDungeons`, `MapDifficulty`, `GroupFinderActivity`) carry no
+season field; SoD-only maps in `Map.csv` are the ones with a numeric `Directory`
+(IDs from 2720). Add an ID here when a new seasonal map appears.
+
+**`Twm_DevelopmentMaps` (all flavors, `mapdata_development.lua` in the addon root):**
+hand-maintained `{"<Map.csv ID>", ...}` of maps still in development that already
+have WMO or ADT data (so far: Emerald Dream, `169`). They are left out of the
+dungeon/raid/scenario dropdown lists unless the "Show Development Maps" option
+(`TWMOption.ShowDevelopmentMaps`) is on; matched on the same `mapID` field.
+
+Per flavor: Vanilla has no `Expansion01` (no Outland), TBC has no Northrend,
+Mists adds Northrend, Pandaria (`HawaiiMainLand`) and the standalone islands
+(Deephome, LostIsles, Gilneas2, MaelstromZone, TolBarad,
+MoguIslandDailyArea), Forever adds `"2991"` and has no Outland/Northrend.
+
 ## Step 3 — `parse_wdt.js`: tile validity + AreaIDs
 
 ```bash
@@ -774,7 +822,8 @@ extract each placement's root `.wmo` file and read that field to know which
   chunks (64-byte entries: `nameId`(0)/`uniqueId`(4)/`position`
   float32[3](8, order X/height/Y)/`rotation` float32[3](20, same order)/
   bounds(32,44)/`flags`(56)/`doodadSet`(58)/`nameSet`(60)/`scale`(62)),
-  deduped by `nameId`.
+  deduped by `uniqueId` (one placement repeats in every ADT tile it
+  straddles; deduping by `nameId` dropped distinct placements of the same WMO).
 - One streaming pass over the community listfile resolves each placement's
   `nameId` to its WMO root path; those root files are then self-extracted
   and each one's `MOHD.WMOID` (offset 32) read directly, which is looked up
@@ -782,11 +831,18 @@ extract each placement's root `.wmo` file and read that field to know which
   that WMO's real `{GroupNum, BlockX, BlockY, FileDataID}` tile list. A
   second, narrower listfile pass then resolves only those specific
   FileDataIDs to their own paths, for extraction and BLP-dimension reading.
-- **Rotation scope**: only placements with `|rotation| <= 0.05` degrees on
-  all three axes are emitted. A placement with real rotation (confirmed to
-  exist, e.g. Tol'Viron Arena, Ring of Valor — always yaw-only, never
-  pitch/roll) is skipped with a console warning; the yaw transform isn't
-  implemented.
+- **Rotation scope**: yaw (the Y rotation) is applied; a placement with a real
+  pitch/roll (non-zero rotation on the other two axes, e.g. Tanaris' abandoned
+  orc tower, Caverns of Time's ogre mound) is skipped with a console warning,
+  not supported.
+- **Tiles without a file are dropped**: a tile whose FileDataID is in
+  `WMOMinimapTexture` but whose BLP is not in the client (CASC returns nothing)
+  is skipped with a `not in client -- skipped` warning instead of being drawn at
+  a guessed size. A tile's real width/height comes from its BLP header
+  (cropped tiles exist, 16x16 up to 128x128 units).
+- **Per-flavor filters** (`skip_lists.js`): `skipWmoTiles` (whole map),
+  `skipWmoGroups` (single `"<WMOID>-<GroupNum>"`), `skipTileFileDataId`
+  (one texture), `checkedWmoAreasByMap` (allowlist box per map).
 - Each WMO group's own local bounding box (`MOGP` chunk, offset 12 within
   its data: `flags`(4) then `bboxMin`/`bboxMax` `C3Vector`(12 each), plain
   `(X,Y,Z=height)` order — NOT the same reordering `MODF` uses) sets that
@@ -794,61 +850,33 @@ extract each placement's root `.wmo` file and read that field to know which
   model-units per 256px tile, fixed `PPU=2`, same constant as WMO dungeon
   interiors) — `blockX` reads directly against `box[0]`, no swap with
   `box[1]`.
-- `local.Y` gets a flip shared across the WHOLE placement (not per group —
-  see gotchas.md for why that distinction matters): `local.Y_raw =
-  bbox.minY + blockY*128` for every tile of every group in the placement,
-  `trueGlobalMinY`/`trueGlobalMaxY` = the min/max of every involved GROUP's
-  own real `box.min[1]`/`box.max[1]` (group-level, continuous geometry —
-  NOT block-quantized, NOT per-tile), then `local.Y = (trueGlobalMinY +
-  trueGlobalMaxY) - local.Y_raw - 128`.
-  This exact form took two rounds to get right, both invisible to every
-  relative/adjacency check and only found via Orgrimmar Arena's rare
-  independent ground truth (it also has real ADT-baked outdoor minimap
-  tiles for the SAME building its WMO overlay draws, so the two can be
-  compared pixel-for-pixel — most arenas have no such check available).
-  Round 1: the flip started as a faithful port of wow.export's real
-  `compute_minimap_layout()`, but that function builds a presentation-only
-  CANVAS coordinate (valid for arranging tiles relative to each other, not
-  as a real local coordinate) — using it unmodified re-anchors the whole
-  placement onto the canvas's own arbitrary zero (confirmed: ~160 units off
-  against Orgrimmar's real tile). Round 2: even after re-anchoring onto the
-  placement's own minimum, that minimum was still built from block-
-  quantized `local.Y_raw` values, not the group's true bbox edge — a
-  group's real geometry need not exactly fill a whole number of 128-unit
-  blocks (Orgrimmar's own group spans 241.6 real units but reads as 2 full
-  blocks = 256, a 14.4-unit slack; wow.export's own `build_world_meta`
-  inherits the same slack from its own `max_y`, so wow.export never has to
-  notice — but this addon has ground truth wow.export doesn't). Both
-  rounds are one GLOBAL reference shared across the whole placement, so
-  neither could disturb the already-verified relative arrangement between
-  groups (confirmed: Dalaran's own ~21.575-unit group-to-group offset is
-  exactly unchanged by either). Final residual after both fixes, measured
-  against Orgrimmar's real tile (color-thresholded pixel scan, not
-  eyeballed): ~3-5 units — down from ~160, and visually a full, gapless
-  overlap.
+- `local.Y` is the model's own Y, mirrored about local 0 (no flip around the
+  tiled groups' bbox): `y = bbox.minY + blockY*128` (+ real tile height for
+  the far edge) is passed as the first argument of the placement transform.
+  The earlier "flip about the tiled groups' bbox centre" was only right for
+  single-group maps; see gotchas.md ("WMO-tile world position", step 2) and
+  `audit_wmo_extents.js` for the verification against `MODF.extents`.
 - Local coordinates then get a fixed 90°-clockwise rotation —
   `(local.X, local.Y) -> (-local.Y, local.X)` — correcting for a real
   property of Blizzard's own WMO-minimap-tile baking convention (also true
   for WMO dungeon interiors; confirmed against the real in-game Minimap).
-- Model→world: `World.X = MODF.position[0] + local.X`,
-  `World.Y = MODF.position[2] + local.Y` (plain component-wise addition —
-  the standard MODF-placement convention, no rotation matrix needed since
-  rotation≈0 here). World → Big: `Big-X = MAP_ORIGIN - World.X`,
-  `Big-Y = MAP_ORIGIN - World.Y` (`MAP_ORIGIN = 32*(1600/3)`) — no
-  cross-swap (this addon's usual "Big-X = world-Y" convention is
-  calibrated for other sources, not a value already in `MODF`'s own axis
-  order).
+- Model→Big: `Big = (MAP_ORIGIN - MODF.position[x,z]) + rotateOnly(y, x)`
+  (`MAP_ORIGIN = 32*(1600/3)`, `rotateOnly` = the placement's yaw applied to
+  the rotated local vector `(y, x)`, `yawRad = -rot[1]`). The anchor is the
+  raw `MODF.position`, with no pivot taken from the tiled groups' bbox — no
+  cross-swap (this addon's usual "Big-X = world-Y" convention is calibrated
+  for other sources, not a value already in `MODF`'s own axis order).
   `TerrainWorldMap.lua`'s `TWM_WMOOverlay_Update` has no rotation/flip logic
   of its own — it reads these Big coordinates the same direct way the base
   map tiles do. The one thing that DOES still live in Lua is the matching
-  texture-CONTENT rotation (`TWM_WMOOverlay_EnsureTextures`'
+  texture-CONTENT rotation (`TWM_WMOOverlay_EnsureTexture`'s
   `SetTexCoord(0,1, 1,1, 0,0, 1,0)`, the 8-param form) — a separate concern
   (what each tile's own pixels show, not where its box goes).
   See `.claude-docs/gotchas.md`'s "WMO-tile world position" entry for the
   reference implementation used, the full derivation of all of the above,
   and several reusable lessons from getting each step wrong at least once
   before landing here.
-- **The positional args must match the map key's exact DB2 `Directory`
+- **A `--maps` value must match the map key's exact DB2 `Directory`
   casing** (`gen_arenas.js`'s output key, e.g. `DalaranArena`,
   `OrgrimmarArena`), not whatever case the on-disk extracted folder happens
   to use (Windows filesystem paths are case-insensitive, so
@@ -859,42 +887,32 @@ extract each placement's root `.wmo` file and read that field to know which
   script's own name suggests) silently produces a working file with the
   wrong keys — no error, `Twm_WMOTiles[frame.opt.Map]` just always
   misses.
-- Output: `Twm_WMOTiles["<map>"] = {{fileID, x1, x2, y1, y2, height}, ...}`,
-  one entry per baked tile (`x1/y1` = max, `x2/y2` = min, same box
-  convention as `Twm_mapareas`; `height` = that placement's own
-  `MODF.position[1]` PLUS that specific tile's own WMO GROUP's height-axis
-  center — tracked per group, not just per placement, since one
-  placement's groups can be at meaningfully different real heights, e.g. a
-  raised walkway over the main floor; confirmed on Dalaran Sewers' own two
-  groups). Entries are sorted by this height ascending before output.
-  Rendered in `TerrainWorldMap.lua` as a pooled set of plain textures
-  (`TWM_WMOOverlay_Update`), shown only when a map has an entry in this
-  table, toggled by the "Show WMO Layers" checkbox
-  (`TWMFrameShowWMOOverlayButton`, default on) plus a vertical height-cutoff
-  slider (shown only when a map's tiles actually span more than one
-  height) — see `.claude-docs/architecture.md`'s Arenas section.
+- Output: `Twm_WMOTiles["<map>"] = { {group_id = "<WMOID>-<GroupNum>",
+  group_name = "<MOGN name or Group N>", tiles = { {fileID, cx, cy, width,
+  height, yawDeg, z, c1x,c1y, c2x,c2y, c3x,c3y, c4x,c4y}, ... }}, ... }`, groups
+  sorted by (WMOID, GroupNum). `cx/cy` = tile centre (Big coordinates),
+  `width/height` = the tile's real footprint from its BLP header, `yawDeg` = the
+  placement's yaw, `z` = `MODF.position[1]` + the group's LOWEST bbox Z (the same
+  key wow.export sorts by), c1..c4 = the real corners.
+  Rendered in `TerrainWorldMap.lua` (`TWM_WMOOverlay_Update`): the enabled groups
+  are ranked by `z` (ties keep data order) and each group's tiles go into their
+  own child frame of ViewFrame whose frame level is that rank, so the stacking
+  depth is unlimited (see `.claude-docs/gotchas.md`, "WMO overlay stacking").
+  Shown only for a map that has an entry in this table; the "Show WMO Layers"
+  checkbox (`TWMFrameShowWMOOverlayButton`) appears when the map also has ADT
+  terrain, a horizontal height-cutoff slider when the tiles span more than one
+  height, and the "WMO Tile Management" option adds one checkbox per group
+  (`.claude-docs/architecture.md`).
 
-**Generated so far** (yaw/rotation support landed since the note below was
-first written -- re-audit with `audit_wmo_extraction.js` rather than trust
-old "skipped, real rotation" claims, several turned out to just be
-un-extracted): `Data_Mists/mapdata_wmo_tiles.lua` has `DalaranArena` (6
-tiles), `OrgrimmarArena` (6 tiles), `TolVirArena` (37 tiles, real yaw),
-`PVPLordaeron` (46 tiles across 11 groups -- the arena building itself plus
-several reused Duskwood village buildings and dungeon fragments as
-decoration, all real yaw), `Shadowfang` (105 tiles -- its own 73-group
-dungeon interior WMO plus ~8 small reused decorative fragments), and, once
-the WDT-level `MODF` fallback landed here (see this step's header),
-`OrgrimmarInstance`/Ragefire Chasm (19 tiles, pure-WMO) and
-`OnyxiaLairInstance`/Onyxia's Lair (11 tiles, pure-WMO). `Data_TBC/
-mapdata_wmo_tiles.lua` has the same `PVPLordaeron` (identical underlying
-assets, 46 tiles). Everything else produces 0, genuinely (no baked minimap
-tiles exist for these WMOs at all, confirmed via the listfile, not an
-extraction gap -- **but this claim is only trustworthy for maps with real
-ADT terrain** (arenas always have some); `audit_wmo_extraction.js` itself
-was missing the WDT-level check until the Ragefire/Onyxia miss above, so
-re-audit a *pure-WMO* dungeon/raid candidate again before trusting an old
-"produces 0" note about one): TBC's/Mists' Nagrand Arena, Blade's Edge
-Arena, Mists' Tiger's Peak (`ShadoPanArena`), Forever's Hyjal Crater.
+**Generated so far** (counts change with every regen; re-check the data files,
+or run `audit_wmo_extraction.js`, before trusting an old "produces 0" claim --
+several turned out to be un-extracted files or a missing WDT-level `MODF`
+check). Maps with at least one tile: Vanilla 28 dungeons / 10 raids; TBC 31 /
+14 / 1 arena; Mists 75 / 29 / 4 arenas; Forever 33 / 12 / 1 arena. A map with 0
+tiles has no baked minimap art for its WMO in that build (confirmed against
+`WMOMinimapTexture`, not an extraction gap) -- e.g. Forever's Blackrock Depths,
+whose rebuilt WMO (`autogen-names/unknown/21773.wmo`, WMOID 21773) has no rows
+in the table.
 
 ## Other scripts
 
@@ -909,8 +927,11 @@ Arena, Mists' Tiger's Peak (`ShadoPanArena`), Forever's Hyjal Crater.
   force `parse_wdt.js`/`gen_wmo_tiles.js` to skip just that one tile layer for
   it (read by `TerrainWorldMap.lua`'s `TWM_MapHasTerrain`/the Show
   Terrain/Show WMO Layers checkbox logic exactly like a map that genuinely
-  never had that layer). See the file's own header for the full rationale.
-  Not currently wired into `gen_arenas.js`/`gen_battlegrounds.js` — only the
+  never had that layer). `skipWmoGroups` is not keyed by map: it lists single
+  WMO groups to drop (all of their tiles) as `"<WMOID>-<GroupNum>"` strings,
+  the same `group_id` that `Twm_WMOTiles` and the WMO tile management list
+  show (e.g. `'1356-10'`); read by `gen_wmo_tiles.js`. See the file's own
+  header for the full rationale. Not currently wired into `gen_arenas.js`/`gen_battlegrounds.js` — only the
   three consumers above needed it so far.
 
 - **`audit_wmo_extraction.js`** — standalone diagnostic tool, not part of the
@@ -968,9 +989,10 @@ Arena, Mists' Tiger's Peak (`ShadoPanArena`), Forever's Hyjal Crater.
   tool, not the pipeline feeding shipped Lua data).
   Needs `npm install` in this folder first (adds `@wowserhq/format` for BLP
   decoding and `pngjs` for PNG writing, on top of `gen_wmo_tiles.js`'s own
-  `csv-parse`). Reuses `gen_wmo_tiles.js`'s exact placement formula (Y-flip,
-  90-degree local rotation, MODF translation, Big-coordinate conversion),
-  plus one placement source `gen_wmo_tiles.js` doesn't have yet: a WDT-level
+  `csv-parse`). Uses `gen_wmo_tiles.js`'s current placement math (model Y
+  mirrored about local 0, 90-degree local rotation, yaw, anchor at the raw
+  `MODF.position`, Big-coordinate conversion; checked numerically against the
+  generator's formula), plus one placement source `gen_wmo_tiles.js` doesn't have yet: a WDT-level
   MODF ("pure WMO dungeon", `MPHD.flags & 0x1` — see `.claude-docs/
   gotchas.md`'s "Detecting a pure WMO dungeon" entry), tried automatically
   whenever a map has no per-ADT MODF entries at all (e.g. Stockade). A
@@ -982,8 +1004,8 @@ Arena, Mists' Tiger's Peak (`ShadoPanArena`), Forever's Hyjal Crater.
   range from 64x64 to 256x256) — placed left+bottom-anchored inside the
   nominal 256x256 block cell (`wow.export`'s `src/js/wmo-minimap.js`,
   `composite_tile`) before this script's own 90-degree content rotation.
-  Skips a placement with real rotation, same as `gen_wmo_tiles.js` (the yaw
-  transform isn't implemented in either script yet).
+  Applies the placement's yaw like `gen_wmo_tiles.js` (pitch/roll are not
+  supported by either script).
 
   `--with-adt-tiles` additionally composites the map's own real, baked
   OUTDOOR minimap tiles (`world/minimaps/<map>/map<col>_<row>.blp`, box per
@@ -999,7 +1021,7 @@ Arena, Mists' Tiger's Peak (`ShadoPanArena`), Forever's Hyjal Crater.
 ## Step 11 — `gen_instance_maps.js`: dungeon/raid/scenario maps (`Twm_DungeonNames`/`Twm_RaidNames`/`Twm_ScenarioNames`, `Twm_mapareas`)
 
 ```bash
-node gen_instance_maps.js --kind dungeon|raid|scenario --work-dir <dir> --flavor <product> (--client-dir <path> | --online) --tiles-file <mapdata_tiles.lua, already regenerated including these Directory names> [--wmo-tiles-file <mapdata_wmo_tiles.lua, already regenerated including these Directory names>] --out <out-file.lua> [--force] [--proxy <url>]
+node gen_instance_maps.js --kind dungeon|raid|scenario --work-dir <dir> --flavor <product> (--client-dir <path> | --online) --tiles-file <mapdata_tiles_<kind>.lua from parse_wdt.js --candidates dungeons|raids|scenarios, already regenerated including these Directory names> [--wmo-tiles-file <mapdata_wmo_tiles.lua, already regenerated including these Directory names>] --out <out-file.lua> [--force] [--proxy <url>]
 ```
 
 One shared script for all three categories (`--kind`), not three separate
@@ -1051,7 +1073,7 @@ on real content across a full Mists scan).
 2. **Preferred for pure-WMO maps (most dungeons/raids — no ADT tile grid at
    all)**: the union of every real tile corner already sitting in
    `--wmo-tiles-file`'s own `Twm_WMOTiles["<map>"]` entry (already-generated
-   `mapdata_wmo_tiles.lua`, `gen_wmo_tiles.js`'s output) — guaranteed to
+   `mapdata_wmo_tiles_<kind>.lua`, `gen_wmo_tiles.js`'s output) — guaranteed to
    match what `TWM_WMOOverlay_Update` actually renders, since it's the exact
    same corner data, not a second, independently-reasoned placement formula.
    `--wmo-tiles-file` is optional — omit it (or pass a file that doesn't
@@ -1080,8 +1102,9 @@ on real content across a full Mists scan).
    `gen_wmo_tiles.js` derives it for) — instead, path 2 was added so path 3
    is only ever a last resort for maps with no real tile data to check
    against at all. **Does not depend on baked minimap art existing** —
-   confirmed necessary, since Vanilla has none for these at all, only the
-   WMO model file itself (the community listfile resolves the WDT's
+   needed for any map whose WMO has no `WMOMinimapTexture` rows in that
+   build (e.g. Forever's rebuilt Blackrock Depths), only the WMO model file
+   itself (the community listfile resolves the WDT's
    `MODF.nameId` to that file's path, same as `gen_wmo_tiles.js`). This
    map's own WDT and that resolved WMO root file are self-extracted the same
    two-pass way `gen_wmo_tiles.js` extracts its own dynamically-discovered
@@ -1109,17 +1132,13 @@ Runs exactly once per `--kind` now — it used to need its own stdout as a
 that data from the start removes that requirement (same fix as
 `gen_arenas.js` above).
 
-**Status as of this writing**: TBC (`wow_anniversary`) has been run
-end-to-end for both dungeons (36) and raids (17) — see this file's own git
-history/SESSION notes for the full account. Mists (`wow_classic`) only has
-a small validation set from an earlier pass — Shadowfang Keep and Ragefire
-Chasm (dungeons), Onyxia's Lair (raid), Greenstone Village (scenario) — and
-those pre-date both the `--wmo-tiles-file` path and the box-derivation fix
-above, so their boxes should be re-derived along with everything else next
-time Mists gets a full pass. A full run across Mists/Vanilla/Forever is
-**deliberately not done yet**: Mists alone has 84 dungeon + 33 raid + 34
-scenario candidates once `MapType` isn't used to filter — its own deliberate
-next pass, not inline with unrelated work.
+**Status**: run for all four flavors (dungeons and raids everywhere,
+scenarios on Mists only). Every entry carries `mapID` (`Map.csv` `ID`, a
+string) next to `key`/`expansion`, which the hand-maintained visibility lists
+match against (`Twm_SeasonOnlyMaps`, `Twm_DevelopmentMaps`, see
+"`Data_<Flavor>/mapdata_poi.lua`" above). After every `gen_wmo_tiles.js`
+regen of a flavor, re-run this script for the same flavor and kind (pure-WMO
+boxes come from the regenerated tile corners, see `.claude-docs/gotchas.md`).
 
 ## When to re-run
 

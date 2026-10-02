@@ -245,18 +245,16 @@ end
 -- data already carries the real corners (gen_wmo_tiles.js) precisely so
 -- this debug view doesn't depend on the same rotation math it exists to
 -- double-check.
-function TWM_EnsureWMODebugCorners(vf, tex, color)
+function TWM_EnsureWMODebugCorners(host, tex, color)
     color = color or TWM_TILE_DEBUG_BORDER_YELLOW;
     if(not tex.debugCorners) then
         local lines = {};
         for i = 1, 4 do
-            -- OVERLAY sublevel 7 -- reserved exclusively for these lines;
-            -- tile textures below are clamped to sublevel 6 at most (see
-            -- TWM_WMOOverlay_Update) specifically so nothing else ever
-            -- shares this sublevel. (HIGHLIGHT was tried here instead of a
-            -- reserved sublevel, but HIGHLIGHT only renders while the frame
-            -- is moused over -- wrong layer for this.)
-            lines[i] = vf:CreateLine(nil, "OVERLAY", nil, 7);
+            -- `host` is the WMO overlay's debug frame, which sits above every
+            -- per-group tile frame (TWM_WMOOverlay_EnsureDebugFrame).
+            -- (HIGHLIGHT was tried as the layer, but HIGHLIGHT only renders
+            -- while the frame is moused over -- wrong layer for this.)
+            lines[i] = host:CreateLine(nil, "OVERLAY", nil, 7);
             lines[i]:SetThickness(TWM_TILE_DEBUG_BORDER_PX);
         end
         tex.debugCorners = lines;
@@ -311,11 +309,11 @@ end
 -- quad -- same color as its debug border, text itself never rotated (a
 -- rotated frame's own center point doesn't move under its own rotation, so
 -- an unrotated label at that center reads correctly regardless of yaw).
-function TWM_EnsureWMODebugLabel(vf, tex, color)
+function TWM_EnsureWMODebugLabel(host, tex, color)
     color = color or TWM_TILE_DEBUG_BORDER_YELLOW;
     if(not tex.debugFileIDLabel) then
-        local label = vf:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall");
-        label:SetDrawLayer("OVERLAY", 7); -- same reserved sublevel as the border lines
+        local label = host:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall");
+        label:SetDrawLayer("OVERLAY", 7); -- same sublevel as the border lines
         tex.debugFileIDLabel = label;
     end
     tex.debugFileIDLabel:SetTextColor(color[1], color[2], color[3], 1);
@@ -428,21 +426,55 @@ end
 if(Twm_DungeonNames) then
     TWM_DUNGEONS = {};
     for _, e in ipairs(Twm_DungeonNames) do
-        TWM_DUNGEONS[TWM_ResolveLocaleName(e.name)] = {e.key, expansion = e.expansion};
+        TWM_DUNGEONS[TWM_ResolveLocaleName(e.name)] = {e.key, expansion = e.expansion, mapID = e.mapID};
     end
 end
 
 if(Twm_RaidNames) then
     TWM_RAIDS = {};
     for _, e in ipairs(Twm_RaidNames) do
-        TWM_RAIDS[TWM_ResolveLocaleName(e.name)] = {e.key, expansion = e.expansion};
+        TWM_RAIDS[TWM_ResolveLocaleName(e.name)] = {e.key, expansion = e.expansion, mapID = e.mapID};
     end
+end
+
+-- Twm_SeasonOnlyMaps (Data_Vanilla/mapdata_seasons.lua, hand-maintained; nil on
+-- other flavors) = { [seasonID] = {"<Map.csv ID>", ...} }: those maps are
+-- listed only while C_Seasons.GetActiveSeason() == seasonID. The season is
+-- read when the menu is built, not at load, so it follows the realm.
+local TWM_SeasonOfMap;
+local function TWM_IsMapHiddenBySeason(mapID)
+    if(not Twm_SeasonOnlyMaps or not mapID) then return false; end
+    if(not TWM_SeasonOfMap) then
+        TWM_SeasonOfMap = {};
+        for season, ids in pairs(Twm_SeasonOnlyMaps) do
+            for _, id in ipairs(ids) do TWM_SeasonOfMap[id] = season; end
+        end
+    end
+    local season = TWM_SeasonOfMap[mapID];
+    if(season == nil) then return false; end
+    local active = C_Seasons and C_Seasons.HasActiveSeason() and C_Seasons.GetActiveSeason();
+    return active ~= season;
+end
+
+-- Twm_DevelopmentMaps (mapdata_development.lua, all flavors) = {"<Map.csv ID>", ...}:
+-- maps still in development, listed only while TWMOption.ShowDevelopmentMaps is on.
+local TWM_DevelopmentMapSet;
+local function TWM_IsMapHidden(mapID)
+    if(not mapID) then return false; end
+    if(not TWM_DevelopmentMapSet) then
+        TWM_DevelopmentMapSet = {};
+        for _, id in ipairs(Twm_DevelopmentMaps or {}) do TWM_DevelopmentMapSet[id] = true; end
+    end
+    if(TWM_DevelopmentMapSet[mapID] and not (TWMOption and TWMOption.ShowDevelopmentMaps)) then
+        return true;
+    end
+    return TWM_IsMapHiddenBySeason(mapID);
 end
 
 if(Twm_ScenarioNames) then
     TWM_SCENARIOS = {};
     for _, e in ipairs(Twm_ScenarioNames) do
-        TWM_SCENARIOS[TWM_ResolveLocaleName(e.name)] = {e.key};
+        TWM_SCENARIOS[TWM_ResolveLocaleName(e.name)] = {e.key, mapID = e.mapID};
     end
 end
 
@@ -451,17 +483,46 @@ end
 -- scripts/gen_wmo_tiles.js; the same system will apply to dungeons/raids
 -- later, hence the generic naming) have real outdoor ADT terrain but no
 -- baked minimap art for it at all; the only real minimap art there is the
--- placed WMO building's own baked group tiles. Drawn as a small pool of
--- plain textures (raw FileDataIDs), positioned in the same mini-coordinate
+-- placed WMO building's own baked group tiles. Drawn as a pool of plain
+-- textures (raw FileDataIDs), positioned in the same mini-coordinate
 -- space TWMPoints uses (see TWMP_SetOffset, Points.lua) so they pan/zoom in
 -- sync with the rest of the view.
-function TWM_WMOOverlay_EnsureTextures(frame, count)
-    local lm = frame:GetName();
-    local vf = _G[lm.."ViewFrame"];
+--
+-- Stacking: one child frame of ViewFrame per WMO group (the tiles of one
+-- group never overlap each other), ordered by frame level -- see
+-- TWM_WMOOverlay_Update. Texture draw sublevels only give 16 steps per
+-- layer, far fewer than the stacking depth real dungeons need.
+function TWM_WMOOverlay_EnsureGroupFrame(frame, vf, rank)
+    frame.wmoGroupFrames = frame.wmoGroupFrames or {};
+    local gf = frame.wmoGroupFrames[rank];
+    if(not gf) then
+        gf = CreateFrame("Frame", nil, vf);
+        gf:SetSize(1, 1); -- no content of its own, the tiles anchor to ViewFrame
+        gf:SetPoint("TOPLEFT", vf, "TOPLEFT", 0, 0);
+        gf.textures = {};
+        frame.wmoGroupFrames[rank] = gf;
+    end
+    return gf;
+end
 
-    frame.wmoOverlayTextures = frame.wmoOverlayTextures or {};
-    for i = #frame.wmoOverlayTextures+1, count do
-        local tex = vf:CreateTexture(nil, "OVERLAY");
+-- Above every group frame, below the point markers/buttons/flight paths
+-- (all lifted by TWM_WMO_FRAME_BAND, see Points.lua) -- hosts the debug
+-- borders/labels so they always draw over the tiles.
+function TWM_WMOOverlay_EnsureDebugFrame(frame, vf)
+    if(not frame.wmoDebugFrame) then
+        local df = CreateFrame("Frame", nil, vf);
+        df:SetSize(1, 1);
+        df:SetPoint("TOPLEFT", vf, "TOPLEFT", 0, 0);
+        frame.wmoDebugFrame = df;
+    end
+    frame.wmoDebugFrame:SetFrameLevel(vf:GetFrameLevel() + TWM_WMO_FRAME_BAND);
+    return frame.wmoDebugFrame;
+end
+
+function TWM_WMOOverlay_EnsureTexture(gf, k)
+    local tex = gf.textures[k];
+    if(not tex) then
+        tex = gf:CreateTexture(nil, "OVERLAY");
         -- Blizzard's own WMO-group minimap baking pipeline has a fixed,
         -- non-arbitrary 90-degree rotation relative to world axes (already
         -- documented in gotchas.md for the separate dungeon-interior
@@ -478,21 +539,18 @@ function TWM_WMOOverlay_EnsureTextures(frame, count)
         -- in which grid slot -- this is a real, additional orientation fix
         -- on top of that.
         tex:SetTexCoord(0, 1, 1, 1, 0, 0, 1, 0);
-        frame.wmoOverlayTextures[i] = tex;
+        gf.textures[k] = tex;
     end
 
-    return frame.wmoOverlayTextures;
+    return tex;
 end
 
--- Tiles are generated in ascending-height order (gen_wmo_tiles.js).
--- That order alone is NOT enough to guarantee stacking, though: draw order
--- among multiple textures in the same layer AND sublevel is undefined in
--- WoW's own UI engine (confirmed -- this isn't documented or guaranteed by
--- creation order, and can visibly change when a texture is reconfigured,
--- which is exactly what happens here every time the tile pool is reused
--- for a different map). So each tile's sublevel is set explicitly below,
--- from its rank in the already-sorted list -- the actual, reliable
--- mechanism -- with the sort order only providing that rank cheaply.
+-- Draw order = wow.export's own (src/js/wmo-minimap.js): groups sorted by
+-- the lowest Z of the group's bounding box, ascending, higher groups drawn
+-- on top; equal keys keep their data order. Draw order among textures in
+-- the same layer AND sublevel is undefined in WoW's UI engine, and a
+-- sublevel only offers 16 steps (real dungeons stack 30+ groups), so each
+-- group gets its own frame whose frame level is its rank in that order.
 --
 -- frame.wmoOverlayHeightCutoff (runtime-only, set by the height slider
 -- below; not persisted -- height ranges are per-map, so a leftover
@@ -511,11 +569,9 @@ local TWM_WMO_OVERLAY_HEIGHT_EPSILON = 0.05;
 
 -- Debug ("/twm debug"): a colored border per WMO tile, so overlapping/
 -- adjacent tiles can be told apart on sight. Color is picked from this
--- small fixed pool purely by draw order (the same rank `i` that already
--- drives SetDrawLayer's sublevel above) -- cycling via modulo once the
--- tile count exceeds the pool, rather than trying to keep every tile's
--- color unique forever (real placements have at most a handful of tiles;
--- see gen_wmo_tiles.js's own comments for the highest count seen so far).
+-- small fixed pool purely by the group's draw rank (the same rank that
+-- sets its frame level), so all tiles of a group share one color -- cycling
+-- via modulo once the group count exceeds the pool.
 local TWM_WMO_DEBUG_COLOR_POOL = {
     {1, 0, 0},     -- red
     {0, 1, 0},     -- green
@@ -557,46 +613,59 @@ function TWM_ShouldShowWMOOverlay(frame)
     return frame.opt.ShowWMOOverlay and true or false;
 end
 
+local function TWM_WMOOverlay_HideGroupFrame(gf)
+    gf:Hide();
+    for _, tex in ipairs(gf.textures) do
+        tex:Hide();
+        TWM_HideTileDebugBorder(tex);
+    end
+end
+
 function TWM_WMOOverlay_Update(frame)
     local lm = frame:GetName();
     local vf = _G[lm.."ViewFrame"];
     local groups = Twm_WMOTiles and Twm_WMOTiles[frame.opt.Map];
 
     if(not groups or not TWM_ShouldShowWMOOverlay(frame)) then
-        if(frame.wmoOverlayTextures) then
-            for _, tex in ipairs(frame.wmoOverlayTextures) do
-                tex:Hide();
-                TWM_HideTileDebugBorder(tex);
-            end
+        for _, gf in ipairs(frame.wmoGroupFrames or {}) do
+            TWM_WMOOverlay_HideGroupFrame(gf);
         end
         return;
     end
 
     -- Twm_WMOTiles[map] is an array of {group_id, group_name, tiles}
     -- (WMO tile group management -- TWM_IsWMOGroupEnabled/
-    -- TWM_EnsureWMOGroupCheckboxes), not a flat tile array -- flatten every
-    -- ENABLED group's own tiles into one list, then height-sort it, before
-    -- the per-tile draw loop below. Sorting/draw-order has to happen AFTER
-    -- this filter, not be baked in at generation time, since which tiles
-    -- are even visible now depends on live checkbox state, not just the
-    -- (still independent, still applied per-tile below) height cutoff.
-    local tiles = {};
-    for _, group in ipairs(groups) do
-        if(TWM_IsWMOGroupEnabled(frame, group.group_id)) then
-            for _, tile in ipairs(group.tiles) do
-                tinsert(tiles, tile);
-            end
+    -- TWM_EnsureWMOGroupCheckboxes). Every ENABLED group is ranked by its
+    -- own height (all tiles of a group share the same tile[7]); equal
+    -- heights keep their data order, so the ranking is stable. Ranking has
+    -- to happen AFTER this filter, not be baked in at generation time, since
+    -- which groups are even visible depends on live checkbox state, not just
+    -- the (still independent, still applied per-tile below) height cutoff.
+    local ordered = {};
+    for gi, group in ipairs(groups) do
+        if(group.tiles[1] and TWM_IsWMOGroupEnabled(frame, group.group_id)) then
+            tinsert(ordered, {group = group, z = group.tiles[1][7] or 0, order = gi});
         end
     end
-    table.sort(tiles, function(a, b) return (a[7] or 0) < (b[7] or 0); end);
+    table.sort(ordered, function(a, b)
+        if(a.z ~= b.z) then return a.z < b.z; end
+        return a.order < b.order;
+    end);
 
-    local textures = TWM_WMOOverlay_EnsureTextures(frame, #tiles);
     local Lx, Ly = frame.opt.Location[1], frame.opt.Location[2];
     local z = frame:GetZoom();
     local cutoff = frame.wmoOverlayHeightCutoff;
+    local baseLevel = vf:GetFrameLevel() + 1;
+    local debugFrame = TWM_DebugTiles and TWM_WMOOverlay_EnsureDebugFrame(frame, vf) or nil;
 
-    for i, tile in ipairs(tiles) do
-        local tex = textures[i];
+    for rank, entry in ipairs(ordered) do
+      local gf = TWM_WMOOverlay_EnsureGroupFrame(frame, vf, rank);
+      -- Stays below the debug frame (vf + TWM_WMO_FRAME_BAND) whatever the group count.
+      gf:SetFrameLevel(baseLevel + math.min(rank - 1, TWM_WMO_FRAME_BAND - 3));
+      gf:Show();
+      local tiles = entry.group.tiles;
+      for k, tile in ipairs(tiles) do
+        local tex = TWM_WMOOverlay_EnsureTexture(gf, k);
         local zval = tile[7];
 
         if(cutoff and zval and zval > cutoff + TWM_WMO_OVERLAY_HEIGHT_EPSILON) then
@@ -614,7 +683,7 @@ function TWM_WMOOverlay_Update(frame)
             local fileID, cx, cy, w, h, yawDeg = tile[1], tile[2], tile[3], tile[4], tile[5], tile[6];
             local mx, my = TWM_Big2Mini_Coord(cx, cy);
             local mw, mh = w/MINI2BIGX, h/MINI2BIGY;
-            -- TWM_WMOOverlay_EnsureTextures' fixed SetTexCoord(0,1, 1,1,
+            -- TWM_WMOOverlay_EnsureTexture's fixed SetTexCoord(0,1, 1,1,
             -- 0,0, 1,0) doesn't just rotate the displayed content 90 degrees
             -- -- it also TRANSPOSES which frame axis samples which raw-image
             -- axis (frame width <- raw image's own HEIGHT/V axis, frame
@@ -628,14 +697,8 @@ function TWM_WMOOverlay_Update(frame)
             -- here to match SetTexCoord's own transpose.
             mw, mh = mh, mw;
 
-            -- Explicit sublevel from this tile's rank in the (ascending-
-            -- height-sorted) list -- the reliable way to stack a higher
-            -- tile above a lower one; see this function's header comment
-            -- for why relying on draw/creation order alone doesn't work.
-            -- Capped at 6, not 7 -- sublevel 7 is reserved for the debug
-            -- border lines (TWM_EnsureWMODebugCorners), so they always draw
-            -- above every tile regardless of tile count or draw order.
-            tex:SetDrawLayer("OVERLAY", math.max(-8, math.min(6, i - 9)));
+            -- Stacking comes from the group frame's level (see above), not
+            -- from this texture's own draw layer.
             tex:SetTexture(fileID);
             tex:ClearAllPoints();
             tex:SetPoint("CENTER", vf, "TOPLEFT", (mx-Lx)*z, (Ly-my)*z);
@@ -657,22 +720,27 @@ function TWM_WMOOverlay_Update(frame)
                 -- Drawn from the tile's own real corners (tile[8..15]),
                 -- independent of the SetPoint/SetRotation call above -- see
                 -- TWM_PositionWMODebugCorners' own header for why.
-                local color = TWM_WMO_DEBUG_COLOR_POOL[((i - 1) % #TWM_WMO_DEBUG_COLOR_POOL) + 1];
+                local color = TWM_WMO_DEBUG_COLOR_POOL[((rank - 1) % #TWM_WMO_DEBUG_COLOR_POOL) + 1];
                 local corners = { tile[8], tile[9], tile[10], tile[11], tile[12], tile[13], tile[14], tile[15] };
-                local lines = TWM_EnsureWMODebugCorners(vf, tex, color);
+                local lines = TWM_EnsureWMODebugCorners(debugFrame, tex, color);
                 TWM_PositionWMODebugCorners(lines, vf, corners, Lx, Ly, z);
-                local label = TWM_EnsureWMODebugLabel(vf, tex, color);
+                local label = TWM_EnsureWMODebugLabel(debugFrame, tex, color);
                 TWM_PositionWMODebugLabel(label, vf, corners, Lx, Ly, z, fileID);
             else
                 TWM_HideWMODebugCorners(tex);
                 TWM_HideWMODebugLabel(tex);
             end
         end
+      end
+
+      for k = #tiles + 1, #gf.textures do
+        gf.textures[k]:Hide();
+        TWM_HideTileDebugBorder(gf.textures[k]);
+      end
     end
 
-    for i = #tiles+1, #textures do
-        textures[i]:Hide();
-        TWM_HideTileDebugBorder(textures[i]);
+    for rank = #ordered + 1, #(frame.wmoGroupFrames or {}) do
+        TWM_WMOOverlay_HideGroupFrame(frame.wmoGroupFrames[rank]);
     end
 end
 
@@ -831,7 +899,7 @@ end
 
 -- One checkbox per WMO group ("<group_id>: <group_name>"), inside the
 -- scrollable, height-capped list above -- pooled the same way
--- TWM_WMOOverlay_EnsureTextures pools tile textures. `groups` is already
+-- TWM_WMOOverlay_EnsureGroupFrame/EnsureTexture pool the tile textures. `groups` is already
 -- group_id-ascending (gen_wmo_tiles.js's own sort), so no runtime sort
 -- needed here. Returns the scroll frame (fixed height regardless of group
 -- count) for the height slider to anchor below.
@@ -1459,8 +1527,8 @@ end
 function TWM_GetSortedDungeonNames()
     local names = {};
     if(TWM_DUNGEONS) then
-        for h in pairs(TWM_DUNGEONS) do
-            tinsert(names, h);
+        for h, e in pairs(TWM_DUNGEONS) do
+            if(not TWM_IsMapHidden(e.mapID)) then tinsert(names, h); end
         end
         table.sort(names);
     end
@@ -1470,8 +1538,8 @@ end
 function TWM_GetSortedRaidNames()
     local names = {};
     if(TWM_RAIDS) then
-        for h in pairs(TWM_RAIDS) do
-            tinsert(names, h);
+        for h, e in pairs(TWM_RAIDS) do
+            if(not TWM_IsMapHidden(e.mapID)) then tinsert(names, h); end
         end
         table.sort(names);
     end
@@ -1481,8 +1549,8 @@ end
 function TWM_GetSortedScenarioNames()
     local names = {};
     if(TWM_SCENARIOS) then
-        for h in pairs(TWM_SCENARIOS) do
-            tinsert(names, h);
+        for h, e in pairs(TWM_SCENARIOS) do
+            if(not TWM_IsMapHidden(e.mapID)) then tinsert(names, h); end
         end
         table.sort(names);
     end
@@ -1498,7 +1566,7 @@ function TWM_GetSortedExpansionIDs(list)
     if(list) then
         for _, entry in pairs(list) do
             local expID = entry.expansion;
-            if(expID and not seen[expID]) then
+            if(expID and not seen[expID] and not TWM_IsMapHidden(entry.mapID)) then
                 seen[expID] = true;
                 tinsert(ids, expID);
             end
@@ -1515,6 +1583,22 @@ end
 -- plain "Expansion N" for an ID this addon hasn't got a name for yet.
 function TWM_GetExpansionName(expID)
     return _G["TWM_EXPANSION_" .. tostring(expID)] or ("Expansion " .. tostring(expID));
+end
+
+-- Dungeon/raid buttons of one expansion (names = sorted, list = TWM_DUNGEONS
+-- or TWM_RAIDS).
+local function TWM_AddInstanceButtons(names, list, expID, onClick, level)
+    local currentMap = _G["TWMFrame"].opt.Map;
+    for _, h in ipairs(names) do
+        if(list[h].expansion == expID) then
+            UIDropDownMenu_AddButton({
+                text = h,
+                func = onClick,
+                arg1 = list[h][1],
+                checked = (list[h][1] == currentMap),
+            }, level);
+        end
+    end
 end
 
 -- Top-level dropdown is a category tree (Continents/Dungeons/Raids/
@@ -1594,44 +1678,33 @@ function TWMFrameDropDown_Initialize()
         -- One level deeper than every other category here: pick an
         -- expansion first (Map.db2's ExpansionID), then the actual dungeon
         -- list below, filtered to it -- see gen_instance_maps.js/
-        -- TWM_GetSortedExpansionIDs.
-        for _, expID in ipairs(TWM_GetSortedExpansionIDs(TWM_DUNGEONS)) do
-            info = {text = TWM_GetExpansionName(expID), hasArrow = true, notCheckable = true, value = "dungeons_exp_" .. expID};
-            UIDropDownMenu_AddButton(info, level);
+        -- TWM_GetSortedExpansionIDs. With only one expansion (Vanilla,
+        -- Forever) that level is skipped and the list is shown directly.
+        local expIDs = TWM_GetSortedExpansionIDs(TWM_DUNGEONS);
+        if(#expIDs == 1) then
+            TWM_AddInstanceButtons(TWM_GetSortedDungeonNames(), TWM_DUNGEONS, expIDs[1], TWMFrameDropDownButton_Dungeon_OnClick, level);
+        else
+            for _, expID in ipairs(expIDs) do
+                info = {text = TWM_GetExpansionName(expID), hasArrow = true, notCheckable = true, value = "dungeons_exp_" .. expID};
+                UIDropDownMenu_AddButton(info, level);
+            end
         end
     elseif(UIDROPDOWNMENU_MENU_VALUE == "raids") then
-        for _, expID in ipairs(TWM_GetSortedExpansionIDs(TWM_RAIDS)) do
-            info = {text = TWM_GetExpansionName(expID), hasArrow = true, notCheckable = true, value = "raids_exp_" .. expID};
-            UIDropDownMenu_AddButton(info, level);
+        local expIDs = TWM_GetSortedExpansionIDs(TWM_RAIDS);
+        if(#expIDs == 1) then
+            TWM_AddInstanceButtons(TWM_GetSortedRaidNames(), TWM_RAIDS, expIDs[1], TWMFrameDropDownButton_Raid_OnClick, level);
+        else
+            for _, expID in ipairs(expIDs) do
+                info = {text = TWM_GetExpansionName(expID), hasArrow = true, notCheckable = true, value = "raids_exp_" .. expID};
+                UIDropDownMenu_AddButton(info, level);
+            end
         end
     elseif(type(UIDROPDOWNMENU_MENU_VALUE) == "string" and UIDROPDOWNMENU_MENU_VALUE:match("^dungeons_exp_")) then
         local expID = UIDROPDOWNMENU_MENU_VALUE:match("^dungeons_exp_(.+)$");
-        local currentMap = _G["TWMFrame"].opt.Map;
-        for i,h in ipairs(TWM_GetSortedDungeonNames()) do
-            if(TWM_DUNGEONS[h].expansion == expID) then
-                info = {
-                        text = h;
-                        func = TWMFrameDropDownButton_Dungeon_OnClick;
-                        arg1 = TWM_DUNGEONS[h][1];
-                        checked = (TWM_DUNGEONS[h][1] == currentMap);
-                };
-                UIDropDownMenu_AddButton(info, level);
-            end
-        end
+        TWM_AddInstanceButtons(TWM_GetSortedDungeonNames(), TWM_DUNGEONS, expID, TWMFrameDropDownButton_Dungeon_OnClick, level);
     elseif(type(UIDROPDOWNMENU_MENU_VALUE) == "string" and UIDROPDOWNMENU_MENU_VALUE:match("^raids_exp_")) then
         local expID = UIDROPDOWNMENU_MENU_VALUE:match("^raids_exp_(.+)$");
-        local currentMap = _G["TWMFrame"].opt.Map;
-        for i,h in ipairs(TWM_GetSortedRaidNames()) do
-            if(TWM_RAIDS[h].expansion == expID) then
-                info = {
-                        text = h;
-                        func = TWMFrameDropDownButton_Raid_OnClick;
-                        arg1 = TWM_RAIDS[h][1];
-                        checked = (TWM_RAIDS[h][1] == currentMap);
-                };
-                UIDropDownMenu_AddButton(info, level);
-            end
-        end
+        TWM_AddInstanceButtons(TWM_GetSortedRaidNames(), TWM_RAIDS, expID, TWMFrameDropDownButton_Raid_OnClick, level);
     elseif(UIDROPDOWNMENU_MENU_VALUE == "scenarios") then
         local currentMap = _G["TWMFrame"].opt.Map;
         for i,h in ipairs(TWM_GetSortedScenarioNames()) do

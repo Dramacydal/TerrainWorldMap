@@ -1,4 +1,4 @@
-// Regenerates Data_<Flavor>/mapdata_tiles.lua (Twm_WDTValidTiles, optionally
+// Regenerates Data_<Flavor>/mapdata_tiles_<kind>.lua (Twm_WDTValidTiles, optionally
 // Twm_NoLiquidTiles) from real WDT/ADT/minimap files. See README.md for usage.
 //
 // Axis mapping: TerrainWorldMap tile key "COLxROW" <-> WDT tile (x=ROW, y=COL)
@@ -405,8 +405,8 @@ function main() {
 		// bug: this exact class broke gen_wmo_tiles.js's own obj0 extraction
 		// this session -- see .claude-docs/gotchas.md.
 		const pattern = opts.noliquid
-			? `^world/(maps/(${contAlt})/([^_/]+\\.wdt|[^/]+_\\d+_\\d+\\.adt)|minimaps/(${contAlt})/noliquid_map\\d+_\\d+\\.blp)$`
-			: `^world/maps/(${contAlt})/([^_/]+\\.wdt|[^/]+_\\d+_\\d+\\.adt)$`;
+			? `^world/(maps/(${contAlt})/([^/]+\\.wdt|[^/]+_\\d+_\\d+\\.adt)|minimaps/(${contAlt})/noliquid_map\\d+_\\d+\\.blp)$`
+			: `^world/maps/(${contAlt})/([^/]+\\.wdt|[^/]+_\\d+_\\d+\\.adt)$`;
 		const checkPaths = continents.map(c => {
 			const lower = c.toLowerCase();
 			return path.join('world', 'maps', lower, `${lower}.wdt`);
@@ -469,7 +469,21 @@ function main() {
 		const mapID = directoryToID && directoryToID[contName];
 
 		console.error(`${contName}:`);
-		let validTiles = getValidTiles(wdtPath);
+		// Confirmed real (not a transient extraction failure): a map's own
+		// ADTs can extract fine while its own .wdt genuinely isn't present
+		// under Map.csv's own Directory-derived path in this specific build
+		// (e.g. Mists' own azjol_uppercity) -- a single bad map shouldn't
+		// crash the whole batch (this used to throw ENOENT straight out of
+		// getValidTiles and abort every other map still left in the list).
+		// Same empty-table shape as a genuine pure-WMO map (TWM_MapHasTerrain
+		// reads `next(Twm_WDTValidTiles[map])`, so this still needs a real,
+		// present-but-empty table, not a missing key).
+		let validTiles = [];
+		if (!fs.existsSync(wdtPath)) {
+			console.error(`  WARNING: ${wdtPath} not found after extraction -- treating as zero valid ADT tiles`);
+		} else {
+			validTiles = getValidTiles(wdtPath);
+		}
 		if (isSkipped(skipAdtTiles, opts.flavor, mapID)) {
 			console.error(`  forcing zero valid ADT tiles (skip_lists.js's skipAdtTiles)`);
 			validTiles = [];

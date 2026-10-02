@@ -45,6 +45,7 @@ local function GetWorldFrame(viewframe)
     if(not worldFrame) then
         worldFrame = CreateFrame("Frame", nil, viewframe);
         worldFrame:SetSize(1, 1); -- no visible content of its own, size is irrelevant
+        worldFrame:SetFrameLevel(viewframe:GetFrameLevel() + 1 + TWM_WMO_FRAME_BAND);
     end
     return worldFrame;
 end

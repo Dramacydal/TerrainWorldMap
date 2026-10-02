@@ -21,6 +21,8 @@
 -- Twm_DungeonNames is resolved into the actual TWM_DUNGEONS dropdown
 -- table at load time (TerrainWorldMap.lua), same as Twm_ArenaNames/
 -- Twm_flightmasters' name tables -- see this file's own header comment.
+-- `mapID` is Map.csv's own ID (a string) -- used by per-flavor visibility
+-- lists such as Twm_SeasonOnlyMaps (Data_Vanilla/mapdata_seasons.lua).
 -- `expansion` is Map.csv's own ExpansionID (a string, like every other ID
 -- in this codebase) -- drives the expansion-selection dropdown level
 -- TerrainWorldMap.lua inserts between this category and the actual list.
@@ -28,6 +30,7 @@
 Twm_DungeonNames = {
     {
         key = "AuchindounDraenei",
+        mapID = "558",
         expansion = "1",
         name = {
             enUS = "Auchindoun: Auchenai Crypts",
@@ -45,6 +48,7 @@ Twm_DungeonNames = {
     },
     {
         key = "AuchindounEthereal",
+        mapID = "557",
         expansion = "1",
         name = {
             enUS = "Auchindoun: Mana-Tombs",
@@ -62,6 +66,7 @@ Twm_DungeonNames = {
     },
     {
         key = "AuchindounDemon",
+        mapID = "556",
         expansion = "1",
         name = {
             enUS = "Auchindoun: Sethekk Halls",
@@ -79,6 +84,7 @@ Twm_DungeonNames = {
     },
     {
         key = "AuchindounShadow",
+        mapID = "555",
         expansion = "1",
         name = {
             enUS = "Auchindoun: Shadow Labyrinth",
@@ -96,6 +102,7 @@ Twm_DungeonNames = {
     },
     {
         key = "Blackfathom",
+        mapID = "48",
         expansion = "0",
         name = {
             enUS = "Blackfathom Deeps",
@@ -113,6 +120,7 @@ Twm_DungeonNames = {
     },
     {
         key = "BlackrockDepths",
+        mapID = "230",
         expansion = "0",
         name = {
             enUS = "Blackrock Depths",
@@ -130,6 +138,7 @@ Twm_DungeonNames = {
     },
     {
         key = "BlackRockSpire",
+        mapID = "229",
         expansion = "0",
         name = {
             enUS = "Blackrock Spire",
@@ -147,6 +156,7 @@ Twm_DungeonNames = {
     },
     {
         key = "CoilfangDraenei",
+        mapID = "547",
         expansion = "1",
         name = {
             enUS = "Coilfang: The Slave Pens",
@@ -164,6 +174,7 @@ Twm_DungeonNames = {
     },
     {
         key = "CoilfangPumping",
+        mapID = "545",
         expansion = "1",
         name = {
             enUS = "Coilfang: The Steamvault",
@@ -181,6 +192,7 @@ Twm_DungeonNames = {
     },
     {
         key = "CoilfangMarsh",
+        mapID = "546",
         expansion = "1",
         name = {
             enUS = "Coilfang: The Underbog",
@@ -198,6 +210,7 @@ Twm_DungeonNames = {
     },
     {
         key = "DeadminesInstance",
+        mapID = "36",
         expansion = "0",
         name = {
             enUS = "Deadmines",
@@ -215,6 +228,7 @@ Twm_DungeonNames = {
     },
     {
         key = "DireMaul",
+        mapID = "429",
         expansion = "0",
         name = {
             enUS = "Dire Maul",
@@ -232,6 +246,7 @@ Twm_DungeonNames = {
     },
     {
         key = "GnomeragonInstance",
+        mapID = "90",
         expansion = "0",
         name = {
             enUS = "Gnomeregan",
@@ -249,6 +264,7 @@ Twm_DungeonNames = {
     },
     {
         key = "HellfireRampart",
+        mapID = "543",
         expansion = "1",
         name = {
             enUS = "Hellfire Citadel: Ramparts",
@@ -266,6 +282,7 @@ Twm_DungeonNames = {
     },
     {
         key = "HellfireDemon",
+        mapID = "542",
         expansion = "1",
         name = {
             enUS = "Hellfire Citadel: The Blood Furnace",
@@ -283,6 +300,7 @@ Twm_DungeonNames = {
     },
     {
         key = "HellfireMilitary",
+        mapID = "540",
         expansion = "1",
         name = {
             enUS = "Hellfire Citadel: The Shattered Halls",
@@ -300,6 +318,7 @@ Twm_DungeonNames = {
     },
     {
         key = "Sunwell5ManFix",
+        mapID = "585",
         expansion = "1",
         name = {
             enUS = "Magister's Terrace",
@@ -317,6 +336,7 @@ Twm_DungeonNames = {
     },
     {
         key = "Mauradon",
+        mapID = "349",
         expansion = "0",
         name = {
             enUS = "Maraudon",
@@ -334,6 +354,7 @@ Twm_DungeonNames = {
     },
     {
         key = "CavernsOfTime",
+        mapID = "269",
         expansion = "1",
         name = {
             enUS = "Opening of the Dark Portal",
@@ -351,6 +372,7 @@ Twm_DungeonNames = {
     },
     {
         key = "OrgrimmarInstance",
+        mapID = "389",
         expansion = "0",
         name = {
             enUS = "Ragefire Chasm",
@@ -368,6 +390,7 @@ Twm_DungeonNames = {
     },
     {
         key = "RazorfenDowns",
+        mapID = "129",
         expansion = "0",
         name = {
             enUS = "Razorfen Downs",
@@ -385,6 +408,7 @@ Twm_DungeonNames = {
     },
     {
         key = "RazorfenKraulInstance",
+        mapID = "47",
         expansion = "0",
         name = {
             enUS = "Razorfen Kraul",
@@ -402,6 +426,7 @@ Twm_DungeonNames = {
     },
     {
         key = "MonasteryInstances",
+        mapID = "189",
         expansion = "0",
         name = {
             enUS = "Scarlet Monastery",
@@ -419,6 +444,7 @@ Twm_DungeonNames = {
     },
     {
         key = "SchoolofNecromancy",
+        mapID = "289",
         expansion = "0",
         name = {
             enUS = "Scholomance",
@@ -436,6 +462,7 @@ Twm_DungeonNames = {
     },
     {
         key = "Shadowfang",
+        mapID = "33",
         expansion = "0",
         name = {
             enUS = "Shadowfang Keep",
@@ -453,6 +480,7 @@ Twm_DungeonNames = {
     },
     {
         key = "StormwindJail",
+        mapID = "34",
         expansion = "0",
         name = {
             enUS = "Stormwind Stockade",
@@ -470,6 +498,7 @@ Twm_DungeonNames = {
     },
     {
         key = "Stratholme",
+        mapID = "329",
         expansion = "0",
         name = {
             enUS = "Stratholme",
@@ -487,6 +516,7 @@ Twm_DungeonNames = {
     },
     {
         key = "SunkenTemple",
+        mapID = "109",
         expansion = "0",
         name = {
             enUS = "Sunken Temple",
@@ -504,6 +534,7 @@ Twm_DungeonNames = {
     },
     {
         key = "TempestKeepArcane",
+        mapID = "552",
         expansion = "1",
         name = {
             enUS = "Tempest Keep: The Arcatraz",
@@ -521,6 +552,7 @@ Twm_DungeonNames = {
     },
     {
         key = "TempestKeepAtrium",
+        mapID = "553",
         expansion = "1",
         name = {
             enUS = "Tempest Keep: The Botanica",
@@ -538,6 +570,7 @@ Twm_DungeonNames = {
     },
     {
         key = "TempestKeepFactory",
+        mapID = "554",
         expansion = "1",
         name = {
             enUS = "Tempest Keep: The Mechanar",
@@ -555,6 +588,7 @@ Twm_DungeonNames = {
     },
     {
         key = "HillsbradPast",
+        mapID = "560",
         expansion = "1",
         name = {
             enUS = "The Escape From Durnholde",
@@ -572,6 +606,7 @@ Twm_DungeonNames = {
     },
     {
         key = "Uldaman",
+        mapID = "70",
         expansion = "0",
         name = {
             enUS = "Uldaman",
@@ -589,6 +624,7 @@ Twm_DungeonNames = {
     },
     {
         key = "WailingCaverns",
+        mapID = "43",
         expansion = "0",
         name = {
             enUS = "Wailing Caverns",
@@ -606,6 +642,7 @@ Twm_DungeonNames = {
     },
     {
         key = "TanarisInstance",
+        mapID = "209",
         expansion = "0",
         name = {
             enUS = "Zul'Farrak",
@@ -632,12 +669,6 @@ Twm_mapareas["DeadminesInstance"] = {
 Twm_mapareas["RazorfenKraulInstance"] = {
     [0] = {2666.666666666667, 1066.6666666666667, 2666.666666666667, 1600},    --RazorfenKraul
 }
-Twm_mapareas["RazorfenDowns"] = {
-    [0] = {2666.666666666667, -533.3333333333334, 3200, 1066.6666666666667},    --RazorfenDowns
-}
-Twm_mapareas["MonasteryInstances"] = {
-    [0] = {2133.3333333333335, -1066.6666666666667, 2666.666666666667, -533.3333333333334},    --ScarletMonastery
-}
 Twm_mapareas["TanarisInstance"] = {
     [0] = {1600, 0, 2666.666666666667, -1066.6666666666667},    --Zul'Farrak
 }
@@ -660,71 +691,77 @@ Twm_mapareas["Sunwell5ManFix"] = {
     [0] = {2666.666666666667, -2666.666666666667, 2666.666666666667, -1066.6666666666667},    --Magister'sTerrace
 }
 Twm_mapareas["StormwindJail"] = {
-    [0] = {17216.996500651043, 16883.714647928875, 17263.965418497723, 16998.67827097575},    --StormwindStockade
+    [0] = {17218.487864176434, 16885.206011454266, 17263.965418497723, 16998.67827097575},    --StormwindStockade
 }
 Twm_mapareas["WailingCaverns"] = {
-    [0] = {17436.444529215496, 16389.698496500652, 17254.170588175457, 16496.095240275066},    --WailingCaverns
+    [0] = {17621.027872721355, 16574.28184000651, 17254.170588175457, 16496.095240275066},    --WailingCaverns
 }
 Twm_mapareas["Blackfathom"] = {
-    [0] = {17569.062266031902, 16482.18474642436, 16989.84884897868, 16031.55301920573},    --BlackfathomDeeps
+    [0] = {17490.690928141277, 16403.813408533733, 16989.84884897868, 16031.55301920573},    --BlackfathomDeeps
 }
 Twm_mapareas["Uldaman"] = {
-    [0] = {17136.43044535319, 16584.362021128338, 17250.97295633952, 16686.795572916668},    --Uldaman
+    [0] = {17533.000376383465, 16980.93195215861, 17250.97295633952, 16686.795572916668},    --Uldaman
 }
 Twm_mapareas["GnomeragonInstance"] = {
-    [0] = {17208.704844156902, 16276.853911081951, 16865.778330485027, 16060.008158365887},    --Gnomeregan
+    [0] = {17822.827555338543, 16890.97662226359, 16865.778330485027, 16060.008158365887},    --Gnomeregan
 }
 Twm_mapareas["SunkenTemple"] = {
-    [0] = {17200.276301066082, 16710.569826761883, 16821.500513712566, 16326.146891276043},    --SunkenTemple
+    [0] = {17390.762888590496, 16901.056414286297, 16821.500513712566, 16326.146891276043},    --SunkenTemple
+}
+Twm_mapareas["RazorfenDowns"] = {
+    [0] = {1139.452814737957, 477.1406656901054, 2629.675470987957, 2249.14081255595},    --RazorfenDowns
+}
+Twm_mapareas["MonasteryInstances"] = {
+    [0] = {1538.5705362955741, -483.5473492940255, 2030.1756083170585, 79.47466723124307},    --ScarletMonastery
 }
 Twm_mapareas["BlackRockSpire"] = {
-    [0] = {17658.252176920574, 16904.016451517742, 17401.064463297527, 16800.820475260418},    --BlackrockSpire
+    [0] = {17192.587176005047, 16438.351450602215, 17401.064463297527, 16800.820475260418},    --BlackrockSpire
 }
 Twm_mapareas["BlackrockDepths"] = {
-    [0] = {17914.34275309245, 16685.051432291668, 18553.343180338543, 17240.43793741862},    --BlackrockDepths
+    [0] = {17331.952799479168, 16102.661478678387, 18553.343180338543, 17240.43793741862},    --BlackrockDepths
 }
 Twm_mapareas["Mauradon"] = {
-    [0] = {17878.167704264324, 16701.431894938152, 18235.53739420573, 16827.604578653973},    --Maraudon
+    [0] = {17360.026438395184, 16183.290629069012, 18235.53739420573, 16827.604578653973},    --Maraudon
 }
 Twm_mapareas["OrgrimmarInstance"] = {
-    [0] = {17175.16726175944, 16692.958117167156, 17169.622332255047, 16625.407908121746},    --RagefireChasm
+    [0] = {17342.04572550456, 16859.836580912273, 17169.622332255047, 16625.407908121746},    --RagefireChasm
 }
 Twm_mapareas["DireMaul"] = {
-    [0] = {18065.973185221355, 16083.21970621745, 18072.797892252605, 16678.93436686198},    --DireMaul
+    [0] = {18178.07529703776, 16195.321818033855, 18072.797892252605, 16678.93436686198},    --DireMaul
 }
 Twm_mapareas["HellfireMilitary"] = {
-    [0] = {17219.951578776043, 16596.923459688824, 17644.08378092448, 17011.36508623759},    --HellfireCitadelTheShatteredHalls
+    [0] = {17418.420267740887, 16795.392148653667, 17644.08378092448, 17011.36508623759},    --HellfireCitadelTheShatteredHalls
 }
 Twm_mapareas["HellfireDemon"] = {
-    [0] = {17285.568766276043, 16732.647223154705, 17619.802469889324, 17002.104090372723},    --HellfireCitadelTheBloodFurnace
+    [0] = {17280.026896158855, 16727.105353037517, 17619.802469889324, 17002.104090372723},    --HellfireCitadelTheBloodFurnace
 }
 Twm_mapareas["CoilfangPumping"] = {
-    [0] = {17673.578653971355, 16941.453472773235, 17195.23334757487, 16626.067804972332},    --CoilfangTheSteamvault
+    [0] = {17096.85901705424, 16364.733835856121, 17195.23334757487, 16626.067804972332},    --CoilfangTheSteamvault
 }
 Twm_mapareas["CoilfangMarsh"] = {
-    [0] = {17665.601481119793, 16769.601481119793, 17490.401255289715, 16850.401255289715},    --CoilfangTheUnderbog
+    [0] = {17252.635965983074, 16356.635965983074, 17490.401255289715, 16850.401255289715},    --CoilfangTheUnderbog
 }
 Twm_mapareas["CoilfangDraenei"] = {
-    [0] = {17887.790934244793, 16973.050261179607, 17221.748224894207, 16689.03096262614},    --CoilfangTheSlavePens
+    [0] = {17105.60076014201, 16190.860087076824, 17221.748224894207, 16689.03096262614},    --CoilfangTheSlavePens
 }
 Twm_mapareas["TempestKeepArcane"] = {
-    [0] = {17375.638712565105, 16699.53978220622, 17609.69883219401, 16964.503580729168},    --TempestKeepTheArcatraz
+    [0] = {17308.113489786785, 16632.0145594279, 17609.69883219401, 16964.503580729168},    --TempestKeepTheArcatraz
 }
 Twm_mapareas["TempestKeepAtrium"] = {
-    [0] = {17160.72129313151, 16322.737085978191, 17294.574427286785, 16777.930353800457},    --TempestKeepTheBotanica
+    [0] = {17702.825236002605, 16864.841028849285, 17294.574427286785, 16777.930353800457},    --TempestKeepTheBotanica
 }
 Twm_mapareas["TempestKeepFactory"] = {
-    [0] = {17279.591868082684, 16789.311396280926, 17416.652842203777, 16904.948691050213},    --TempestKeepTheMechanar
+    [0] = {17272.270441691082, 16781.989969889324, 17416.652842203777, 16904.948691050213},    --TempestKeepTheMechanar
 }
 Twm_mapareas["AuchindounShadow"] = {
-    [0] = {17617.326029459637, 16968.61065165202, 17147.630327860516, 16483.29407755534},    --AuchindounShadowLabyrinth
+    [0] = {17144.96206156413, 16496.24668375651, 17147.630327860516, 16483.29407755534},    --AuchindounShadowLabyrinth
 }
 Twm_mapareas["AuchindounDemon"] = {
-    [0] = {17117.484511057537, 16672.629828135174, 17230.32062784831, 16735.90102640788},    --AuchindounSethekkHalls
+    [0] = {17445.58332316081, 17000.728640238445, 17230.32062784831, 16735.90102640788},    --AuchindounSethekkHalls
 }
 Twm_mapareas["AuchindounEthereal"] = {
-    [0] = {17356.088877360027, 16896.291533152264, 17146.737497965496, 16621.250498453777},    --AuchindounManaTombs
+    [0] = {17126.672491709392, 16666.87514750163, 17146.737497965496, 16621.250498453777},    --AuchindounManaTombs
 }
 Twm_mapareas["AuchindounDraenei"] = {
-    [0] = {17505.229166666668, 16989.41960779826, 17361.61728922526, 16757.945646921795},    --AuchindounAuchenaiCrypts
+    [0] = {17117.80312983195, 16601.993570963543, 17361.61728922526, 16757.945646921795},    --AuchindounAuchenaiCrypts
 }

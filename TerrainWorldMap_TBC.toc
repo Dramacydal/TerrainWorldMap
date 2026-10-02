@@ -13,6 +13,7 @@ Libs\Libs.xml
 Locale\Locales.xml
 
 mapdata_zones.lua
+mapdata_development.lua
 Data_TBC\mapdata_continents.lua
 Data_TBC\mapdata_poi.lua
 Data_TBC\mapdata_battlegrounds.lua

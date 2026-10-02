@@ -3,10 +3,11 @@
 // map (or a math change to the shared formula) can be sanity-checked by eye
 // before touching the addon's shipped Lua data. Not loaded by the addon.
 //
-// Reuses gen_wmo_tiles.js's own placement math verbatim (Y-flip via
-// trueGlobalMinY/trueGlobalMaxY, the fixed 90-degree local-coordinate
-// rotation, MODF-position translation, Big-coordinate conversion -- see
-// that file's header for the full derivation) plus one placement source it
+// Reuses gen_wmo_tiles.js's own placement math (the model's local Y mirrored
+// about local 0 with no pivot, the fixed 90-degree local-coordinate
+// rotation, the placement's yaw, anchoring at the raw MODF.position,
+// Big-coordinate conversion -- see that file and .claude-docs/gotchas.md's
+// "WMO-tile world position" for the derivation) plus one placement source it
 // doesn't have yet: a WDT-level MODF ("pure WMO dungeon" -- MPHD.flags & 0x1,
 // see .claude-docs/gotchas.md's "Detecting a pure WMO dungeon" entry), used
 // whenever a map has no per-ADT MODF entries at all (e.g. Stockade).
@@ -195,15 +196,14 @@ function toNativeCell(img) {
 
 // Forward: native content-rotated pixel (dxi,dyi) -> Big-space point, for a
 // tile carrying {localX1, localY1, cosT, sinT, posX, posZ} (yaw pre-baked
-// into cosT/sinT, 0/1 for a non-rotated placement). Derived by parameterizing
+// into cosT/sinT, 0/1 for a non-rotated placement; localY1 = the tile's
+// near model-Y edge, unflipped). Derived by parameterizing
 // gen_wmo_tiles.js's own per-corner formula continuously across the whole
-// 256x256 cell instead of just its two corners, then inserting one more
-// rotation (by the placement's real MODF yaw) between the fixed 90-degree
-// baking rotation and the MODF-position translation -- yaw rotates the
-// WHOLE placement as a rigid body, same as it rotates everything else MODF
-// places.
+// 256x256 cell instead of just its corners: model Y = localY1 + dxi/2,
+// model X = localX1 + dyi/2, handed to the same rotate+translate tail as
+// there (rotLocalX = model Y, rotLocalY = model X).
 function forwardBigPoint(t, dxi, dyi) {
-	const rotLocalX = -(t.localY1 + (256 - dxi) / 2);
+	const rotLocalX = t.localY1 + dxi / 2;
 	const rotLocalY = t.localX1 + dyi / 2;
 	const finalLocalX = rotLocalX * t.cosT - rotLocalY * t.sinT;
 	const finalLocalY = rotLocalX * t.sinT + rotLocalY * t.cosT;
@@ -221,7 +221,7 @@ function inverseDxiDyi(t, bigX, bigY) {
 	// R^-1 = R^T for a rotation matrix.
 	const rotLocalX = finalLocalX * t.cosT + finalLocalY * t.sinT;
 	const rotLocalY = -finalLocalX * t.sinT + finalLocalY * t.cosT;
-	const dxi = 256 + 2 * rotLocalX + 2 * t.localY1;
+	const dxi = 2 * (rotLocalX - t.localY1);
 	const dyi = 2 * (rotLocalY - t.localX1);
 	return [dxi, dyi];
 }
@@ -417,18 +417,10 @@ async function main() {
 			groupBoxes[g] = groupBoundingBox(gp);
 		}
 
-		const trueGlobalMinY = Math.min(...Object.values(groupBoxes).map(b => Math.min(b.min[1], b.max[1])));
-		const trueGlobalMaxY = Math.max(...Object.values(groupBoxes).map(b => Math.max(b.min[1], b.max[1])));
-
 		// Negated: confirmed against Shadowfang Keep's real ADT terrain AND
-		// in-game (rot[1]=68.5, matches at -68.5, not +68.5). The Y-flip
-		// this local space already went through is a REFLECTION (negates
-		// one axis, determinant -1); composed with the 90-degree baking
-		// rotation (a pure rotation, determinant +1), the whole "rotLocal"
-		// frame is a mirror image of the model's own true local space --
-		// applying a rotation inside a mirrored frame reverses its sense,
-		// so the placement's real yaw has to be negated to land correctly
-		// once expressed in this already-mirrored coordinate system.
+		// in-game (rot[1]=68.5, matches at -68.5, not +68.5), same sign as
+		// gen_wmo_tiles.js (the Big conversion negates both axes, which
+		// mirrors the frame the yaw is applied in).
 		const yawRad = -p.rot[1] * Math.PI / 180;
 		const cosT = Math.cos(yawRad), sinT = Math.sin(yawRad);
 
@@ -454,36 +446,36 @@ async function main() {
 
 			const localX1 = Math.min(box.min[0], box.max[0]) + t.blockX * TILE_UNITS;
 			const localY1raw = Math.min(box.min[1], box.max[1]) + t.blockY * TILE_UNITS;
-			// Rendering anchor -- deliberately UNCHANGED (full nominal 128-unit
-			// box, gen_wmo_tiles.js's pre-crop-fix formula). forwardBigPoint/
-			// inverseDxiDyi map the whole fixed 256x256 native cell (real
-			// content left+bottom-anchored inside it by toNativeCell, alpha=0
-			// elsewhere) to this same full box, so pixel painting is already
-			// correct regardless of crop -- no stretch happens here, unlike
-			// TerrainWorldMap.lua's tex:SetWidth/SetHeight, so this anchor must
-			// stay full-size for the inverse-mapping lookup to stay valid.
-			const localY1 = (trueGlobalMinY + trueGlobalMaxY) - localY1raw - TILE_UNITS;
+			// Rendering anchor: the full nominal 128-unit box starting at the
+			// tile's near model-Y edge. forwardBigPoint/inverseDxiDyi map the
+			// whole fixed 256x256 native cell (real content left+bottom-anchored
+			// inside it by toNativeCell, alpha=0 elsewhere) to this same full
+			// box, so pixel painting is already correct regardless of crop -- no
+			// stretch happens here, unlike TerrainWorldMap.lua's
+			// tex:SetWidth/SetHeight, so this anchor must stay full-size for the
+			// inverse-mapping lookup to stay valid.
+			const localY1 = localY1raw;
 
 			const tile = {
 				groupNum: t.groupNum,
 				filePath, raw,
 				localX1, localY1, cosT, sinT, posX: p.pos[0], posZ: p.pos[2],
-				height: p.pos[1] + (box.min[2] + box.max[2]) / 2,
+				height: p.pos[1] + Math.min(box.min[2], box.max[2]),
 			};
 
 			// Real-content (possibly-cropped) box, gen_wmo_tiles.js style --
-			// same two anchors (localX1, localY2) it keeps fixed, shrinking the
-			// far edges to the real BLP size instead of always TILE_UNITS. Used
-			// ONLY for the canvas extent, the outline, and the label -- i.e. the
+			// same corners it computes (model Y from the near edge to the real
+			// BLP height, model X to the real BLP width). Used ONLY for the
+			// canvas extent, the outline, and the label -- i.e. the
 			// debug-border ground truth -- not for pixel painting (see above).
-			const localY2s = (trueGlobalMinY + trueGlobalMaxY) - localY1raw;
+			const localYNear = localY1raw;
+			const localYFar = localY1raw + raw.height / PPU;
 			const localX2s = localX1 + raw.width / PPU;
-			const localY1s = localY2s - raw.height / PPU;
 			tile.corners = [
-				toBigPoint(tile, -localY1s, localX1),
-				toBigPoint(tile, -localY2s, localX1),
-				toBigPoint(tile, -localY2s, localX2s),
-				toBigPoint(tile, -localY1s, localX2s),
+				toBigPoint(tile, localYFar, localX1),
+				toBigPoint(tile, localYNear, localX1),
+				toBigPoint(tile, localYNear, localX2s),
+				toBigPoint(tile, localYFar, localX2s),
 			];
 			tile.x1 = Math.max(...tile.corners.map(c => c[0]));
 			tile.x2 = Math.min(...tile.corners.map(c => c[0]));

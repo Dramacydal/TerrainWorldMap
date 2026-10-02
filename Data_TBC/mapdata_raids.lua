@@ -21,6 +21,8 @@
 -- Twm_RaidNames is resolved into the actual TWM_RAIDS dropdown
 -- table at load time (TerrainWorldMap.lua), same as Twm_ArenaNames/
 -- Twm_flightmasters' name tables -- see this file's own header comment.
+-- `mapID` is Map.csv's own ID (a string) -- used by per-flavor visibility
+-- lists such as Twm_SeasonOnlyMaps (Data_Vanilla/mapdata_seasons.lua).
 -- `expansion` is Map.csv's own ExpansionID (a string, like every other ID
 -- in this codebase) -- drives the expansion-selection dropdown level
 -- TerrainWorldMap.lua inserts between this category and the actual list.
@@ -28,6 +30,7 @@
 Twm_RaidNames = {
     {
         key = "AhnQirajTemple",
+        mapID = "531",
         expansion = "0",
         name = {
             enUS = "Ahn'Qiraj Temple",
@@ -45,6 +48,7 @@ Twm_RaidNames = {
     },
     {
         key = "BlackTemple",
+        mapID = "564",
         expansion = "1",
         name = {
             enUS = "Black Temple",
@@ -62,6 +66,7 @@ Twm_RaidNames = {
     },
     {
         key = "BlackwingLair",
+        mapID = "469",
         expansion = "0",
         name = {
             enUS = "Blackwing Lair",
@@ -79,6 +84,7 @@ Twm_RaidNames = {
     },
     {
         key = "CoilfangRaid",
+        mapID = "548",
         expansion = "1",
         name = {
             enUS = "Coilfang: Serpentshrine Cavern",
@@ -96,6 +102,7 @@ Twm_RaidNames = {
     },
     {
         key = "EmeraldDream",
+        mapID = "169",
         expansion = "0",
         name = {
             enUS = "Emerald Dream",
@@ -113,6 +120,7 @@ Twm_RaidNames = {
     },
     {
         key = "GruulsLair",
+        mapID = "565",
         expansion = "1",
         name = {
             enUS = "Gruul's Lair",
@@ -130,6 +138,7 @@ Twm_RaidNames = {
     },
     {
         key = "Karazahn",
+        mapID = "532",
         expansion = "1",
         name = {
             enUS = "Karazhan",
@@ -147,6 +156,7 @@ Twm_RaidNames = {
     },
     {
         key = "HellfireRaid",
+        mapID = "544",
         expansion = "1",
         name = {
             enUS = "Magtheridon's Lair",
@@ -164,6 +174,7 @@ Twm_RaidNames = {
     },
     {
         key = "MoltenCore",
+        mapID = "409",
         expansion = "0",
         name = {
             enUS = "Molten Core",
@@ -181,6 +192,7 @@ Twm_RaidNames = {
     },
     {
         key = "Stratholme Raid",
+        mapID = "533",
         expansion = "0",
         name = {
             enUS = "Naxxramas",
@@ -198,6 +210,7 @@ Twm_RaidNames = {
     },
     {
         key = "OnyxiaLairInstance",
+        mapID = "249",
         expansion = "0",
         name = {
             enUS = "Onyxia's Lair",
@@ -215,6 +228,7 @@ Twm_RaidNames = {
     },
     {
         key = "AhnQiraj",
+        mapID = "509",
         expansion = "0",
         name = {
             enUS = "Ruins of Ahn'Qiraj",
@@ -232,6 +246,7 @@ Twm_RaidNames = {
     },
     {
         key = "TempestKeepRaid",
+        mapID = "550",
         expansion = "1",
         name = {
             enUS = "Tempest Keep",
@@ -249,6 +264,7 @@ Twm_RaidNames = {
     },
     {
         key = "HyjalPast",
+        mapID = "534",
         expansion = "1",
         name = {
             enUS = "The Battle for Mount Hyjal",
@@ -266,6 +282,7 @@ Twm_RaidNames = {
     },
     {
         key = "SunwellPlateau",
+        mapID = "580",
         expansion = "1",
         name = {
             enUS = "The Sunwell",
@@ -283,6 +300,7 @@ Twm_RaidNames = {
     },
     {
         key = "ZulAman",
+        mapID = "568",
         expansion = "1",
         name = {
             enUS = "Zul'Aman",
@@ -300,6 +318,7 @@ Twm_RaidNames = {
     },
     {
         key = "Zul'gurub",
+        mapID = "309",
         expansion = "0",
         name = {
             enUS = "Zul'Gurub",
@@ -351,20 +370,20 @@ Twm_mapareas["SunwellPlateau"] = {
     [0] = {2133.3333333333335, -533.3333333333334, 3200, 0},    --TheSunwell
 }
 Twm_mapareas["OnyxiaLairInstance"] = {
-    [0] = {17353.131052652996, 16967.495768229168, 17129.912611643475, 16812.063936869305},    --Onyxia'sLair
+    [0] = {17053.95197550456, 16668.31669108073, 17129.912611643475, 16812.063936869305},    --Onyxia'sLair
 }
 Twm_mapareas["MoltenCore"] = {
-    [0] = {18321.652018229168, 17312.819346110027, 18399.721842447918, 17475.370035807293},    --MoltenCore
+    [0] = {16795.334360758465, 15786.501688639324, 18399.721842447918, 17475.370035807293},    --MoltenCore
 }
 Twm_mapareas["HellfireRaid"] = {
-    [0] = {17154.412623087566, 16870.6607615153, 17303.480387369793, 16868.63068262736},    --Magtheridon'sLair
+    [0] = {17183.798830668133, 16900.046969095867, 17303.480387369793, 16868.63068262736},    --Magtheridon'sLair
 }
 Twm_mapareas["CoilfangRaid"] = {
-    [0] = {18217.730509440105, 16927.717157999676, 17640.556498209637, 16595.7319132487},    --CoilfangSerpentshrineCavern
+    [0] = {17181.99331156413, 15891.9799601237, 17640.556498209637, 16595.7319132487},    --CoilfangSerpentshrineCavern
 }
 Twm_mapareas["TempestKeepRaid"] = {
-    [0] = {17564.581919352215, 16564.266657511394, 17945.642130533855, 16942.54209391276},    --TempestKeep
+    [0] = {17562.127939860027, 16561.812678019207, 17945.642130533855, 16942.54209391276},    --TempestKeep
 }
 Twm_mapareas["GruulsLair"] = {
-    [0] = {17087.9086004893, 16511.77356783549, 17365.18989054362, 17002.18972269694},    --Gruul'sLair
+    [0] = {17506.363047281902, 16930.228014628094, 17365.18989054362, 17002.18972269694},    --Gruul'sLair
 }
