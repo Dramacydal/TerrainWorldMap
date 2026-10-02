@@ -1718,11 +1718,18 @@ function TWMFrameDropDown_Initialize()
     end
 end
 
+-- After a pick only the clicked list is hidden by the client here; the upper
+-- levels of the category tree stay open (CloseDropDownMenus closes them).
+local function TWM_PickMap(mapname)
+    _G["TWMFrame"]:SelectMap(mapname);
+    CloseDropDownMenus();
+end
+
 function TWMFrameDropDownButton_OnClick(self)
         local i = self:GetID();
         local h = TWM_GetSortedMapNames()[i];
         if(h) then
-            return _G["TWMFrame"]:SelectMap(TWM_MAPS[h][1]);
+            return TWM_PickMap(TWM_MAPS[h][1]);
         end
 end
 
@@ -1730,7 +1737,7 @@ function TWMFrameDropDownButton_Battleground_OnClick(self)
         local i = self:GetID();
         local h = TWM_GetSortedBattlegroundNames()[i];
         if(h) then
-            return _G["TWMFrame"]:SelectMap(TWM_BATTLEGROUNDS[h][1]);
+            return TWM_PickMap(TWM_BATTLEGROUNDS[h][1]);
         end
 end
 
@@ -1738,7 +1745,7 @@ function TWMFrameDropDownButton_Arena_OnClick(self)
         local i = self:GetID();
         local h = TWM_GetSortedArenaNames()[i];
         if(h) then
-            return _G["TWMFrame"]:SelectMap(TWM_ARENAS[h][1]);
+            return TWM_PickMap(TWM_ARENAS[h][1]);
         end
 end
 
@@ -1751,13 +1758,13 @@ end
 -- info.func(self, arg1, arg2, checked)) -- no lookup needed at all.
 function TWMFrameDropDownButton_Dungeon_OnClick(self, mapname)
         if(mapname) then
-            return _G["TWMFrame"]:SelectMap(mapname);
+            return TWM_PickMap(mapname);
         end
 end
 
 function TWMFrameDropDownButton_Raid_OnClick(self, mapname)
         if(mapname) then
-            return _G["TWMFrame"]:SelectMap(mapname);
+            return TWM_PickMap(mapname);
         end
 end
 
@@ -1765,7 +1772,7 @@ function TWMFrameDropDownButton_Scenario_OnClick(self)
         local i = self:GetID();
         local h = TWM_GetSortedScenarioNames()[i];
         if(h) then
-            return _G["TWMFrame"]:SelectMap(TWM_SCENARIOS[h][1]);
+            return TWM_PickMap(TWM_SCENARIOS[h][1]);
         end
 end
 
@@ -2046,12 +2053,13 @@ function TWMFrameDropDownButton2_OnClick(self)
 end
 
 -- UIDropDownMenu_SetSelectedID walks the buttons of the shared, currently
--- open DropDownList whichever dropdown owns it, so while another menu (e.g.
--- the "Show Points" menu) is open it would rewrite that menu's checkmarks.
--- In that case only the stored selection and the text are updated.
+-- open DropDownList whichever dropdown owns it, so while the "Show Points"
+-- menu is open it would rewrite that menu's checkmarks. In that case only the
+-- stored selection and the text are updated. Not guarded for the other menus
+-- (map/zone lists): skipping it there left their lists open after a click.
 local function TWM_SetZoneDropdown(dd2, id, text)
     local open = UIDROPDOWNMENU_OPEN_MENU;
-    if(open and open ~= dd2) then
+    if(open and open == _G["TWMFOODropDown"]) then
         dd2.selectedID = id;
     else
         UIDropDownMenu_SetSelectedID(dd2, id);
