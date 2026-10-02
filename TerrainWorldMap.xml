@@ -299,7 +299,7 @@
 
 	<Button name="TWMFrameZoomButton" parent="TWMFrameViewFrame">
 		<Size>
-			<AbsDimension x="32" y="32"/>
+			<AbsDimension x="24" y="24"/>
 		</Size>
 		<Anchors>
 			<Anchor point="BOTTOMLEFT" relativePoint="BOTTOMLEFT">
@@ -320,10 +320,10 @@
 				end
 			</OnClick>
 		</Scripts>
-		<NormalTexture file="Interface\AddOns\TerrainWorldMap\images\MagButton-Up"/>
-		<PushedTexture file="Interface\AddOns\TerrainWorldMap\images\MagButton-Down"/>
-		<DisabledTexture file="Interface\AddOns\TerrainWorldMap\images\MagButton-Disabled"/>
-		<HighlightTexture file="Interface\Buttons\UI-Common-MouseHilight" alphaMode="ADD"/>
+		<NormalTexture file="Interface\Icons\INV_Misc_Spyglass_02"/>
+		<PushedTexture file="Interface\Icons\INV_Misc_Spyglass_02"/>
+		<DisabledTexture file="Interface\Icons\INV_Misc_Spyglass_02"/>
+		<HighlightTexture file="Interface\Buttons\ButtonHilight-Square" alphaMode="ADD"/>
 	</Button>
 
 	<!-- Only shown, always together with TWMFrameShowWMOOverlayButton below
