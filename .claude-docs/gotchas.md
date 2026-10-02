@@ -871,3 +871,25 @@ plus Blizzard's own `UIDropDownMenu.lua` extracted from CASC (`interface/addons/
 Lessons: "the frame exists and `IsShown()` is true" says nothing about visibility if a parent is hidden -- compare the
 parents. Use `UIDropDownMenu_SetInitializeFunction`, not `UIDropDownMenu_Initialize`, to register a callback without
 side effects on the shared lists. Do not call `UIDropDownMenu_CreateFrames` yourself (it writes secure globals).
+
+## Icons / tiles shimmer or change width by 1px while the map moves: align everything to physical pixels
+Symptom: POI icons (thin glyphs like "!" most of all) get 1px wider/narrower and jitter against the terrain, both when
+dragging and in follow mode. Cause: the view moved in UI units (1 unit = 1.5 physical px at UI scale 0.8 / 1440p) while
+tiles are drawn with pixel snapping off (sub-pixel) and icons with the client's default snapping, so each icon's edges and
+texels were rounded differently from position to position.
+Fix (Points.lua / `TWMFrameTemplate:SetLocation`): the drawn view position is snapped to whole physical pixels
+(`opt.Location` stays exact -- drags add deltas to it, so snapping it would drift); icon offsets are snapped in ABSOLUTE
+screen coordinates (`SnapToPixel` with the view's `GetLeft()/GetTop()` as origin -- the view edge itself usually sits on a
+half pixel, which made the client's rounding flip on exact ties); icon size is a whole number of pixels
+(`TWM_GetIconSize`). Pixel size in view units =
+`UIParent:GetHeight()*UIParent:GetEffectiveScale()/physicalHeight/viewEffectiveScale` (`GetPixelSize`).
+What did NOT help (tried and removed): turning pixel snapping off for icons (worse -- whole icon shimmers at
+sub-pixel positions), snapping offsets relative to the view origin only, texel snapping off, a quarter-pixel offset from
+the grid line, a 0.002 texcoord shift, linear icon filtering, integer icon scale (32/64px), anchoring the icon texture
+straight to the pan anchor, and dropping the pan anchor for a full relayout per tick. Measured in game: the followed
+unit's per-tick steps and the icon's on-screen steps are smooth and monotone. What remains is a faint "breathing" of the
+edges of "!" icons: Icon-Exclaim.tga has a wide soft halo (~250 semi-transparent pixels), so its edges blend with the
+moving NEAREST-sampled ground; only a sharper icon texture would remove it. Do not floor the tile pixel offset in `SetLocation` while the view can
+be fractional: tile 1's texcoord uses the exact fraction, so a floored offset shears the other tiles by up to 1px.
+Follow mode: the followed unit's marker is anchored to the view center (`TWMP_CenterOnView`), not placed by its true
+position, otherwise it jitters by the view's snapping error.

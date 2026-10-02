@@ -20,8 +20,70 @@ local emptylist = {};
 -- default on-map icon size in pixels at the IconSize option's neutral value (1.0)
 local TWM_ICON_BASE_SIZE = 14;
 
+-- Follow mode (TWMFrameTemplate:FollowTick): icons are anchored to a pan
+-- anchor frame, so small view moves cost one SetPoint instead of a full icon
+-- layout. The full layout reruns once the view drifts FOLLOW_REFRESH_PX from
+-- the last layout; culling uses a FOLLOW_MARGIN_PX border so nothing pops in
+-- at the edges in between.
+local FOLLOW_MARGIN_PX = 192;
+local FOLLOW_REFRESH_PX = 96;
+
+local function GetPanAnchor(vf)
+    local a = vf.panAnchor;
+    if(not a) then
+        a = CreateFrame("Frame", nil, vf);
+        a:SetSize(1, 1);
+        vf.panAnchor = a;
+    end
+    return a;
+end
+
+-- Size of one physical screen pixel in vf's own coordinate units: the screen
+-- is UIParent:GetHeight() units tall at UIParent's effective scale, physH
+-- pixels tall in reality.
+local function GetPixelSize(vf)
+    if(not (vf and GetPhysicalScreenSize)) then return nil; end
+    local _, physH = GetPhysicalScreenSize();
+    local es = vf:GetEffectiveScale();
+    if(not physH or physH <= 0 or es <= 0) then return nil; end
+    return UIParent:GetHeight() * UIParent:GetEffectiveScale() / physH / es;
+end
+
+-- Rounds an offset to whole physical pixels. Icons are placed at fractional
+-- offsets, and the client's pixel snapping then rounds their edges differently
+-- from position to position, so an icon's size jitters by 1px while the map
+-- moves; on a pixel-aligned position the rounding is always the same.
+-- `origin` (the view's own screen coordinate on that axis) makes the result
+-- land on the screen's pixel grid, not just the view's: the view's edge itself
+-- is usually between two pixels. Without it the offset is only rounded to a
+-- pixel multiple (the pan anchor, which must keep the icons' alignment).
+local function SnapToPixel(v, pixel, origin)
+    if(not pixel) then return v; end
+    origin = origin or 0;
+    return math.floor((origin + v) / pixel + 0.5) * pixel - origin;
+end
+
+function TWM_GetPixelSize(vf)
+    return GetPixelSize(vf);
+end
+
+-- Places `point` (size iconsz) at the exact center of the view, pixel-aligned.
+-- Used for the followed unit's marker, which must not move relative to the
+-- screen while the map scrolls under it.
+function TWMP_CenterOnView(point, vf, iconsz)
+    local pixel = GetPixelSize(vf);
+    point:ClearAllPoints();
+    point:SetPoint("TOPLEFT", vf, "TOPLEFT",
+        SnapToPixel(vf:GetWidth()/2 - iconsz/2, pixel, vf:GetLeft()),
+        SnapToPixel(-(vf:GetHeight()/2 - iconsz/2), pixel, vf:GetTop()));end
+
+-- Icon size in view units, a whole number of physical pixels so both edges
+-- of an icon sit on the pixel grid (see SnapToPixel).
 function TWM_GetIconSize(lm)
-    return TWM_ICON_BASE_SIZE * (TWMOption.Frames[lm].IconSize or 1);
+    local size = TWM_ICON_BASE_SIZE * (TWMOption.Frames[lm].IconSize or 1);
+    local pixel = GetPixelSize(_G[lm.."ViewFrame"]);
+    if(not pixel) then return size; end
+    return math.max(pixel, SnapToPixel(size, pixel));
 end
 
 function TWMPoints_RegisterSet(set)
@@ -95,6 +157,28 @@ function TWMPoints_OnMapChange(frame)
     TWMPoints_OnMove(frame, unpack(TWMOption.Frames[lm].Location));
 end
 
+-- Moves the pan anchor to the view's offset from the last full layout
+-- (frame.yap_lastx/y); false when the drift is too large and a full
+-- TWMPoints_Update is due.
+function TWMPoints_Pan(frame, x, y)
+    local z = frame:GetZoom();
+    local dx, dy = (x - frame.yap_lastx) * z, (y - frame.yap_lasty) * z;
+    if(math.abs(dx) > FOLLOW_REFRESH_PX or math.abs(dy) > FOLLOW_REFRESH_PX) then
+        return false;
+    end
+
+    local vf = _G[frame:GetName().."ViewFrame"];
+    local pixel = GetPixelSize(vf);
+    local pa = GetPanAnchor(vf);
+    pa:ClearAllPoints();
+    pa:SetPoint("TOPLEFT", vf, "TOPLEFT", SnapToPixel(-dx, pixel), SnapToPixel(dy, pixel));
+
+    if(TWM_FlightPaths_OnPointsUpdate) then
+        TWM_FlightPaths_OnPointsUpdate(frame, x, y);
+    end
+    return true;
+end
+
 function TWMPoints_OnMove(frame, x, y, forceupdate)
     local lm = frame:GetName();
 
@@ -110,6 +194,10 @@ function TWMPoints_OnMove(frame, x, y, forceupdate)
     -- viewport-bounds culling).
     if(not forceupdate and frame.yap_lastx == x and frame.yap_lasty == y) then
         -- no change
+        return;
+    end
+
+    if(frame.followMode and not forceupdate and frame.yap_lastx and TWMPoints_Pan(frame, x, y)) then
         return;
     end
 
@@ -173,15 +261,23 @@ function TWMPoints_Update(frame, x, y)
         frame.vispoints[h] = {};
     end
 
+    -- every icon is positioned relative to the pan anchor, reset to the view origin here
+    local pa = GetPanAnchor(current_viewframe);
+    pa:ClearAllPoints();
+    pa:SetPoint("TOPLEFT", current_viewframe, "TOPLEFT", 0, 0);
+
     -- fill vispoints
-    for xv = flr(x),cei(x+current_viewframe:GetWidth()/z),1 do
-        if(frame.points[xv] ~= nil) then 
-            for yv = flr(y),cei(y+current_viewframe:GetHeight()/z),1 do
+    local mg = frame.followMode and FOLLOW_MARGIN_PX/z or 0;
+    local minx, miny = x - mg, y - mg;
+    local maxx = x + current_viewframe:GetWidth()/z + mg;
+    local maxy = y + current_viewframe:GetHeight()/z + mg;
+    for xv = flr(minx),cei(maxx),1 do
+        if(frame.points[xv] ~= nil) then
+            for yv = flr(miny),cei(maxy),1 do
                 if(frame.points[xv][yv] ~= nil) then
                     for k,vv in pairs(frame.points[xv][yv]) do
-                        if(vv.x > x and vv.y > y and
-                                vv.x < x+current_viewframe:GetWidth()/z and 
-                                vv.y < y+current_viewframe:GetHeight()/z) then
+                        if(vv.x > minx and vv.y > miny and
+                                vv.x < maxx and vv.y < maxy) then
                             binsert(frame.vispoints[vv.setname], vv);
                         end
                     end
@@ -459,10 +555,11 @@ function TWMP_SetOffset(point, x, y)
     local lm = current_frame:GetName();
     local iconsz = TWM_GetIconSize(lm);
 
+    local pixel = GetPixelSize(current_viewframe);
     point:ClearAllPoints();
-    point:SetPoint("TOPLEFT", current_viewframe, "TOPLEFT", 
-           -(current_locx_xact - x)*z - iconsz/2,
-           (current_locy_xact - y)*z + iconsz/2);
+    point:SetPoint("TOPLEFT", GetPanAnchor(current_viewframe), "TOPLEFT",
+           SnapToPixel(-(current_locx_xact - x)*z - iconsz/2, pixel, current_viewframe:GetLeft()),
+           SnapToPixel((current_locy_xact - y)*z + iconsz/2, pixel, current_viewframe:GetTop()));
 end
 
 -- WoW: Forever (patch 12.1.5) removed the old global MouseIsOver(frame)
@@ -671,7 +768,11 @@ function TWMMP_Update(point, frame)
         -- same fix/comment in TWMPoints_Update for the fixed-point case.
         point:SetWidth(iconsz);
         point:SetHeight(iconsz);
-        point:SetOffset(point.locx, point.locy);
+        if(frame.followMode and point.dat and point.dat.name == frame.opt.track) then
+            TWMP_CenterOnView(point, vf, iconsz);
+        else
+            point:SetOffset(point.locx, point.locy);
+        end
         point:Show();
     else
         point:Hide();

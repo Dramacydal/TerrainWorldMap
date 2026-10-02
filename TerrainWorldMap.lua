@@ -652,7 +652,7 @@ function TWM_WMOOverlay_Update(frame)
         return a.order < b.order;
     end);
 
-    local Lx, Ly = frame.opt.Location[1], frame.opt.Location[2];
+    local Lx, Ly = frame.viewX or frame.opt.Location[1], frame.viewY or frame.opt.Location[2];
     local z = frame:GetZoom();
     local cutoff = frame.wmoOverlayHeightCutoff;
     local baseLevel = vf:GetFrameLevel() + 1;
@@ -2313,17 +2313,29 @@ function TWMFrameTemplate:SetLocation(x,y,forceupdate,forcePointsUpdate)
     local wzoom, hzoom = self.wzoom,self.hzoom;
     local wzoom_real,hzoom_real = self.wzoom_real, self.hzoom_real;
 
+    -- opt.Location keeps the exact position (a drag adds deltas to it); what
+    -- is drawn is that position on the physical pixel grid, so tiles and
+    -- icons (pixel-aligned, see Points.lua) always move by whole pixels.
+    local exactX, exactY = x, y;
+    local pixel = TWM_GetPixelSize(vf);
+    if(pixel) then
+        x = math.floor(x*zoom/pixel + 0.5)*pixel/zoom;
+        y = math.floor(y*zoom/pixel + 0.5)*pixel/zoom;
+    end
+
     zx = math.floor(x);
     zy = math.floor(y);
     mymap = self.opt.Map;
 
-    -- offset calc
+    -- offset calc: exact, not floored -- tile 1's texcoord start uses the
+    -- exact fraction, so a floored offset would shift the following tiles
+    -- relative to it whenever the view isn't on a whole unit
     local px, py;
-    px = math.floor((x-zx)*zoom);
-    py = math.floor((y-zy)*zoom);
+    px = (x-zx)*zoom;
+    py = (y-zy)*zoom;
 
-    local needsContentRefresh = (zx ~= math.floor(self.opt.Location[1]) or forceupdate or
-        zy ~= math.floor(self.opt.Location[2]) or mymap ~= self.lastmap);
+    local needsContentRefresh = (zx ~= math.floor(self.viewX or self.opt.Location[1]) or forceupdate or
+        zy ~= math.floor(self.viewY or self.opt.Location[2]) or mymap ~= self.lastmap);
     if(needsContentRefresh) then
         local v = {};
         local jx, jy, nsv;
@@ -2471,13 +2483,15 @@ function TWMFrameTemplate:SetLocation(x,y,forceupdate,forcePointsUpdate)
         end
     end
 
-    -- set zone text
-    if(not vf.dragme) then
+    -- set zone text (follow mode refreshes it on its own slower timer)
+    if(not vf.dragme and not self.followMoving) then
         self:UpdateDropDown2();
     end
 
-    self.opt.Location[1] = x;
-    self.opt.Location[2] = y;
+    self.opt.Location[1] = exactX;
+    self.opt.Location[2] = exactY;
+    self.viewX = x;
+    self.viewY = y;
 
     -- forcePointsUpdate defaults to forceupdate when not given explicitly,
     -- so every other caller keeps its old all-or-nothing behavior -- only
@@ -2587,7 +2601,7 @@ function TWMFrameTemplate:OnWorldMapUpdateU(u)
                     zy-(viewframe:GetHeight()/2)/zoom);
 
         self.trackseek = nil;
-    elseif(u == self.opt.track) then
+    elseif(u == self.opt.track and not self.followMode) then
         local rx,ry = self:GetLocation();
         local zx,zy = TWM_Big2Mini_Coord(unitx, unity);
         local whaffzoom = (viewframe:GetWidth()/2)/zoom;
@@ -2634,7 +2648,12 @@ function TWMFrameViewFrame_OnDrag(self)
     fx = math.floor(x - self:GetLeft())/(zoom);
     fy = math.floor(y - self:GetBottom())/(zoom);
     if(twm_lastdragx ~= nil) then
-        self:GetParent():AdjustLocation(twm_lastdragx - fx, twm_lastdragy - fy);
+        local ddx, ddy = twm_lastdragx - fx, twm_lastdragy - fy;
+        -- manual panning cancels follow mode, which would fight the drag
+        if(self:GetParent().followMode and (ddx ~= 0 or ddy ~= 0)) then
+            TWMFrame_StopTracking(self:GetParent());
+        end
+        self:GetParent():AdjustLocation(ddx, ddy);
     end
 
     twm_lastdragx = fx;
@@ -2750,8 +2769,95 @@ function TWMFrameViewFrame_UpdateCursorCoord(self)
     end
 end
 
+-- Follow mode (Goto Player toggled on, view on a continent): the view is
+-- re-centered on the unit every FOLLOW_INTERVAL seconds. Tiles move with the
+-- view; icons ride the pan anchor and are re-laid out only after a larger
+-- drift (TWMPoints_Pan, Points.lua); the zone dropdown refreshes on its own
+-- slower timer.
+local TWM_FOLLOW_INTERVAL = 1/30;
+local TWM_FOLLOW_ZONE_INTERVAL = 1;
+
+local function TWM_SetFollowMode(frame, on)
+    if((frame.followMode == true) == on) then return; end
+    frame.followMode = on or nil;
+    -- next TWMPoints_OnMove does a full layout (with/without the cull margin)
+    frame.yap_lastx = nil;
+    frame.yap_lasty = nil;
+end
+
+function TWMFrame_StopTracking(frame)
+    frame.opt.track = nil;
+    TWM_SetFollowMode(frame, false);
+    local btn = _G[frame:GetName().."PlayerJumpButton"];
+    if(btn) then TWMFramePlayerJumpButton_Update(btn); end
+end
+
+-- Returns false when follow doesn't apply (not a continent / no live
+-- position), leaving the regular tracking in OnWorldMapUpdateU to handle it.
+function TWMFrameTemplate:FollowTick(unit, dt)
+    local map, nx, ny = TWM_GetUnitContinentPosition(unit);
+    local area = map and Twm_ContinentMapID[map] and Twm_mapareas[map] and Twm_mapareas[map][0];
+    if(not (area and nx)) then return false; end
+
+    if(map ~= self.opt.Map) then
+        self:SetMap(map);
+    end
+
+    local bigx = -nx*(area[1]-area[2]) + area[1];
+    local bigy = -ny*(area[3]-area[4]) + area[3];
+    local mx, my = TWM_Big2Mini_Coord(bigx, bigy);
+
+    local vf = _G[self:GetName().."ViewFrame"];
+    local zoom = self.opt.Zoom;
+
+    local tx, ty = mx - vf:GetWidth()/2/zoom, my - vf:GetHeight()/2/zoom;
+    -- whole physical pixels, so tiles and icons (pixel-aligned, see Points.lua)
+    -- step by the same amount
+    local pixel = TWM_GetPixelSize(vf);
+    if(pixel) then
+        tx = math.floor(tx*zoom/pixel + 0.5)*pixel/zoom;
+        ty = math.floor(ty*zoom/pixel + 0.5)*pixel/zoom;
+    end
+    local loc = self.opt.Location;
+
+    TWM_SetFollowMode(self, true);
+    if(tx ~= loc[1] or ty ~= loc[2]) then
+        self.followMoving = true;
+        self:SetLocation(tx, ty);
+        self.followMoving = nil;
+    end
+
+    -- the unit's own marker is otherwise refreshed only every 0.5s
+    local mp = self.mobilepoints and self.mobilepoints["players:"..unit];
+    if(mp) then
+        mp.locx, mp.locy, mp.locmap = mx, my, map;
+        mp:Update(self);
+    end
+
+    self.followZoneTime = (self.followZoneTime or 0) + dt;
+    if(self.followZoneTime >= TWM_FOLLOW_ZONE_INTERVAL) then
+        self.followZoneTime = 0;
+        self:UpdateDropDown2();
+    end
+    return true;
+end
+
 function TWMFrameTemplate:OnUpdate(elapsed)
     self.update_time = self.update_time + elapsed;
+
+    local followed = false;
+    if(self.opt and self.opt.track) then
+        self.follow_time = (self.follow_time or 0) + elapsed;
+        if(self.follow_time >= TWM_FOLLOW_INTERVAL) then
+            followed = self:FollowTick(self.opt.track, self.follow_time);
+            self.follow_time = 0;
+        else
+            followed = self.followMode == true;
+        end
+    end
+    if(not followed) then
+        TWM_SetFollowMode(self, false);
+    end
 
     if(self.update_time > 0.5) then
        TWMPoints_OnUpdate(self, self.update_time);

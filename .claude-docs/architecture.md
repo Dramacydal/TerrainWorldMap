@@ -70,6 +70,21 @@ same table entry and call `TWMPoints_ForceUpdate(TWMFrame)`.
 `Settings.lua`'s Browser tab, not just the in-frame dropdown) add a
 `CreateCheckbox` block there bound to `PointCfg["<name>"]`.
 
+**Follow mode** (Goto Player toggled on, view on a continent; `TWMFrameTemplate:FollowTick`
+in `TerrainWorldMap.lua`): every 1/30s the view is re-centered on the unit.
+Tiles go through the normal `SetLocation`. Icons are anchored to `vf.panAnchor`
+(`GetPanAnchor`, `Points.lua`), not to the ViewFrame itself, so a small view
+move is one `SetPoint` on the anchor (`TWMPoints_Pan`) instead of a full
+`TWMPoints_Update`. The full layout reruns when the view drifts more than
+`FOLLOW_REFRESH_PX` from the last layout, and it culls with a
+`FOLLOW_MARGIN_PX` border so nothing pops in at the edges meanwhile. Zoom/resize
+pass `forceupdate`, which always takes the full layout (the pan anchor is only
+valid for the zoom it was laid out at). The unit's own marker is updated in
+the follow tick (the 0.5s `players` set update would visibly lag); the zone
+dropdown refreshes once a second. Dragging the map cancels tracking.
+Non-continent maps keep the old "re-center when the unit leaves the view" logic
+in `OnWorldMapUpdateU`.
+
 ## Live name resolution — don't bake locale into generated data
 
 `Data_<Flavor>/mapdata_poi_areas.lua`/`mapdata_poi_instances.lua` are
