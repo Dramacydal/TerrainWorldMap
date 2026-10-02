@@ -2053,13 +2053,13 @@ function TWMFrameDropDownButton2_OnClick(self)
 end
 
 -- UIDropDownMenu_SetSelectedID walks the buttons of the shared, currently
--- open DropDownList whichever dropdown owns it, so while the "Show Points"
--- menu is open it would rewrite that menu's checkmarks. In that case only the
--- stored selection and the text are updated. Not guarded for the other menus
--- (map/zone lists): skipping it there left their lists open after a click.
+-- open DropDownList whichever dropdown owns it, so while another menu
+-- ("Show Points", the map/dungeon list) is open it would check the button
+-- whose index equals the zone's index there. In that case only the stored
+-- selection and the text are updated.
 local function TWM_SetZoneDropdown(dd2, id, text)
     local open = UIDROPDOWNMENU_OPEN_MENU;
-    if(open and open == _G["TWMFOODropDown"]) then
+    if(open and open ~= dd2) then
         dd2.selectedID = id;
     else
         UIDropDownMenu_SetSelectedID(dd2, id);

@@ -900,5 +900,11 @@ checkmarks; the saved `PointCfg` is fine and reopening the menu shows the right 
 `TWMFrameTemplate:UpdateDropDown2` refreshed the Zone dropdown with `UIDropDownMenu_SetSelectedID`, which updates the
 buttons of the shared, currently open `DropDownList` regardless of which dropdown owns it.
 Fix: `TWM_SetZoneDropdown` writes `dd2.selectedID` directly and only sets the text when `UIDROPDOWNMENU_OPEN_MENU` is
-another menu. Verified in game. Any other code that refreshes a dropdown's selection while a different menu may be open
-needs the same guard (`UIDropDownMenu_ClearAll` in `SetMap` is unguarded, only runs on map change).
+ANY other menu -- also the map/dungeon list (guarding only "Show Points" made the follow tick's once-a-second refresh
+check the dungeon-list entry with the same index as the current zone). Any other code that refreshes a dropdown's
+selection while a different menu may be open needs the same guard (`UIDropDownMenu_ClearAll` in `SetMap` is unguarded,
+only runs on map change).
+
+Related, not a bug of ours: in this client (2.5.6) `UIDropDownMenuButton_OnClick` hides only the clicked list; upper
+levels stay until the autohide timer, so a click handler that must close a multi-level menu calls
+`CloseDropDownMenus()` itself (`TWM_PickMap`). Blizzard source: `interface/addons/blizzard_sharedxml/classic/uidropdownmenu.lua`.
