@@ -893,3 +893,12 @@ moving NEAREST-sampled ground; only a sharper icon texture would remove it. Do n
 be fractional: tile 1's texcoord uses the exact fraction, so a floored offset shears the other tiles by up to 1px.
 Follow mode: the followed unit's marker is anchored to the view center (`TWMP_CenterOnView`), not placed by its true
 position, otherwise it jitters by the view's snapping error.
+
+## "Show Points" checkmarks vanish while the map is dragged: `UIDropDownMenu_SetSelectedID` touches the shared open list
+Symptom: with the "Show Points" menu (TWMFOO) open, dragging the map (or follow mode, once a second) clears/moves its
+checkmarks; the saved `PointCfg` is fine and reopening the menu shows the right state. Cause:
+`TWMFrameTemplate:UpdateDropDown2` refreshed the Zone dropdown with `UIDropDownMenu_SetSelectedID`, which updates the
+buttons of the shared, currently open `DropDownList` regardless of which dropdown owns it.
+Fix: `TWM_SetZoneDropdown` writes `dd2.selectedID` directly and only sets the text when `UIDROPDOWNMENU_OPEN_MENU` is
+another menu. Verified in game. Any other code that refreshes a dropdown's selection while a different menu may be open
+needs the same guard (`UIDropDownMenu_ClearAll` in `SetMap` is unguarded, only runs on map change).

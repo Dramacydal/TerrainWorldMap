@@ -2045,6 +2045,20 @@ function TWMFrameDropDownButton2_OnClick(self)
     end
 end
 
+-- UIDropDownMenu_SetSelectedID walks the buttons of the shared, currently
+-- open DropDownList whichever dropdown owns it, so while another menu (e.g.
+-- the "Show Points" menu) is open it would rewrite that menu's checkmarks.
+-- In that case only the stored selection and the text are updated.
+local function TWM_SetZoneDropdown(dd2, id, text)
+    local open = UIDROPDOWNMENU_OPEN_MENU;
+    if(open and open ~= dd2) then
+        dd2.selectedID = id;
+    else
+        UIDropDownMenu_SetSelectedID(dd2, id);
+    end
+    UIDropDownMenu_SetText(dd2, text);
+end
+
 function TWMFrameTemplate:UpdateDropDown2()
     local framename = self:GetName();
     local dd2 = _G[framename.."DropDown2"];
@@ -2052,10 +2066,8 @@ function TWMFrameTemplate:UpdateDropDown2()
         local zid = self:GetZoneIDs();
         local found = false;
         for i,v in ipairs(self.zonepulldowns) do
-	--print(tostring(v).." "..tostring(vid))
             if(v == zid) then
-                UIDropDownMenu_SetSelectedID(dd2, i);
-                UIDropDownMenu_SetText(dd2,Twm_areadb[zid]);
+                TWM_SetZoneDropdown(dd2, i, Twm_areadb[zid]);
                 found = true;
                 break;
             end
@@ -2065,8 +2077,7 @@ function TWMFrameTemplate:UpdateDropDown2()
         -- edge) -- just leave the dropdown blank rather than snapping the
         -- view somewhere else out from under the player's drag.
         if(not found) then
-            UIDropDownMenu_SetSelectedID(dd2, 0);
-            UIDropDownMenu_SetText(dd2, "");
+            TWM_SetZoneDropdown(dd2, 0, "");
         end
     end
 end
