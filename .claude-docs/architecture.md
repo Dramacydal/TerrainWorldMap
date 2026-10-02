@@ -85,6 +85,13 @@ dropdown refreshes once a second. Dragging the map cancels tracking.
 Non-continent maps keep the old "re-center when the unit leaves the view" logic
 in `OnWorldMapUpdateU`.
 
+**The two header dropdowns** (`TerrainWorldMap.lua`): the left one is a category tree (Continents / Dungeons > expansion /
+Raids / Scenarios / Battlegrounds / Arenas). For a continent the right one lists its zones (`zonepulldowns`) and shows the
+zone under the view center (`UpdateDropDown2`). For any other map `TWM_GetMapGroup(map)` (set in `SetMap` as
+`frame.mapGroupText`/`frame.mapGroup`) makes the left one read "Dungeons: Vanilla" (just "Dungeons" when the flavor has
+one expansion) and the right one list that group's maps; picking one calls `TWM_PickMap` (`SelectMap` + `CloseDropDownMenus`).
+`UpdateDropDown2` runs from `SetLocation` AFTER `opt.Location` is stored (it reads it).
+
 ## Live name resolution — don't bake locale into generated data
 
 `Data_<Flavor>/mapdata_poi_areas.lua`/`mapdata_poi_instances.lua` are

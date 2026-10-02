@@ -1585,6 +1585,43 @@ function TWM_GetExpansionName(expID)
     return _G["TWM_EXPANSION_" .. tostring(expID)] or ("Expansion " .. tostring(expID));
 end
 
+-- The left dropdown's category tree (Dungeons > <expansion> > map, ...) for
+-- non-continent maps: `tiered` categories have the expansion level when the
+-- flavor has more than one expansion.
+local TWM_MAP_GROUPS = {
+    {list = "TWM_DUNGEONS", names = TWM_GetSortedDungeonNames, title = "TWM_CATEGORY_DUNGEONS", tiered = true},
+    {list = "TWM_RAIDS", names = TWM_GetSortedRaidNames, title = "TWM_CATEGORY_RAIDS", tiered = true},
+    {list = "TWM_SCENARIOS", names = TWM_GetSortedScenarioNames, title = "TWM_CATEGORY_SCENARIOS"},
+    {list = "TWM_BATTLEGROUNDS", names = TWM_GetSortedBattlegroundNames, title = "TWM_CATEGORY_BATTLEGROUNDS"},
+    {list = "TWM_ARENAS", names = TWM_GetSortedArenaNames, title = "TWM_CATEGORY_ARENAS"},
+};
+
+-- For a non-continent map: the text the left dropdown shows ("Dungeons" or
+-- "Dungeons: Vanilla") and the maps of that same group, as {name=, key=}
+-- sorted by name (they fill the right dropdown). nil for continents.
+function TWM_GetMapGroup(mapname)
+    for _, c in ipairs(TWM_MAP_GROUPS) do
+        local list = _G[c.list];
+        for _, e in pairs(list or {}) do
+            if(e[1] == mapname) then
+                local text, group = _G[c.title], {};
+                local exp = c.tiered and e.expansion or nil;
+                for _, name in ipairs(c.names()) do
+                    local ne = list[name];
+                    if(not exp or ne.expansion == exp) then
+                        tinsert(group, {name = name, key = ne[1]});
+                    end
+                end
+                if(exp and #TWM_GetSortedExpansionIDs(list) > 1) then
+                    text = text .. ": " .. TWM_GetExpansionName(exp);
+                end
+                return text, group;
+            end
+        end
+    end
+    return nil;
+end
+
 -- Dungeon/raid buttons of one expansion (names = sorted, list = TWM_DUNGEONS
 -- or TWM_RAIDS).
 local function TWM_AddInstanceButtons(names, list, expID, onClick, level)
@@ -1863,6 +1900,7 @@ function TWMFrameTemplate:SetMap(mapname)
     local lm = self:GetName();
 
     self.opt.Map = mapname;
+    self.mapGroupText, self.mapGroup = TWM_GetMapGroup(mapname);
 
     TWM_UpdateOverlayButtons(self);
 
@@ -1880,30 +1918,10 @@ function TWMFrameTemplate:SetMap(mapname)
                 UIDropDownMenu_SetText(mapdropdown,h);
             end
         end
-        for i,h in ipairs(TWM_GetSortedBattlegroundNames()) do
-            if(TWM_BATTLEGROUNDS[h][1] == mapname) then
-                UIDropDownMenu_SetText(mapdropdown,h);
-            end
-        end
-        for i,h in ipairs(TWM_GetSortedArenaNames()) do
-            if(TWM_ARENAS[h][1] == mapname) then
-                UIDropDownMenu_SetText(mapdropdown,h);
-            end
-        end
-        for i,h in ipairs(TWM_GetSortedDungeonNames()) do
-            if(TWM_DUNGEONS[h][1] == mapname) then
-                UIDropDownMenu_SetText(mapdropdown,h);
-            end
-        end
-        for i,h in ipairs(TWM_GetSortedRaidNames()) do
-            if(TWM_RAIDS[h][1] == mapname) then
-                UIDropDownMenu_SetText(mapdropdown,h);
-            end
-        end
-        for i,h in ipairs(TWM_GetSortedScenarioNames()) do
-            if(TWM_SCENARIOS[h][1] == mapname) then
-                UIDropDownMenu_SetText(mapdropdown,h);
-            end
+        -- Not a continent: the left dropdown names the group (category and
+        -- expansion), the right one lists that group's maps.
+        if(self.mapGroupText) then
+            UIDropDownMenu_SetText(mapdropdown, self.mapGroupText);
         end
     end
 
@@ -1990,6 +2008,18 @@ function TWMFrameDropDown2_Initialize()
     frame.zonepulldowns = TWM_BuildZonePulldowns(frame.opt.Map);
     local info;
 
+    -- Non-continent map: the maps of its group instead of zones.
+    if(frame.mapGroup) then
+        for _, g in ipairs(frame.mapGroup) do
+            UIDropDownMenu_AddButton({
+                text = g.name;
+                value = frame;
+                func = TWMFrameDropDownButton2_OnClick;
+            });
+        end
+        return;
+    end
+
     for j,v in ipairs(frame.zonepulldowns) do
         info = {
             text = Twm_areadb[v];
@@ -2026,6 +2056,13 @@ end
 function TWMFrameDropDownButton2_OnClick(self)
     local frame = self.value;
     local lm = frame:GetName();
+
+    if(frame.mapGroup) then
+        local g = frame.mapGroup[self:GetID()];
+        if(g and g.key ~= frame.opt.Map) then TWM_PickMap(g.key); end
+        return;
+    end
+
     local z = frame.zonepulldowns[self:GetID()];
 
     if(not z) then return; end
@@ -2071,6 +2108,18 @@ function TWMFrameTemplate:UpdateDropDown2()
     local framename = self:GetName();
     local dd2 = _G[framename.."DropDown2"];
     if(dd2 and self.zonepulldowns) then
+        -- Non-continent map: the right dropdown shows this map within its group.
+        if(self.mapGroup) then
+            for i, g in ipairs(self.mapGroup) do
+                if(g.key == self.opt.Map) then
+                    TWM_SetZoneDropdown(dd2, i, g.name);
+                    return;
+                end
+            end
+            TWM_SetZoneDropdown(dd2, 0, "");
+            return;
+        end
+
         local zid = self:GetZoneIDs();
         local found = false;
         for i,v in ipairs(self.zonepulldowns) do
@@ -2502,15 +2551,16 @@ function TWMFrameTemplate:SetLocation(x,y,forceupdate,forcePointsUpdate)
         end
     end
 
-    -- set zone text (follow mode refreshes it on its own slower timer)
-    if(not vf.dragme and not self.followMoving) then
-        self:UpdateDropDown2();
-    end
-
     self.opt.Location[1] = exactX;
     self.opt.Location[2] = exactY;
     self.viewX = x;
     self.viewY = y;
+
+    -- set zone text (reads opt.Location, so after it is updated; follow mode
+    -- refreshes it on its own slower timer)
+    if(not vf.dragme and not self.followMoving) then
+        self:UpdateDropDown2();
+    end
 
     -- forcePointsUpdate defaults to forceupdate when not given explicitly,
     -- so every other caller keeps its old all-or-nothing behavior -- only

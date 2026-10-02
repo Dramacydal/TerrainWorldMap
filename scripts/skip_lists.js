@@ -170,6 +170,9 @@ const checkedWmoAreasByMap = {
 		],
 	},
 	wow_anniversary: {
+		'289': [ // Scholomance
+			[-212.5, -124.7, 337.7, 364.9],
+		],
 	},
 	wow_classic: {
 	},
