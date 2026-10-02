@@ -156,7 +156,7 @@ const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
 const { Blp } = require('@wowserhq/format');
-const { flavorDir, listfilePath, ensureExtracted, ensureExtractedPaths, ensureDb2Csv, envOr, resolveMapKeys } = require('./extract');
+const { flavorDir, listfilePath, ensureExtracted, ensureExtractedPaths, ensureExtractedFileDataIds, ensureDb2Csv, envOr, resolveMapKeys } = require('./extract');
 const { skipWmoTiles, skipTileFileDataId, skipWmoGroups, checkedWmoAreasByMap, isSkipped, isWmoTileInCheckedArea } = require('./skip_lists');
 const { getValidTiles } = require('./parse_wdt');
 
@@ -607,8 +607,10 @@ async function main() {
 	const tilesByWmoId = loadWmoMinimapTexture(findCsv(flavorDirPath, 'WMOMinimapTexture.'));
 
 	// Pass 2: resolve every wanted tile's own FileDataID to its listfile
-	// path (needed to extract it and to read its real BLP dimensions below)
-	// -- gathered only now that WMOMinimapTexture has narrowed this down to
+	// name, if it has one -- only to know where CASCConsole puts the file
+	// after extracting it by FileDataID (named files at their own path,
+	// unnamed ones at unknown/FILEDATA_<id>, see tileLocalRel below).
+	// Gathered only now that WMOMinimapTexture has narrowed this down to
 	// exactly the fileIDs actually referenced by a placement in this run.
 	const wantedFileIds = new Set();
 	for (const wmoId of Object.values(wmoIdByNameId)) {
@@ -626,10 +628,18 @@ async function main() {
 		}
 	}
 
+	// Where a tile's BLP ends up locally. The tile is requested by FileDataID
+	// (the ID comes straight from WMOMinimapTexture), so it does not matter
+	// whether the community listfile has a name for it yet -- a brand new
+	// build's tiles usually have none.
+	const tileLocalRel = (fileID) => fileIdToPath[fileID] || `unknown/FILEDATA_${fileID}`;
+
 	// Phase 2: now that every placement's real tile list is known (from the
 	// DB2 table, not a directory/filename scan), self-extract exactly the
-	// group model files + minimap BLPs those tiles actually need.
+	// group model files (by path) + minimap BLPs (by FileDataID) those tiles
+	// actually need.
 	const neededPaths = new Set();
+	const neededTileFiles = new Map();
 	for (const mapName of mapNames) {
 		for (const p of placementsByMap[mapName] || []) {
 			const wmoPath = idToPath[p.nameId];
@@ -640,10 +650,13 @@ async function main() {
 			for (const g of new Set(tiles.map(t => t.groupNum)))
 				neededPaths.add(wmoPath.replace(/\.wmo$/i, `_${String(g).padStart(3, '0')}.wmo`));
 			for (const t of tiles) {
-				const p2 = fileIdToPath[t.fileID];
-				if (p2) neededPaths.add(p2);
+				if (skipTileIdSet.has(String(t.fileID))) continue;
+				neededTileFiles.set(t.fileID, { id: t.fileID, rel: tileLocalRel(t.fileID) });
 			}
 		}
+	}
+	if (neededTileFiles.size > 0) {
+		ensureExtractedFileDataIds({ ...extractOpts, files: [...neededTileFiles.values()] });
 	}
 	if (neededPaths.size > 0) {
 		const pathList = [...neededPaths];
@@ -821,9 +834,8 @@ async function main() {
 				// is the near edge and the far edge is the real height away.
 				// No BLP in the client (listed in WMOMinimapTexture/listfile
 				// but absent from the build) => nothing to draw: skip.
-				const tileListfilePath = fileIdToPath[t.fileID];
-				const blpPath = tileListfilePath && path.join(flavorDirPath, tileListfilePath);
-				if (!blpPath || !fs.existsSync(blpPath)) {
+				const blpPath = path.join(flavorDirPath, tileLocalRel(t.fileID));
+				if (!fs.existsSync(blpPath)) {
 					console.error(`  (warning: ${mapName}'s tile FileDataID ${t.fileID} not in client -- skipped)`);
 					continue;
 				}

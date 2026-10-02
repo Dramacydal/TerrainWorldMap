@@ -770,8 +770,9 @@ node gen_wmo_tiles.js --work-dir C:\wow-data --flavor wow_anniversary --client-d
 Self-extracts in two passes: each map's own obj0 ADTs/WDT first (to find
 `MODF` placements at all), then — once those placements are resolved
 against the community listfile (`<work-dir>/CASCConsole/listfile.csv`,
-prepared by `init_workdir.ps1`) — exactly the WMO group model files and
-minimap BLPs those placements actually need. This closes a real gap: unlike
+prepared by `init_workdir.ps1`) — exactly the WMO group model files (by
+path) and minimap BLPs (by FileDataID, straight from `WMOMinimapTexture`, so a
+tile with no listfile name yet is still extracted) those placements actually need. This closes a real gap: unlike
 every other step above, extracting these files was never automated before
 this refactor — they had to be pulled by hand with your own CASCConsole
 invocation.

@@ -1904,10 +1904,16 @@ function TWMFrameTemplate:SetMap(mapname)
     local mapdropdown2 = _G[lm.."DropDown2"];
     if(mapdropdown2) then
         UIDropDownMenu_ClearAll(mapdropdown2);
-        UIDropDownMenu_Initialize(mapdropdown2, TWMFrameDropDown2_Initialize);
+        -- SetInitializeFunction only STORES the callback (ToggleDropDownMenu
+        -- initializes the list when the dropdown is opened). Not
+        -- UIDropDownMenu_Initialize: that runs the callback immediately and
+        -- fills Blizzard's shared lists with this map's zones on every map
+        -- change, raising UIDROPDOWNMENU_MAXBUTTONS long before any menu is
+        -- opened (see gotchas.md, "two frames named DropDownList3").
+        UIDropDownMenu_SetInitializeFunction(mapdropdown2, TWMFrameDropDown2_Initialize);
     end
 
-    -- UIDropDownMenu_Initialize above only STORES the callback -- WoW's
+    -- The callback above is only STORED -- WoW's
     -- dropdown framework runs it lazily, the next time the Zone dropdown is
     -- actually opened, not synchronously here. Without this, self.zonepulldowns
     -- below would still hold whatever map was last zone-browsed (e.g. a

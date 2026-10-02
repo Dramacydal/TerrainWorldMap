@@ -828,11 +828,17 @@ the placement fix). Always re-run both together, per flavor and kind.
 
 ## WMO tile whose BLP is absent from the client is skipped, not drawn at a guessed size
 
-`gen_wmo_tiles.js` reads each tile's real width/height from its BLP. If the FileDataID is in `WMOMinimapTexture`
-and the community listfile but the build has no such file (CASC returns nothing), the tile is dropped with a
-`not in client -- skipped` warning. It used to be kept at a 256x256 fallback, which could never render anyway.
-Seen: Mists QuarryofTears/IcecrownCitadel (2510652-55), COTDragonblight (2510634/35); Forever Shadowfang
-(213723, 213755). Map boxes (`gen_instance_maps.js`) are derived from the kept tiles, so re-run it after this.
+`gen_wmo_tiles.js` reads each tile's real width/height from its BLP. Tiles are extracted by FileDataID
+(`ensureExtractedFileDataIds`, CASCConsole `-m FileDataId`, one call for a comma-separated batch), straight from the
+IDs in `WMOMinimapTexture` -- the community listfile is not needed for that, and a brand-new build's tiles usually
+have no name in it yet (Forever 1.60.1.70170's rebuilt Blackrock Depths: 123 tiles, none named). CASCConsole puts a
+named file at its own path and an unnamed one at `unknown/FILEDATA_<id>` (no extension); the script reads both.
+If the FileDataID is in `WMOMinimapTexture` but the build has no such file (CASCConsole prints "not found in root"),
+the tile is dropped with a `not in client -- skipped` warning. It used to be kept at a 256x256 fallback, which could
+never render anyway. Seen: Mists QuarryofTears/IcecrownCitadel (2510652-55), COTDragonblight (2510634/35); Forever
+Shadowfang (213723, 213755). Map boxes (`gen_instance_maps.js`) are derived from the kept tiles, so re-run it after this.
+Do not run a second CASCConsole while a pipeline run is going: both read `CASCConsole/listfile.csv` and one of them
+dies with "being used by another process" (which silently drops that run's extraction and looks like missing files).
 
 ## WMO overlay stacking: one frame per group, frame levels, and TWM_WMO_FRAME_BAND
 
@@ -846,3 +852,22 @@ path frame, zoom/terrain/WMO buttons, TWMFOO) is lifted by `TWM_WMO_FRAME_BAND` 
 that must draw above the tiles needs `+ TWM_WMO_FRAME_BAND` in its level too. The debug borders/labels live on a
 dedicated frame at `ViewFrame + TWM_WMO_FRAME_BAND`. Side effect: the ADT-tile debug borders (OVERLAY 7 on ViewFrame
 itself) now draw under the WMO tiles.
+
+## Entries 9..N of a level-3 dropdown list are invisible: two frames named `DropDownList3`
+Symptom (Anniversary, the Dungeons > Classic list, 19 entries): rows 1-8 render, the list frame has room for all 19, but
+rows 9..N are blank and unclickable; which rows depended on the CURRENT map (Eastern Kingdoms: 9-19, Outland: 9-15,
+arena: none). Cause: Blizzard's classic `UIDropDownMenu` starts with `UIDROPDOWNMENU_MAXLEVELS = 2` and builds
+`DropDownList3` lazily, creating a new list under the same global name, and `UIDropDownMenu_Initialize` runs the
+initializer IMMEDIATELY (it does not just store it). `SetMap` called `UIDropDownMenu_Initialize(zoneDropdown, ...)`, so at
+every map change the Zone dropdown's `AddButton`s ran (EK 25 zones, Outland 15, arenas 0) and raised
+`UIDROPDOWNMENU_MAXBUTTONS` long before any menu was opened. The buttons created before the new level-3 list existed kept
+the old, hidden list as parent: `DropDownList3Button9:GetParent()` was a hidden frame named `DropDownList3`, `Button16`'s
+the shown one (so `IsShown()` was true but nothing was drawn).
+Fix: `SetMap` uses `UIDropDownMenu_SetInitializeFunction` (stores the callback, which is what the old comment already
+claimed); `ToggleDropDownMenu` initializes the list when the dropdown is opened. Verified in game that this alone is
+enough (a re-parenting workaround was tried first and removed).
+How it was found: in-game `/run ... :GetParent()==DropDownList3` / `:IsShown()` on a visible and an invisible button,
+plus Blizzard's own `UIDropDownMenu.lua` extracted from CASC (`interface/addons/blizzard_sharedxml/classic/`).
+Lessons: "the frame exists and `IsShown()` is true" says nothing about visibility if a parent is hidden -- compare the
+parents. Use `UIDropDownMenu_SetInitializeFunction`, not `UIDropDownMenu_Initialize`, to register a callback without
+side effects on the shared lists. Do not call `UIDropDownMenu_CreateFrames` yourself (it writes secure globals).

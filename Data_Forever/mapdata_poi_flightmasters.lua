@@ -636,7 +636,7 @@ Twm_flightmasters = {
                 ptBR = "Posto Peçonha, Selva Maleva",
                 ruRU = "Застава Отравленной Крови, Оскверненный лес",
                 zhCN = "血毒河，费伍德森林",
-                zhTW = "血毒河，費伍德森林",
+                zhTW = "血毒崗哨，費伍德森林",
             },
             x = -337.22,
             y = 5068.40,

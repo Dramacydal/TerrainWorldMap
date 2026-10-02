@@ -114,7 +114,7 @@ Twm_DungeonNames = {
             ptBR = "Cavernas do Tempo",
             ruRU = "Пещеры Времени",
             zhCN = "时光之穴",
-            zhTW = "時光洞穴",
+            zhTW = "時光之穴",
         },
     },
     {
@@ -240,24 +240,6 @@ Twm_DungeonNames = {
             ruRU = "Гномреган",
             zhCN = "诺莫瑞根",
             zhTW = "諾姆瑞根",
-        },
-    },
-    {
-        key = "3002",
-        mapID = "3002",
-        expansion = "0",
-        name = {
-            enUS = "Half-Pint Tavern",
-            deDE = "Taverne zur halben Maß",
-            esES = "Taberna Mediapinta",
-            esMX = "Taberna Mediapinta",
-            frFR = "Taverne Demi-pinte",
-            itIT = "Half-Pint Tavern",
-            koKR = "작은 잔 선술집",
-            ptBR = "Taberna Meia Caneca",
-            ruRU = "Таверна \"Полпинты\"",
-            zhCN = "半品脱旅店",
-            zhTW = "半杯旅店",
         },
     },
     {
@@ -697,9 +679,6 @@ Twm_mapareas["2998"] = {
 Twm_mapareas["2999"] = {
     [0] = {1066.6666666666667, -533.3333333333334, 2666.666666666667, 1066.6666666666667},    --RuinsofLordaeron
 }
-Twm_mapareas["3002"] = {
-    [0] = {-2133.3333333333335, -3733.3333333333335, -533.3333333333334, -2133.3333333333335},    --HalfPintTavern
-}
 Twm_mapareas["StormwindJail"] = {
     [0] = {17218.487879435223, 16885.206011454266, 17263.965418497723, 16998.678263346355},    --StormwindStockade
 }
@@ -727,6 +706,9 @@ Twm_mapareas["MonasteryInstances"] = {
 Twm_mapareas["BlackRockSpire"] = {
     [0] = {17192.587176005047, 16438.351450602215, 17401.064463297527, 16800.820475260418},    --BlackrockSpire
 }
+Twm_mapareas["BlackrockDepths"] = {
+    [0] = {17331.952799479168, 16102.661478678387, 18553.343180338543, 17240.43793741862},    --BlackrockDepths
+}
 Twm_mapareas["Mauradon"] = {
     [0] = {17360.026438395184, 16183.290629069012, 18235.53739420573, 16827.60458056132},    --Maraudon
 }
@@ -738,7 +720,4 @@ Twm_mapareas["DireMaul"] = {
 }
 Twm_mapareas["3065"] = {
     [0] = {249.25826517741007, -390.74173482258993, 616.9227701822929, -118.26458867390829},    --TheHallofThanes
-}
-Twm_mapareas["BlackrockDepths"] = {
-    [0] = {18553.343180338543, 17325.310434977215, 17331.952799479168, 16218.990580240887},    --BlackrockDepths
 }

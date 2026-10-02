@@ -221,6 +221,51 @@ function ensureExtractedPaths({ workDir, flavor, clientDir, online, clientLocale
 	});
 }
 
+// Extracts files by FileDataID (CASCConsole -m FileDataId, comma-separated
+// list in one call) -- the way to get a file whose ID is known (e.g. from a
+// DB2 table) but whose name is not in the community listfile yet. CASCConsole
+// writes a named file to its own path and an unnamed one to
+// `unknown/FILEDATA_<id>` (no extension), so each entry carries the relative
+// path (to the flavor dir) where that file is expected afterwards; entries
+// whose file is already there are skipped unless force. An ID the build does
+// not contain just never produces a file (CASCConsole prints "not found in
+// root") and is retried on the next run.
+// files: [{id, rel}]
+function ensureExtractedFileDataIds({ workDir, flavor, clientDir, online, clientLocale, files, force }) {
+	const dir = flavorDir(workDir, flavor);
+	const missing = force ? files : files.filter(f => !fs.existsSync(path.join(dir, f.rel)));
+	if (missing.length === 0) return;
+	if (!clientDir && !online) {
+		throw new Error('Extraction needed but neither --client-dir nor --online was given.');
+	}
+	requireCascTool(workDir);
+	fs.mkdirSync(dir, { recursive: true });
+
+	// Same ~32767-char Windows command-line cap as ensureExtractedPaths,
+	// and the same ~20s fixed startup cost per CASCConsole launch.
+	const MAX_ARG_CHARS = 25000;
+	const chunks = [];
+	let chunk = [], chunkLen = 0;
+	for (const f of missing) {
+		const s = String(f.id);
+		if (chunk.length > 0 && chunkLen + s.length + 1 > MAX_ARG_CHARS) {
+			chunks.push(chunk);
+			chunk = []; chunkLen = 0;
+		}
+		chunk.push(s);
+		chunkLen += s.length + 1;
+	}
+	if (chunk.length > 0) chunks.push(chunk);
+
+	chunks.forEach((c, i) => {
+		const cascArgs = ['-m', 'FileDataId', '-e', c.join(','), '-d', dir, '-l', clientLocale || 'enUS', '-p', flavor];
+		if (online) cascArgs.push('-o', 'true');
+		else cascArgs.push('-s', clientDir);
+		console.error(`  extracting via CASCConsole by FileDataID: ${c.length} file(s) (chunk ${i + 1}/${chunks.length})`);
+		execFileSync(cascExePath(workDir), cascArgs, { cwd: cascDir(workDir), stdio: 'inherit' });
+	});
+}
+
 module.exports = {
 	flavorDir,
 	cascDir,
@@ -231,6 +276,7 @@ module.exports = {
 	ensureDb2Csv,
 	ensureExtracted,
 	ensureExtractedPaths,
+	ensureExtractedFileDataIds,
 	envOr,
 	candidatesDir,
 	candidatesPath,
