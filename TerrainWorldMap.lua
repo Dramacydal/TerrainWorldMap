@@ -1471,8 +1471,42 @@ function TWMFrameDropDown_OnLoad(self)
     self:RegisterEvent("VARIABLES_LOADED");
 end
 
+-- Blizzard declares DropDownList1..3 in XML but starts with
+-- UIDROPDOWNMENU_MAXLEVELS = 2, so the first level-3 menu creates a SECOND
+-- frame named DropDownList3. The global name (and the list that is shown)
+-- stays with the XML one, which only has the template's 8 buttons; buttons
+-- 9..N exist only in the hidden second list, so entries 9..N of a level-3
+-- list are invisible. Fix: raise the button count to the longest list we
+-- build (public AddButton path, covers levels 1-2) and create the matching
+-- buttons 9..N inside the XML DropDownList3 ourselves, before any menu opens.
+local function TWM_PreGrowDropDownButtons(dropdown)
+    local n = 16;
+    for _, areas in pairs(Twm_mapareas or {}) do
+        local c = 0;
+        for areaID in pairs(areas) do
+            if(Twm_areadb[areaID]) then c = c + 1; end
+        end
+        if(c > n) then n = c; end
+    end
+    UIDropDownMenu_Initialize(dropdown, function()
+        for i = 1, n do
+            UIDropDownMenu_AddButton({text = " ", notCheckable = true}, 1);
+        end
+    end);
+
+    local list3 = _G["DropDownList3"];
+    if(list3) then
+        for i = UIDROPDOWNMENU_MINBUTTONS + 1, UIDROPDOWNMENU_MAXBUTTONS do
+            if(not _G["DropDownList3Button"..i]) then
+                CreateFrame("Button", "DropDownList3Button"..i, list3, "UIDropDownMenuButtonTemplate"):SetID(i);
+            end
+        end
+    end
+end
+
 function TWMFrameDropDown_OnEvent(self, event)
     if(event == "VARIABLES_LOADED") then
+        TWM_PreGrowDropDownButtons(self);
         UIDropDownMenu_Initialize(self, TWMFrameDropDown_Initialize);
         -- No UIDropDownMenu_SetSelectedID here -- it drives its own
         -- persistent "checked" highlight on whichever button sits at that

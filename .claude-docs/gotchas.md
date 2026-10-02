@@ -871,6 +871,17 @@ plus Blizzard's own `UIDropDownMenu.lua` extracted from CASC (`interface/addons/
 Lessons: "the frame exists and `IsShown()` is true" says nothing about visibility if a parent is hidden -- compare the
 parents. Use `UIDropDownMenu_SetInitializeFunction`, not `UIDropDownMenu_Initialize`, to register a callback without
 side effects on the shared lists. Do not call `UIDropDownMenu_CreateFrames` yourself (it writes secure globals).
+Root mechanism (read from `blizzard_sharedxml/classic/uidropdownmenu.lua` + `.xml`, identical in Anniversary 2.5.6 and
+Mists 5.5.4): the XML declares `DropDownList1..3` but the Lua starts with `UIDROPDOWNMENU_MAXLEVELS = 2`, so the first
+level-3 menu makes `UIDropDownMenu_CreateFrames` create a SECOND frame named `DropDownList3` (with buttons 9..MAXBUTTONS).
+The global name, and the list that is actually shown, stay with the XML one, which only has the template's 8 buttons;
+buttons 9+ exist only in the hidden second list (verified in game: `DropDownList3Button9:GetParent()` had 31 children and
+`~= DropDownList3`, which had 10). Entries 9..N of a level-3 list are invisible. Raising `UIDROPDOWNMENU_MAXBUTTONS` alone
+does not help (tried). Fix: `TWM_PreGrowDropDownButtons` (VARIABLES_LOADED) raises the button count through the public
+`UIDropDownMenu_AddButton` (levels 1-2) and creates buttons 9..MAXBUTTONS inside the XML `DropDownList3` itself; the
+later duplicate list then cannot take over the names. Check in game right after login: `/run print(UIDROPDOWNMENU_MAXBUTTONS)`
+(not 8) and, with a long level-3 list open, `DropDownList3Button9:GetParent()==DropDownList3`. Do not write
+`UIDROPDOWNMENU_MAXLEVELS` yourself (taint).
 
 ## Icons / tiles shimmer or change width by 1px while the map moves: align everything to physical pixels
 Symptom: POI icons (thin glyphs like "!" most of all) get 1px wider/narrower and jitter against the terrain, both when
