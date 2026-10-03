@@ -249,7 +249,7 @@ end
 -- NOT pan/zoom (the world frame reposition below handles that for free).
 -- Rebuilding the line set is the one part of this that's still O(n), so
 -- it's skipped whenever nothing relevant has actually changed.
-local lastSignature;
+local lastSignature = {};
 
 -- Called every time Points.lua redraws the point set (pan/zoom/force-update)
 -- -- see the hook at the end of TWMPoints_Update. Cheap on every call
@@ -278,12 +278,18 @@ function TWM_FlightPaths_OnPointsUpdate(frame, x, y)
         UpdateLineThickness(z);
     end
 
-    local signature = map .. "|" .. tostring(TWMOption.ShowFlightPaths) .. "|"
-        .. tostring(TWMOption.ShowEnemyFlightmasters) .. "|" .. tostring(TWM_HoveredTaxiNodeID)
-        .. "|" .. tostring(IsShiftKeyDown()) -- straight vs. curved (DrawRoute)
-        .. "|" .. tostring(TWMOption.FlightPathInterpolation); -- hover-only smoothing (DrawRoute)
-    if(signature == lastSignature) then return; end
-    lastSignature = signature;
+    -- Compared field by field, not as a concatenated string: this runs on every
+    -- pan tick and the string was garbage each time.
+    local shift = IsShiftKeyDown() and true or false; -- straight vs. curved (DrawRoute)
+    local sig = lastSignature;
+    if(sig.map == map and sig.showPaths == TWMOption.ShowFlightPaths
+            and sig.showEnemy == TWMOption.ShowEnemyFlightmasters
+            and sig.hovered == TWM_HoveredTaxiNodeID and sig.shift == shift
+            and sig.interpolation == TWMOption.FlightPathInterpolation) then -- hover-only smoothing (DrawRoute)
+        return;
+    end
+    sig.map, sig.showPaths, sig.showEnemy = map, TWMOption.ShowFlightPaths, TWMOption.ShowEnemyFlightmasters;
+    sig.hovered, sig.shift, sig.interpolation = TWM_HoveredTaxiNodeID, shift, TWMOption.FlightPathInterpolation;
 
     local idx = 0;
 

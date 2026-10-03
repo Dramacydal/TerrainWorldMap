@@ -81,7 +81,17 @@ move is one `SetPoint` on the anchor (`TWMPoints_Pan`) instead of a full
 pass `forceupdate`, which always takes the full layout (the pan anchor is only
 valid for the zoom it was laid out at). The unit's own marker is updated in
 the follow tick (the 0.5s `players` set update would visibly lag); the zone
-dropdown refreshes once a second. Dragging the map cancels tracking.
+dropdown refreshes once a second. Dragging the map cancels tracking. The same pan shortcut is used while the map is being
+dragged with the mouse (`UsesPanning` in `Points.lua`: follow mode or `ViewFrame.dragme`); when the drag ends
+`TWMFrame_RelayoutPoints` does one full icon layout at the final position.
+
+**Tile grid cost while panning** (`SetLocation`): a tile (col, row) always lives in pooled texture
+`(col % wzoom_real, row % hzoom_real)`, so crossing a tile border re-textures only the entering column/row (`tex.twmPath`
+tracks what a texture shows; `TWM_GetCachedTilePath` caches tile -> texture per map, cleared by `TWM_RefreshFrameTiles`).
+Only the first and last slot per axis are cropped; the whole-tile slots in between are anchored to `self.tileAnchor` (moved
+by one `SetPoint` per pan) and re-anchored only when their slot number or the zoom changes (`twmInner/twmK/twmJ`). `SetZoom`
+resets this per-texture bookkeeping. `/twm debug` uses the plain slot order and the old per-tile passes. The WMO overlay has
+the same shortcut (`TWM_WMOOverlay_Pan`).
 Non-continent maps keep the old "re-center when the unit leaves the view" logic
 in `OnWorldMapUpdateU`. Inside a dungeon/raid/scenario that is in our lists (`TWM_GetPlayerInstanceMap`: `GetInstanceInfo()`'s
 instanceID against the lists' `.mapID`) Goto Player only switches to that instance's map (`SelectMap`), no positioning; this

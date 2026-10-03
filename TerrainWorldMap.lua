@@ -59,6 +59,48 @@ function TWM_GetTileTexture(continent, filename)
     return pre..continent.."\\"..filename;
 end
 
+-- Texture of tile (col, row) of `map`, or false when no live zone covers it
+-- (see TWM_GetLiveZoneNameForBigCoord: tiles of terrain that does not exist
+-- on this client are not drawn). Cached: the strings behind it are costly and
+-- a drag asks for the same tiles again and again. Cleared when the answer can
+-- change (underwater terrain toggle, TWM_RefreshFrameTiles).
+local TWM_TilePathCache = {};
+
+-- (col, row) packed into one number: `row` is the low part, so it must stay
+-- below TILE_KEY_SPAN after the shift; the shift keeps the negative
+-- coordinates a view hanging over the map edge produces non-negative.
+-- Real tile coordinates are 0-63, so the limits are far away.
+local TILE_KEY_SHIFT = 1024;
+local TILE_KEY_SPAN = 4096;
+
+function TWM_GetCachedTilePath(map, col, row)
+    local byMap = TWM_TilePathCache[map];
+    if(not byMap) then
+        byMap = {};
+        TWM_TilePathCache[map] = byMap;
+    end
+
+    local id = (col + TILE_KEY_SHIFT) * TILE_KEY_SPAN + (row + TILE_KEY_SHIFT);
+    local path = byMap[id];
+    if(path == nil) then
+        path = false;
+        local tilekey = format("%.2dx%.2d", col, row);
+        local cbx, cby = TWM_Mini2Big_Coord(col+0.5, row+0.5);
+        if(TWM_GetLiveZoneNameForBigCoord(map, cbx, cby, tilekey)) then
+            path = TWM_GetTileTexture(map, TWM_GetTileFileName(map, col, row));
+        end
+        byMap[id] = path;
+    end
+    return path;
+end
+
+-- Only the displayed map keeps cached tiles.
+function TWM_PruneTilePathCache(keepMap)
+    for map in pairs(TWM_TilePathCache) do
+        if(map ~= keepMap) then TWM_TilePathCache[map] = nil; end
+    end
+end
+
 -- Forces TWMFrame's own tile grid to rebuild with fresh texture names (e.g.
 -- after toggling "Show underwater terrain") even though the view hasn't
 -- actually panned/zoomed/changed map -- SetLocation()'s forceupdate param
@@ -66,6 +108,7 @@ end
 -- unchanged location"), just nothing outside of pan/zoom/zone-switch called
 -- it with that flag before.
 function TWM_RefreshFrameTiles()
+    TWM_TilePathCache = {};
     if(TWMFrame and TWMFrame.opt) then
         TWMFrame:SetLocation(TWMFrame.opt.Location[1], TWMFrame.opt.Location[2], true);
     end
@@ -80,6 +123,7 @@ function TWM_ClearFrameTileTextures()
         for hw = 1, #TWMFrame.texturelayout do
             for hh = 1, #TWMFrame.texturelayout[hw] do
                 TWMFrame.texturelayout[hw][hh]:SetTexture(nil);
+                TWMFrame.texturelayout[hw][hh].twmPath = nil;
             end
         end
     end
@@ -682,12 +726,21 @@ local function TWM_WMOOverlay_HideGroupFrame(gf)
     end
 end
 
+-- Shared, never modified: a new table per tile on every layout was garbage.
+local TWM_WMO_ROTATION_PIVOT = {x = 0.5, y = 0.5};
+
+local function TWM_WMOGroupOrderLess(a, b)
+    if(a.z ~= b.z) then return a.z < b.z; end
+    return a.order < b.order;
+end
+
 function TWM_WMOOverlay_Update(frame)
     local lm = frame:GetName();
     local vf = _G[lm.."ViewFrame"];
     local groups = Twm_WMOTiles and Twm_WMOTiles[frame.opt.Map];
 
     if(not groups or not TWM_ShouldShowWMOOverlay(frame)) then
+        frame.wmoLayout = nil;
         for _, gf in ipairs(frame.wmoGroupFrames or {}) do
             TWM_WMOOverlay_HideGroupFrame(gf);
         end
@@ -702,22 +755,46 @@ function TWM_WMOOverlay_Update(frame)
     -- to happen AFTER this filter, not be baked in at generation time, since
     -- which groups are even visible depends on live checkbox state, not just
     -- the (still independent, still applied per-tile below) height cutoff.
-    local ordered = {};
+    local ordered = frame.wmoOrderBuf;
+    if(not ordered) then
+        ordered = {};
+        frame.wmoOrderBuf = ordered;
+    end
+    local n = 0;
     for gi, group in ipairs(groups) do
         if(group.tiles[1] and TWM_IsWMOGroupEnabled(frame, group.group_id)) then
-            tinsert(ordered, {group = group, z = group.tiles[1][7] or 0, order = gi});
+            n = n + 1;
+            local entry = ordered[n];
+            if(not entry) then
+                entry = {};
+                ordered[n] = entry;
+            end
+            entry.group, entry.z, entry.order = group, group.tiles[1][7] or 0, gi;
         end
     end
-    table.sort(ordered, function(a, b)
-        if(a.z ~= b.z) then return a.z < b.z; end
-        return a.order < b.order;
-    end);
+    for i = #ordered, n + 1, -1 do
+        ordered[i] = nil;
+    end
+    table.sort(ordered, TWM_WMOGroupOrderLess);
 
     local Lx, Ly = frame.viewX or frame.opt.Location[1], frame.viewY or frame.opt.Location[2];
     local z = frame:GetZoom();
     local cutoff = frame.wmoOverlayHeightCutoff;
     local baseLevel = vf:GetFrameLevel() + 1;
     local debugFrame = TWM_DebugTiles and TWM_WMOOverlay_EnsureDebugFrame(frame, vf) or nil;
+
+    -- Tiles are anchored to a pan anchor that sits at the view's top-left
+    -- (Lx, Ly) at this layout; TWM_WMOOverlay_Pan then moves just the anchor
+    -- while the view pans at the same zoom (no per-tile work).
+    local anchor = frame.wmoAnchor;
+    if(not anchor) then
+        anchor = CreateFrame("Frame", nil, vf);
+        anchor:SetSize(1, 1);
+        frame.wmoAnchor = anchor;
+    end
+    anchor:ClearAllPoints();
+    anchor:SetPoint("TOPLEFT", vf, "TOPLEFT", 0, 0);
+    frame.wmoLayout = (not TWM_DebugTiles) and {Lx = Lx, Ly = Ly, z = z, map = frame.opt.Map} or nil;
 
     for rank, entry in ipairs(ordered) do
       local gf = TWM_WMOOverlay_EnsureGroupFrame(frame, vf, rank);
@@ -762,7 +839,7 @@ function TWM_WMOOverlay_Update(frame)
             -- from this texture's own draw layer.
             tex:SetTexture(fileID);
             tex:ClearAllPoints();
-            tex:SetPoint("CENTER", vf, "TOPLEFT", (mx-Lx)*z, (Ly-my)*z);
+            tex:SetPoint("CENTER", anchor, "TOPLEFT", (mx-Lx)*z, (Ly-my)*z);
             tex:SetWidth(mw*z);
             tex:SetHeight(mh*z);
             -- Negated relative to yawDeg: the mini->screen Y conversion
@@ -774,7 +851,7 @@ function TWM_WMOOverlay_Update(frame)
             -- rotates the texture directly in already-reflected screen
             -- space, so it needs the opposite sign to end up matching those
             -- same corners.
-            tex:SetRotation(math.rad(-(yawDeg or 0)), {x = 0.5, y = 0.5});
+            tex:SetRotation(math.rad(-(yawDeg or 0)), TWM_WMO_ROTATION_PIVOT);
             tex:Show();
 
             if(TWM_DebugTiles) then
@@ -803,6 +880,22 @@ function TWM_WMOOverlay_Update(frame)
     for rank = #ordered + 1, #(frame.wmoGroupFrames or {}) do
         TWM_WMOOverlay_HideGroupFrame(frame.wmoGroupFrames[rank]);
     end
+end
+
+-- Called when only the view position changed: with a valid layout at the same
+-- zoom and map, moving the pan anchor is all that is needed; anything else
+-- takes the full layout.
+function TWM_WMOOverlay_Pan(frame)
+    local layout = frame.wmoLayout;
+    local z = frame:GetZoom();
+    if(not (layout and frame.wmoAnchor and layout.z == z and layout.map == frame.opt.Map)) then
+        return TWM_WMOOverlay_Update(frame);
+    end
+
+    local Lx, Ly = frame.viewX or frame.opt.Location[1], frame.viewY or frame.opt.Location[2];
+    local anchor = frame.wmoAnchor;
+    anchor:ClearAllPoints();
+    anchor:SetPoint("TOPLEFT", _G[frame:GetName().."ViewFrame"], "TOPLEFT", -(Lx - layout.Lx)*z, (Ly - layout.Ly)*z);
 end
 
 -- Lazily creates the horizontal height-cutoff slider, anchored to the left
@@ -1048,6 +1141,7 @@ function TWM_EnsureWMOGroupDropdown(frame, groups)
         -- SetupMenu generates the menu at once (the dropdown is shown).
         dropdown.groups = groups;
         dropdown:SetupMenu(TWM_GenerateWMOGroupMenu);
+        TWM_NoMenuGenerationOnShow(dropdown);
         -- Callbacks get (owner, dropdown, ...) -- see CallbackRegistryMixin:TriggerEvent.
         dropdown:RegisterCallback("OnMenuOpen", function(owner, d)
             pcall(TWM_BlockScrollCollapse, d.menu);
@@ -1065,7 +1159,6 @@ function TWM_EnsureWMOGroupDropdown(frame, groups)
     dropdown:ClearAllPoints();
     dropdown:SetPoint("TOPRIGHT", _G[lm.."ViewFrame"], "TOPRIGHT", -TWM_WMO_GROUP_DROPDOWN_RIGHT, -TWM_WMO_GROUP_DROPDOWN_TOP);
     dropdown:Show();
-    dropdown:GenerateMenu();
 end
 
 -- Lays the visible footer checkboxes out left to right after the zoom button:
@@ -1953,6 +2046,7 @@ function TWMFrameTemplate:SetMap(mapname)
     local lm = self:GetName();
 
     self.opt.Map = mapname;
+    TWM_PruneTilePathCache(mapname);
     self:UpdateMapGroup();
 
     TWM_UpdateOverlayButtons(self);
@@ -2094,10 +2188,21 @@ local function TWM_GenerateZoneMenu(dropdown, root)
     end
 end
 
+-- The default OnShow of a DropdownButton regenerates its whole menu so the
+-- selection text is right. Ours is always set explicitly (OverrideText) and
+-- a menu is regenerated when opened anyway, so showing the frame would only
+-- build (and discard) hundreds of menu descriptions each time.
+function TWM_NoMenuGenerationOnShow(dropdown)
+    dropdown:SetScript("OnShow", nil);
+end
+
 function TWM_SetupDropdowns(frame)
     local lm = frame:GetName();
-    _G[lm.."DropDown"]:SetupMenu(TWM_GenerateMapMenu);
-    _G[lm.."DropDown2"]:SetupMenu(TWM_GenerateZoneMenu);
+    for name, generator in pairs({[lm.."DropDown"] = TWM_GenerateMapMenu, [lm.."DropDown2"] = TWM_GenerateZoneMenu}) do
+        local dropdown = _G[name];
+        dropdown:SetupMenu(generator);
+        TWM_NoMenuGenerationOnShow(dropdown);
+    end
 end
 
 function TWMFrameTemplate:UpdateDropDown2()
@@ -2261,6 +2366,7 @@ function TWMFrameTemplate:SetZoom(z, nocenter, skipPointsRefresh)
     while(_G[lm.."MapTexture"..textureno]) do
         local extratex = _G[lm.."MapTexture"..textureno];
         extratex:Hide();
+        extratex.twmShown = false;
         if(extratex.debugLabel) then
             extratex.debugLabel:Hide();
         end
@@ -2271,10 +2377,15 @@ function TWMFrameTemplate:SetZoom(z, nocenter, skipPointsRefresh)
     -- unclip all textures now, ESPECIALLY the middle textures
     for hw = 1,self.wzoom_real do
         for hh = 1,self.hzoom_real do
-            self.texturelayout[hw][hh]:Show();
-            self.texturelayout[hw][hh]:SetTexCoord(0, 1, 0, 1);
-            self.texturelayout[hw][hh]:SetHeight(z);
-            self.texturelayout[hw][hh]:SetWidth(z);
+            local tex = self.texturelayout[hw][hh];
+            tex:Show();
+            tex:SetTexCoord(0, 1, 0, 1);
+            tex:SetHeight(z);
+            tex:SetWidth(z);
+            -- SetLocation's per-texture bookkeeping (tile, pan anchor, shown)
+            -- no longer matches the pool layout
+            tex.twmPath, tex.twmInner, tex.twmK, tex.twmJ = nil, nil, nil, nil;
+            tex.twmShown = true;
         end
     end
 
@@ -2336,8 +2447,9 @@ end
 -- slots from it, handles 1, 2, or N slots uniformly, by construction,
 -- with no risk of two different branches writing into the same pooled
 -- texture object.
-local function TWM_BuildAxisSlots(viewportSize, zoomStep, panPx, fracStart, normalCount, extraIndex)
-    local slots = {};
+-- `slots` is a caller-owned buffer, refilled in place: this runs twice on
+-- every pan tick, and fresh tables each time were pure garbage.
+local function TWM_BuildAxisSlots(slots, viewportSize, zoomStep, panPx, fracStart, normalCount, extraIndex)
     local remaining = viewportSize;
     local pos = 0;
     local k = 1;
@@ -2346,16 +2458,23 @@ local function TWM_BuildAxisSlots(viewportSize, zoomStep, panPx, fracStart, norm
         local available = isFirst and (zoomStep - panPx) or zoomStep;
         local size = math.min(remaining, available);
         local uMin = isFirst and fracStart or 0;
-        slots[k] = {
-            index = (k <= normalCount) and k or extraIndex,
-            pos = pos,
-            size = size,
-            uMin = uMin,
-            uMax = uMin + size/zoomStep,
-        };
+        local slot = slots[k];
+        if(not slot) then
+            slot = {};
+            slots[k] = slot;
+        end
+        slot.k = k;
+        slot.index = (k <= normalCount) and k or extraIndex;
+        slot.pos = pos;
+        slot.size = size;
+        slot.uMin = uMin;
+        slot.uMax = uMin + size/zoomStep;
         pos = pos + size;
         remaining = remaining - size;
         k = k + 1;
+    end
+    for i = #slots, k, -1 do
+        slots[i] = nil;
     end
     return slots;
 end
@@ -2393,62 +2512,54 @@ function TWMFrameTemplate:SetLocation(x,y,forceupdate,forcePointsUpdate)
 
     local needsContentRefresh = (zx ~= math.floor(self.viewX or self.opt.Location[1]) or forceupdate or
         zy ~= math.floor(self.viewY or self.opt.Location[2]) or mymap ~= self.lastmap);
-    if(needsContentRefresh) then
-        local v = {};
-        local jx, jy, nsv;
+    -- A tile (col, row) always lives in the same pooled texture
+    -- (col % wzoom_real, row % hzoom_real), so panning across a tile border
+    -- only re-textures the entering column/row; every other texture already
+    -- shows its tile. "/twm debug" keeps the plain slot order its labels
+    -- assume. A change of pool mode, map or a forced update re-textures all.
+    local ring = not TWM_DebugTiles;
+    local forceTextures = forceupdate or mymap ~= self.lastmap or ring ~= self.tileRing;
+    self.tileRing = ring;
+
+    if(needsContentRefresh or forceTextures) then
         local showTerrain = TWM_ShouldShowTerrain(self);
+        local filter = TWM_GetTileFilter();
 
         for hx = 1,wzoom_real do
-            v[hx] = {};
+            local col = zx+hx-1;
+            local poolX = ring and (col % wzoom_real) + 1 or hx;
             for hy = 1,hzoom_real do
-                local tex = texturelayout[hx][hy];
+                local row = zy+hy-1;
+                local tex = texturelayout[poolX][ring and (row % hzoom_real) + 1 or hy];
 
-                -- get info: the tile's texture filename is derived
-                -- directly from its grid coordinate (e.g. "11x09" ->
-                -- "map11_09" under World\Minimaps\<continent>\) -- that
-                -- convention holds for the vast majority of tiles. We only
-                -- draw it if this spot falls inside a known TBC-era zone
-                -- (see TWM_GetLiveZoneNameForBigCoord), which skips
-                -- Cataclysm-only terrain that doesn't exist on this client
-                -- without needing a hand-maintained tile table at all.
-                local col, row = zx+hx-1, zy+hy-1;
-                local tilekey = format("%.2dx%.2d", col, row);
-                local cbx, cby = TWM_Mini2Big_Coord(col+0.5, row+0.5);
-                local livezone = TWM_GetLiveZoneNameForBigCoord(mymap, cbx, cby, tilekey);
-
-                if(livezone and showTerrain) then
-                    v[hx][hy] = { TWM_GetTileFileName(mymap, col, row) };
-                else
-                    v[hx][hy] = dummyv;
-                end
-
-                -- set textures
-                if(v[hx][hy]) then
-                    TWM_SetTileTexture(tex, TWM_GetTileTexture(mymap, v[hx][hy][1]), TWM_GetTileFilter());
-                    tex:SetVertexColor(1,1,1,1);
-                else
-                    -- No live zone here -- leave the tile transparent
-                    -- instead of manually painting it black. self.emptyBg
-                    -- (TWMFrameTemplate:OnLoad) sits on this same frame's
-                    -- BACKGROUND layer, below these tiles' own ARTWORK
-                    -- layer, so an empty (no-texture) cell shows that
-                    -- black through on its own -- no need to paint it a
-                    -- second time here.
-                    tex:SetTexture(nil);
+                -- The tile's texture is derived directly from its grid
+                -- coordinate (see TWM_GetCachedTilePath); false = no live
+                -- zone there, leave the cell transparent (self.emptyBg on
+                -- this frame's BACKGROUND layer shows through).
+                local path = showTerrain and TWM_GetCachedTilePath(mymap, col, row) or false;
+                if(forceTextures or tex.twmPath ~= path or tex.twmFilter ~= filter) then
+                    if(path) then
+                        TWM_SetTileTexture(tex, path, filter);
+                        tex:SetVertexColor(1,1,1,1);
+                    else
+                        tex:SetTexture(nil);
+                    end
+                    tex.twmPath, tex.twmFilter = path, filter;
                 end
 
                 -- debug: label this tile with its grid coordinate and the
                 -- live zone name the client reports at that spot. Only the
-                -- TEXT is set here (cheap to skip when nothing changed) --
-                -- position and Show/Hide are handled once, unconditionally,
-                -- at the end of this function (see the comment there for
-                -- why: both used to be wrong when handled only here).
+                -- TEXT is set here -- position and Show/Hide are handled
+                -- once, unconditionally, at the end of this function.
                 if(TWM_DebugTiles) then
                     if(not tex.debugLabel) then
                         tex.debugLabel = vf:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge");
                         tex.debugLabel:SetJustifyH("CENTER");
                     end
 
+                    local tilekey = format("%.2dx%.2d", col, row);
+                    local cbx, cby = TWM_Mini2Big_Coord(col+0.5, row+0.5);
+                    local livezone = TWM_GetLiveZoneNameForBigCoord(mymap, cbx, cby, tilekey);
                     tex.debugLabel:SetText(tilekey.."\n"..(livezone or "|cffff4040(none)|r"));
                 end
             end
@@ -2457,34 +2568,70 @@ function TWMFrameTemplate:SetLocation(x,y,forceupdate,forcePointsUpdate)
 
     -- Do offset and clipping (:SetTexCoord and :SetHeight/Width) --
     -- see TWM_BuildAxisSlots' own header comment for the full design.
-    local colSlots = TWM_BuildAxisSlots(vf:GetWidth(), zoom, px, x-zx, wzoom, wzoom_real);
-    local rowSlots = TWM_BuildAxisSlots(vf:GetHeight(), zoom, py, y-zy, hzoom, hzoom_real);
+    self.colSlotBuf = self.colSlotBuf or {};
+    self.rowSlotBuf = self.rowSlotBuf or {};
+    local colSlots = TWM_BuildAxisSlots(self.colSlotBuf, vf:GetWidth(), zoom, px, x-zx, wzoom, wzoom_real);
+    local rowSlots = TWM_BuildAxisSlots(self.rowSlotBuf, vf:GetHeight(), zoom, py, y-zy, hzoom, hzoom_real);
 
-    local usedCols, usedRows = {}, {};
+    -- Only the first and last slot of each axis are cropped; every slot in
+    -- between is a whole tile at a fixed offset from the others, so those are
+    -- anchored to a pan anchor at the view offset (-px, py) and merely
+    -- re-anchored when their slot number or the zoom changes. A pan then
+    -- costs the edge tiles plus one SetPoint.
+    local tileAnchor = self.tileAnchor;
+    if(not tileAnchor) then
+        tileAnchor = CreateFrame("Frame", nil, vf);
+        tileAnchor:SetSize(1, 1);
+        self.tileAnchor = tileAnchor;
+    end
+    tileAnchor:ClearAllPoints();
+    tileAnchor:SetPoint("TOPLEFT", vfname, "TOPLEFT", -px, py);
+
+    local stamp = (self.tileStamp or 0) + 1;
+    self.tileStamp = stamp;
+    local nCols, nRows = #colSlots, #rowSlots;
     for _, col in ipairs(colSlots) do
+        local poolX = ring and ((zx + col.k - 1) % wzoom_real) + 1 or col.index;
+        local colInner = col.k > 1 and col.k < nCols;
         for _, row in ipairs(rowSlots) do
-            local tex = texturelayout[col.index][row.index];
-            tex:SetTexCoord(col.uMin, col.uMax, row.uMin, row.uMax);
-            tex:SetWidth(col.size);
-            tex:SetHeight(row.size);
-            tex:ClearAllPoints();
-            tex:SetPoint("TOPLEFT", vfname, "TOPLEFT", col.pos, -row.pos);
-            tex:Show();
+            local poolY = ring and ((zy + row.k - 1) % hzoom_real) + 1 or row.index;
+            local tex = texturelayout[poolX][poolY];
+            tex.twmStamp = stamp;
+
+            if(colInner and row.k > 1 and row.k < nRows) then
+                if(tex.twmInner ~= zoom or tex.twmK ~= col.k or tex.twmJ ~= row.k) then
+                    tex:SetTexCoord(0, 1, 0, 1);
+                    tex:SetWidth(zoom);
+                    tex:SetHeight(zoom);
+                    tex:ClearAllPoints();
+                    tex:SetPoint("TOPLEFT", tileAnchor, "TOPLEFT", (col.k - 1)*zoom, -(row.k - 1)*zoom);
+                    tex.twmInner, tex.twmK, tex.twmJ = zoom, col.k, row.k;
+                end
+            else
+                tex:SetTexCoord(col.uMin, col.uMax, row.uMin, row.uMax);
+                tex:SetWidth(col.size);
+                tex:SetHeight(row.size);
+                tex:ClearAllPoints();
+                tex:SetPoint("TOPLEFT", vfname, "TOPLEFT", col.pos, -row.pos);
+                tex.twmInner = nil;
+            end
+            if(not tex.twmShown) then
+                tex:Show();
+                tex.twmShown = true;
+            end
         end
-        usedCols[col.index] = true;
-    end
-    for _, row in ipairs(rowSlots) do
-        usedRows[row.index] = true;
     end
 
-    -- Every pooled slot this call's column/row lists don't cover gets
-    -- explicitly hidden -- happens whenever wzoom_real/hzoom_real (SetZoom
-    -- always allocates one spare column and one spare row defensively)
-    -- aren't actually needed at the current pan offset/zoom.
+    -- Every pooled texture this call didn't place gets hidden -- happens
+    -- whenever wzoom_real/hzoom_real (SetZoom always allocates one spare
+    -- column and one spare row defensively) aren't actually needed at the
+    -- current pan offset/zoom.
     for hw = 1, wzoom_real do
         for hh = 1, hzoom_real do
-            if(not (usedCols[hw] and usedRows[hh])) then
-                texturelayout[hw][hh]:Hide();
+            local tex = texturelayout[hw][hh];
+            if(tex.twmStamp ~= stamp and tex.twmShown) then
+                tex:Hide();
+                tex.twmShown = false;
             end
         end
     end
@@ -2497,7 +2644,10 @@ function TWMFrameTemplate:SetLocation(x,y,forceupdate,forcePointsUpdate)
     -- refresh), since panning/zooming/resizing can change which cells are
     -- shown/hidden and how they're cropped without necessarily touching
     -- their tile art.
-    for hw = 1, wzoom_real do
+    -- Skipped entirely unless debug is (or just was) on.
+    local debugPass = TWM_DebugTiles or self.tileDebugDrawn;
+    self.tileDebugDrawn = TWM_DebugTiles or nil;
+    for hw = 1, debugPass and wzoom_real or 0 do
         for hh = 1, hzoom_real do
             local tex = texturelayout[hw][hh];
             if(TWM_DebugTiles and tex:IsShown()) then
@@ -2560,7 +2710,11 @@ function TWMFrameTemplate:SetLocation(x,y,forceupdate,forcePointsUpdate)
         forcePointsUpdate = forceupdate;
     end
     TWMPoints_OnMove(self, x, y, forcePointsUpdate);
-    TWM_WMOOverlay_Update(self);
+    if(forceupdate) then
+        TWM_WMOOverlay_Update(self);
+    else
+        TWM_WMOOverlay_Pan(self);
+    end
 end
 
 function TWMFrameTemplate:GetLocation()
@@ -2709,6 +2863,7 @@ function TWMFrameViewFrame_OnDrag(self)
         if(self.dragme) then
             self.dragme = false;
             self:GetParent():UpdateDropDown2();
+            TWMFrame_RelayoutPoints(self:GetParent());
         end
         return;
     end
@@ -2858,6 +3013,14 @@ local function TWM_SetFollowMode(frame, on)
     -- next TWMPoints_OnMove does a full layout (with/without the cull margin)
     frame.yap_lastx = nil;
     frame.yap_lasty = nil;
+end
+
+-- A drag uses the pan shortcut for icons (Points.lua, UsesPanning); when it
+-- ends, one full layout at the final position.
+function TWMFrame_RelayoutPoints(frame)
+    frame.yap_lastx = nil;
+    frame.yap_lasty = nil;
+    frame:AdjustLocation(0, 0);
 end
 
 function TWMFrame_StopTracking(frame)

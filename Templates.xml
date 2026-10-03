@@ -132,6 +132,7 @@
 			<OnDragStop>
 				self.dragme = false;
 				self:GetParent():UpdateDropDown2();
+				TWMFrame_RelayoutPoints(self:GetParent());
 			</OnDragStop>
 			<OnHide>
 				self.dragme = false;

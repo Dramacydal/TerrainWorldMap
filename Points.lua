@@ -20,13 +20,17 @@ local emptylist = {};
 -- default on-map icon size in pixels at the IconSize option's neutral value (1.0)
 local TWM_ICON_BASE_SIZE = 14;
 
--- Follow mode (TWMFrameTemplate:FollowTick): icons are anchored to a pan
--- anchor frame, so small view moves cost one SetPoint instead of a full icon
--- layout. The full layout reruns once the view drifts FOLLOW_REFRESH_PX from
--- the last layout; culling uses a FOLLOW_MARGIN_PX border so nothing pops in
--- at the edges in between.
+-- Follow mode (TWMFrameTemplate:FollowTick) and dragging the map: icons are
+-- anchored to a pan anchor frame, so small view moves cost one SetPoint
+-- instead of a full icon layout. The full layout reruns once the view drifts
+-- FOLLOW_REFRESH_PX from the last layout; culling uses a FOLLOW_MARGIN_PX
+-- border so nothing pops in at the edges in between.
 local FOLLOW_MARGIN_PX = 192;
 local FOLLOW_REFRESH_PX = 96;
+
+local function UsesPanning(frame)
+    return frame.followMode or _G[frame:GetName().."ViewFrame"].dragme;
+end
 
 local function GetPanAnchor(vf)
     local a = vf.panAnchor;
@@ -197,7 +201,7 @@ function TWMPoints_OnMove(frame, x, y, forceupdate)
         return;
     end
 
-    if(frame.followMode and not forceupdate and frame.yap_lastx and TWMPoints_Pan(frame, x, y)) then
+    if(UsesPanning(frame) and not forceupdate and frame.yap_lastx and TWMPoints_Pan(frame, x, y)) then
         return;
     end
 
@@ -267,7 +271,7 @@ function TWMPoints_Update(frame, x, y)
     pa:SetPoint("TOPLEFT", current_viewframe, "TOPLEFT", 0, 0);
 
     -- fill vispoints
-    local mg = frame.followMode and FOLLOW_MARGIN_PX/z or 0;
+    local mg = UsesPanning(frame) and FOLLOW_MARGIN_PX/z or 0;
     local minx, miny = x - mg, y - mg;
     local maxx = x + current_viewframe:GetWidth()/z + mg;
     local maxy = y + current_viewframe:GetHeight()/z + mg;
