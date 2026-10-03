@@ -155,6 +155,9 @@
 					<!-- Icon button; follow mode is shown as the locked pushed state
 					(TWMFramePlayerJumpButton_Update). -->
 					<Button name="TWMFramePlayerJumpButton" inherits="TWMHeaderIconButtonTemplate">
+						<Size>
+							<AbsDimension x="20" y="20"/>
+						</Size>
 						<Anchors>
 							<Anchor point="LEFT" relativeTo="TWMFrameDropDown2" relativePoint="RIGHT">
 								<Offset>

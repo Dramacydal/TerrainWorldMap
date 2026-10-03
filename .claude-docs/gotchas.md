@@ -868,6 +868,16 @@ buttons (`TWM_CreateSubmenuButton`, TerrainWorldMap.lua) use `SetOnEnter` + `des
 `TWM_SUBMENU_OPEN_DELAY` (0.1 s, only if the cursor is still over the button). Not zero: opening on the instant hover makes
 a diagonal move across sibling rows open each of them in turn.
 
+## WMO group names: the root file's MOGI nameOffset names the wrong group
+`gen_wmo_tiles.js` used to read each group's name from the root WMO's MOGI (`nameOffset`, last dword of the 32-byte
+entry). On every WMO checked (994 roots in the Anniversary client; Shadowfang's `ld_shadowfanginterior.wmo` as the clear
+case) that value is the name of the group TWO places earlier: `MOGI[i].nameOffset == MOGP[i-2].nameOffset`, while MOGI's
+bboxes match the group files' exactly. So every group showed another group's name, groups 0 and 1 had none (or the WMO's
+own name, the first MOGN string) and fell back to "Group 0"/"Group 1" (the most common names in the data). The group's
+own name is the first dword of ITS group file's MOGP chunk (offset into the root's MOGN); the generator now reads that
+(`groupBoundingBox` -> `nameOffset`, `readWmoNameBlob`). Shipped `Data_*/mapdata_wmo_tiles*.lua` need a regenerate to get the
+right names.
+
 ## All dropdowns/menus are Blizzard_Menu (`DropdownButton`, `MenuUtil`), not `UIDropDownMenu`
 The two header dropdowns (`TWMFrameDropDown`, `TWMFrameDropDown2`) are `DropdownButton` + `WowStyle1DropdownTemplate`
 (menus built by `TWM_GenerateMapMenu`/`TWM_GenerateZoneMenu` in `TerrainWorldMap.lua`, set up by `TWM_SetupDropdowns`).

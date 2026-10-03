@@ -67,10 +67,10 @@
 // scrambling names and tiles together. wmoId (WMOMinimapTexture.csv's own
 // WMOID, already resolved per placement below) is unique per real placed
 // building, so prefixing it makes group_id unique per real physical group
-// on the whole map. group_name is read from the root WMO file's own MOGN/
-// MOGI chunks (readWmoGroupNames below), falling back to a plain
-// "Group <GroupNum>" for a group with no real name (MOGI's own nameOffset
-// -1).
+// on the whole map. group_name is the string in the root WMO file's MOGN at
+// the nameOffset in the group file's own MOGP header (readWmoNameBlob below),
+// falling back to a plain "Group <GroupNum>" for a group with no real name
+// (nameOffset -1).
 //
 // yawDeg is written out as -MODF.rotation[1] -- the SAME value already used
 // (as radians) to rotate local coordinates in the position formula below,
@@ -176,7 +176,6 @@ const ID_MODF = chunkID('M', 'O', 'D', 'F');
 const ID_MOGP = chunkID('M', 'O', 'G', 'P');
 const ID_MOHD = chunkID('M', 'O', 'H', 'D');
 const ID_MOGN = chunkID('M', 'O', 'G', 'N');
-const ID_MOGI = chunkID('M', 'O', 'G', 'I');
 
 const MINI2BIG = 1600 / 3; // 533.3333..., matches TerrainWorldMap.lua's MINI2BIGX/Y
 const MAP_ORIGIN = 32 * MINI2BIG; // 17066.666...
@@ -293,35 +292,24 @@ function readCString(buf, offset) {
 	return buf.toString('utf8', offset, end);
 }
 
-// MOGI (root WMO file, nGroups x 32-byte entries: flags(4) + bbox min/max
-// C3Vector(12+12) + nameOffset int32(4)) gives each group's own offset into
-// MOGN (root file, a blob of null-terminated strings -- same convention as
-// MOTX's texture-path blob), or -1 if that group genuinely has no name.
-// Group index here is 0-based and matches WMOMinimapTexture.csv's own
-// GroupNum column directly (confirmed empirically against a real extracted
-// root file: pvp_lordaeron_arena.wmo's 5 MOGI entries resolved to "Arena"/
-// "InteriorStatues"/"InteriorStatuesTop" plus 2 unnamed (-1) groups).
-// Returns Map<groupIndex, name|null>, empty if this WMO has no MOGI at all.
-function readWmoGroupNames(rootWmoPath) {
+// MOGN (root WMO file): a blob of null-terminated group names, same
+// convention as MOTX's texture-path blob. A group's name is the string at the
+// nameOffset (int32, -1 = none) stored at the start of its OWN group file's
+// MOGP chunk (groupBoundingBox). Not the root file's MOGI nameOffset: that
+// one is shifted by two groups (MOGI[i].nameOffset == MOGP[i-2].nameOffset on
+// every WMO checked, with MOGI's bboxes matching the group files'), so it
+// names the wrong group. Returns the blob, or null if there is no MOGN.
+function readWmoNameBlob(rootWmoPath) {
 	const buf = fs.readFileSync(rootWmoPath);
 	let offset = 0;
-	let mogn = null, mogi = null;
 	while (offset + 8 <= buf.length) {
 		const magic = buf.readUInt32LE(offset);
 		const size = buf.readUInt32LE(offset + 4);
 		const dataStart = offset + 8;
-		if (magic === ID_MOGN) mogn = buf.slice(dataStart, dataStart + size);
-		else if (magic === ID_MOGI) mogi = buf.slice(dataStart, dataStart + size);
+		if (magic === ID_MOGN) return buf.slice(dataStart, dataStart + size);
 		offset = dataStart + size;
 	}
-	const names = new Map();
-	if (!mogi) return names;
-	const count = Math.floor(mogi.length / 32);
-	for (let i = 0; i < count; i++) {
-		const nameOffset = mogi.readInt32LE(i * 32 + 28);
-		names.set(i, (mogn && nameOffset >= 0 && nameOffset < mogn.length) ? readCString(mogn, nameOffset) : null);
-	}
-	return names;
+	return null;
 }
 
 // WMOMinimapTexture.csv -> Map<WMOID (string), [{groupNum, blockX, blockY,
@@ -356,7 +344,8 @@ function groupBoundingBox(groupFilePath) {
 		const dataStart = offset + 8;
 		if (magic === ID_MOGP) {
 			return {
-				min: [buf.readFloatLE(dataStart + 12), buf.readFloatLE(dataStart + 16), buf.readFloatLE(dataStart + 20)],
+				nameOffset: buf.readInt32LE(dataStart),
+				min:[buf.readFloatLE(dataStart + 12), buf.readFloatLE(dataStart + 16), buf.readFloatLE(dataStart + 20)],
 				max: [buf.readFloatLE(dataStart + 24), buf.readFloatLE(dataStart + 28), buf.readFloatLE(dataStart + 32)],
 			};
 		}
@@ -596,7 +585,7 @@ async function main() {
 		const localPath = path.join(flavorDirPath, wmoPath);
 		if (!fs.existsSync(localPath)) continue;
 		wmoIdByNameId[nameId] = readWmoId(localPath);
-		groupNamesByNameId[nameId] = readWmoGroupNames(localPath);
+		groupNamesByNameId[nameId] = readWmoNameBlob(localPath);
 	}
 
 	// WMOMinimapTexture.csv: the authoritative {groupNum, blockX, blockY,
@@ -913,7 +902,9 @@ async function main() {
 				// zOrder = min(boundingBox1.z, boundingBox2.z)), and the
 				// addon stacks groups in ascending order of it.
 				const groupHeightKey = Math.min(box.min[2], box.max[2]);
-				const groupNames = groupNamesByNameId[p.nameId];
+				const nameBlob = groupNamesByNameId[p.nameId];
+				const realName = (nameBlob && box.nameOffset >= 0 && box.nameOffset < nameBlob.length)
+					? readCString(nameBlob, box.nameOffset) : '';
 				mapTiles.push({
 					fileID: t.fileID,
 					// groupNum alone (the WMO's own local group index) is NOT
@@ -931,7 +922,7 @@ async function main() {
 					wmoId,
 					groupNum: t.groupNum,
 					groupId: `${wmoId}-${t.groupNum}`,
-					groupName: (groupNames && groupNames.get(t.groupNum)) || `Group ${t.groupNum}`,
+					groupName: realName || `Group ${t.groupNum}`,
 					cx: (c1[0] + c2[0] + c3[0] + c4[0]) / 4,
 					cy: (c1[1] + c2[1] + c3[1] + c4[1]) / 4,
 					width: Math.hypot(c4[0] - c1[0], c4[1] - c1[1]),
