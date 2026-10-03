@@ -259,6 +259,9 @@ function findWdtPlacement(wdtPath) {
 				nameId: buf.readUInt32LE(b),
 				pos: [buf.readFloatLE(b + 8), buf.readFloatLE(b + 12), buf.readFloatLE(b + 16)],
 				rot: [buf.readFloatLE(b + 20), buf.readFloatLE(b + 24), buf.readFloatLE(b + 28)],
+				// The global WMO's position is a WORLD position, not ADT
+				// coordinates like a per-ADT MODF's (see anchorBigX below).
+				fromWdt: true,
 			};
 		}
 		offset = dataStart + size;
@@ -764,8 +767,21 @@ async function main() {
 			// placements: extents center = pos + R*(bboxCx, -bboxCy), i.e. the
 			// model's local Y is mirrored about local 0 (see
 			// audit_wmo_extents.js, 875/951 within 1 unit).
-			const anchorBigX = MAP_ORIGIN - p.pos[0];
-			const anchorBigY = MAP_ORIGIN - p.pos[2];
+			//
+			// A per-ADT MODF.position is in ADT coordinates (origin at the
+			// map corner), hence MAP_ORIGIN - pos. The global WMO of a WMO-only
+			// map (WDT MODF, `fromWdt`; stored as (0, 0, 0) on every map
+			// checked) is a world position: its Big anchor is the world
+			// position itself, (world Y, world X) like every other Big
+			// coordinate. Treating it as ADT coordinates put these maps at
+			// (MAP_ORIGIN, MAP_ORIGIN) away from where AreaTrigger/teleport
+			// coordinates say they are (verified: the tiles were exactly
+			// (MAP_ORIGIN, MAP_ORIGIN) + (trigger world Y, world X)).
+			if (p.fromWdt && (p.pos[0] !== 0 || p.pos[2] !== 0)) {
+				console.error(`  (warning: ${mapName}'s global WMO has a non-zero position ${p.pos.join(', ')} -- its axis order is unverified)`);
+			}
+			const anchorBigX = p.fromWdt ? p.pos[2] : MAP_ORIGIN - p.pos[0];
+			const anchorBigY = p.fromWdt ? p.pos[0] : MAP_ORIGIN - p.pos[2];
 			const anchorHeight = p.pos[1];
 			function toBig(rotLocalX, rotLocalY) {
 				const off = rotateOnly(rotLocalX, rotLocalY);

@@ -72,9 +72,21 @@ function dedupeByDistance(points) {
 		type: cluster[0].type,
 		mapID: cluster[0].mapID,
 		name: cluster[0].name,
+		targetDir: cluster[0].targetDir,
+		tx: cluster[0].tx,
+		ty: cluster[0].ty,
 		x: cluster.reduce((s, p) => s + p.x, 0) / cluster.length,
 		y: cluster.reduce((s, p) => s + p.y, 0) / cluster.length,
 	}));
+}
+
+// ---- Triggers inside dungeon/raid maps (exits, links between instances) ----
+//
+// AreaTrigger.Pos and the teleport table's target_position are world
+// coordinates (X north, Y west); the addon's "Big" coordinates are (world Y,
+// world X), for open-world maps and instance maps alike.
+function worldToBig(wx, wy) {
+	return [wy, wx];
 }
 
 // dedupeByDistance only ever compares distance, not name -- callers must
@@ -147,6 +159,24 @@ function main() {
 	const teleByID = {};
 	for (const r of teleportRows) teleByID[r.id] = r;
 
+	const dirOf = id => (mapByID[id] && mapByID[id].Directory) || null;
+
+	// Triggers standing inside a dungeon/raid map (exits, links between instances).
+	const instanceTriggers = {};
+	for (const at of areaTriggerRows) {
+		const tele = teleByID[at.ID];
+		if (!tele || at.ContinentID === tele.target_map) continue;
+		const dir = dirOf(at.ContinentID);
+		const here = mapByID[at.ContinentID];
+		if (!dir || continentNames.has(dir) || !here || (here.InstanceType !== '1' && here.InstanceType !== '2')) continue;
+		(instanceTriggers[dir] = instanceTriggers[dir] || []).push({ at, tele });
+	}
+
+	function targetOf(tele) {
+		const [tx, ty] = worldToBig(parseFloat(tele.target_position_x), parseFloat(tele.target_position_y));
+		return { targetDir: dirOf(tele.target_map), tx, ty };
+	}
+
 	const byContinent = {};
 	let matched = 0, noContinentMap = 0, noTeleport = 0, notInstance = 0;
 
@@ -172,11 +202,25 @@ function main() {
 
 		const type = targetMap.InstanceType === '2' ? 'Raid' : 'Dungeon';
 		const list = byContinent[contName] || (byContinent[contName] = []);
-		list.push({ type, mapID: tele.target_map, name: targetMap.MapName_lang, x: parseFloat(at.Pos_1), y: parseFloat(at.Pos_0) });
+		list.push({ type, mapID: tele.target_map, name: targetMap.MapName_lang, x: parseFloat(at.Pos_1), y: parseFloat(at.Pos_0), ...targetOf(tele) });
 		matched++;
 	}
 
 	console.error(`${matched} entrance triggers matched (${noContinentMap} not on an open-world continent, ${noTeleport} no --teleport-csv row, ${notInstance} teleport target isn't a dungeon/raid)`);
+
+	// Portals inside dungeon/raid maps: to an outdoor map ("Exit") or to another instance.
+	let portals = 0;
+	for (const [dir, list] of Object.entries(instanceTriggers)) {
+		for (const { at, tele } of list) {
+			const targetMap = mapByID[tele.target_map];
+			if (!targetMap) continue;
+			const type = targetMap.InstanceType === '2' ? 'Raid' : targetMap.InstanceType === '1' ? 'Dungeon' : 'Exit';
+			const [x, y] = worldToBig(parseFloat(at.Pos_0), parseFloat(at.Pos_1));
+			(byContinent[dir] = byContinent[dir] || []).push({ type, mapID: tele.target_map, name: targetMap.MapName_lang, x, y, ...targetOf(tele) });
+			portals++;
+		}
+	}
+	console.error(`${portals} portals inside ${Object.keys(instanceTriggers).length} instance maps`);
 
 	let fullOutput = "-- GENERATED FILE -- do not hand-edit, regenerate with scripts/gen_poi_instances.js\n"
 		+ "-- and replace this file wholesale. See scripts/README.md for details.\n"
@@ -190,14 +234,21 @@ function main() {
 	for (const contName of Object.keys(byContinent).sort()) {
 		const byName = {};
 		for (const p of byContinent[contName])
-			(byName[p.name] = byName[p.name] || []).push(p);
+			(byName[p.name + '|' + p.targetDir] = byName[p.name + '|' + p.targetDir] || []).push(p);
 		const deduped = Object.values(byName).flatMap(dedupeByDistance);
 		deduped.sort((a, b) => a.name.localeCompare(b.name));
 
 		fullOutput += `    ["${contName}"] = {\n`;
 		for (const e of deduped) {
 			const name = e.name.replace(/"/g, '\\"');
-			fullOutput += `        {"${e.type}", ${e.mapID}, "${name}", ${e.x.toFixed(2)}, ${e.y.toFixed(2)}},\n`;
+			// {kind, target MapID, name, x, y [, target Directory, target x, target y]};
+			// x/y on this map, target x/y on the target map, all in Big coordinates.
+			let target = '';
+			if (e.targetDir) {
+				target = `, "${e.targetDir.replace(/"/g, '\\"')}"`;
+				if (e.tx !== undefined) target += `, ${e.tx.toFixed(2)}, ${e.ty.toFixed(2)}`;
+			}
+			fullOutput += `        {"${e.type}", ${e.mapID}, "${name}", ${e.x.toFixed(2)}, ${e.y.toFixed(2)}${target}},\n`;
 		}
 		fullOutput += '    },\n';
 	}

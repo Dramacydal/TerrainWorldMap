@@ -1266,20 +1266,43 @@ function TWM_GetPlayerInstanceMap()
     return TWM_GetInstanceMapKey((select(8, GetInstanceInfo())));
 end
 
--- Map key of the dungeon/raid with Map.csv ID `mapID`, nil when we have no
--- visible map for it.
-function TWM_GetOpenableInstanceMap(mapID)
-    local key = TWM_GetInstanceMapKey(mapID);
-    if(not key or TWM_IsMapHidden(tostring(mapID))) then return nil; end
-    return key;
+-- Map key a portal marker (sets/dungeons.lua) leads to: the dungeon/raid with
+-- Map.csv ID `mapID` when it is one of ours and visible, else the outdoor
+-- continent `targetDir` (a Map.csv Directory); nil when there is no map to open.
+function TWM_GetPortalTargetMap(mapID, targetDir)
+    local instanceKey = TWM_GetInstanceMapKey(mapID);
+    if(instanceKey) then
+        return (not TWM_IsMapHidden(tostring(mapID))) and instanceKey or nil;
+    end
+    return (targetDir and Twm_ContinentMapID[targetDir]) and targetDir or nil;
 end
 
-function TWM_OpenInstanceMap(frame, mapID)
-    local key = TWM_GetOpenableInstanceMap(mapID);
-    if(key) then
-        if(frame.opt.track) then TWMFrame_StopTracking(frame); end
+-- Opens the target map of a portal keeping the current zoom, with the portal
+-- that leads back drawn under the mouse cursor (so entering and leaving can be
+-- clicked repeatedly without moving the mouse): the marker on the target map
+-- that points at the map we came from and is nearest to the arrival point
+-- (Big coordinates `tx`, `ty`), else the arrival point itself. Without an
+-- arrival point the map is fitted to the window like a pick from the list.
+function TWM_OpenPortalTarget(frame, mapID, targetDir, tx, ty)
+    local key = TWM_GetPortalTargetMap(mapID, targetDir);
+    if(not key) then return; end
+    if(frame.opt.track) then TWMFrame_StopTracking(frame); end
+    if(not (tx and ty)) then
         frame:SelectMap(key);
+        return;
     end
+
+    local from = frame.opt.Map;
+    frame:SetMap(key);
+
+    local ax, ay, best = tx, ty, nil;
+    for _, v in ipairs(Twm_instances and Twm_instances[key] or {}) do
+        if(v[6] == from and v[4] and v[5]) then
+            local d = (v[4] - tx)^2 + (v[5] - ty)^2;
+            if(not best or d < best) then best, ax, ay = d, v[4], v[5]; end
+        end
+    end
+    frame:PlaceBigAtCursor(ax, ay);
 end
 
 -- Replaces the old GetPlayerMapPosition(u); returns nil if the unit isn't on
@@ -1999,6 +2022,43 @@ function TWMFrameTemplate:CenterOnZone(z)
     local vw, vh = viewframe:GetWidth(), viewframe:GetHeight();
 
     self:SetLocation(mx-(vw/2)/zoom, my-(vh/2)/zoom);
+end
+
+-- Moves the view so that the point (Big coordinates) is drawn under the mouse
+-- cursor (keeps the zoom); centers on it when the cursor is not over the view.
+function TWMFrameTemplate:PlaceBigAtCursor(bx, by)
+    local viewframe = _G[self:GetName().."ViewFrame"];
+    local left, top = viewframe:GetLeft(), viewframe:GetTop();
+    local cx, cy = GetCursorPosition();
+    local scale = viewframe:GetEffectiveScale();
+    if(not (left and top and cx) or not viewframe:IsMouseOver()) then
+        return self:CenterOnBig(bx, by);
+    end
+
+    local mx, my = TWM_Big2Mini_Coord(bx, by);
+    local zoom = self:GetZoom();
+    self:SetLocation(mx - (cx/scale - left)/zoom, my - (top - cy/scale)/zoom);
+end
+
+-- Centers the view on a point given in Big coordinates (keeps the zoom). The
+-- point goes to the middle of the part of the map the header and footer
+-- strips leave visible, not of the whole view frame.
+function TWMFrameTemplate:CenterOnBig(bx, by)
+    local mx, my = TWM_Big2Mini_Coord(bx, by);
+    local zoom = self:GetZoom();
+    local lm = self:GetName();
+    local viewframe = _G[lm.."ViewFrame"];
+    local vw, vh = viewframe:GetWidth(), viewframe:GetHeight();
+
+    local shiftDown = 0;
+    local top, bottom = viewframe:GetTop(), viewframe:GetBottom();
+    local headerBottom, footerTop = _G[lm.."Header"]:GetBottom(), _G[lm.."Footer"]:GetTop();
+    if(top and bottom and headerBottom and footerTop) then
+        local visibleTop, visibleBottom = math.min(top, headerBottom), math.max(bottom, footerTop);
+        shiftDown = (top + bottom)/2 - (visibleTop + visibleBottom)/2;
+    end
+
+    self:SetLocation(mx-(vw/2)/zoom, my-(vh/2 + shiftDown)/zoom);
 end
 
 local function TWM_PickZone(zoneID)
