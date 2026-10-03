@@ -83,7 +83,9 @@ valid for the zoom it was laid out at). The unit's own marker is updated in
 the follow tick (the 0.5s `players` set update would visibly lag); the zone
 dropdown refreshes once a second. Dragging the map cancels tracking.
 Non-continent maps keep the old "re-center when the unit leaves the view" logic
-in `OnWorldMapUpdateU`.
+in `OnWorldMapUpdateU`. Inside a dungeon/raid/scenario that is in our lists (`TWM_GetPlayerInstanceMap`: `GetInstanceInfo()`'s
+instanceID against the lists' `.mapID`) Goto Player only switches to that instance's map (`SelectMap`), no positioning; this
+is checked before the continent lookup because `C_Map`'s parent walk can return the outdoor continent for an instance.
 
 **The two header dropdowns** (`TerrainWorldMap.lua`): the left one is a category tree (Continents / Dungeons > expansion /
 Raids / Scenarios / Battlegrounds / Arenas). For a continent the right one lists its zones (`zonepulldowns`) and shows the

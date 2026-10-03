@@ -1167,6 +1167,26 @@ function TWM_GetContinentForMapID(mapID)
     return nil;
 end
 
+-- Our map key (Twm_DungeonNames/RaidNames/ScenarioNames key) of the
+-- dungeon/raid/scenario the player is inside, or nil. GetInstanceInfo's
+-- instanceID is the Map.csv ID, which the lists carry as `.mapID`.
+local TWM_InstanceKeyByMapID;
+function TWM_GetPlayerInstanceMap()
+    if(not IsInInstance()) then return nil; end
+
+    if(not TWM_InstanceKeyByMapID) then
+        TWM_InstanceKeyByMapID = {};
+        for _, list in ipairs({TWM_DUNGEONS or {}, TWM_RAIDS or {}, TWM_SCENARIOS or {}}) do
+            for _, e in pairs(list) do
+                if(e.mapID) then TWM_InstanceKeyByMapID[e.mapID] = e[1]; end
+            end
+        end
+    end
+
+    local instanceID = select(8, GetInstanceInfo());
+    return instanceID and TWM_InstanceKeyByMapID[tostring(instanceID)] or nil;
+end
+
 -- Replaces the old GetPlayerMapPosition(u); returns nil if the unit isn't on
 -- one of TerrainWorldMap's 3 known continents (no WorldMapFrame navigation needed).
 -- Returns (continent, x, y) where x/y are normalized [0,1] *within that
@@ -2260,7 +2280,7 @@ end
 -- button click (TWMFramePlayerJumpButton_Jump/_Toggle) bypasses this and
 -- always seeks -- that's the whole point of clicking it.
 function TWMFrame_SeekOnShow(frame, unit)
-    local map = TWM_GetUnitContinentPosition(unit);
+    local map = unit == "player" and TWM_GetPlayerInstanceMap() or TWM_GetUnitContinentPosition(unit);
     if(map and frame.opt and map == frame.opt.Map) then
         return;
     end
@@ -2703,6 +2723,23 @@ function TWMFrameTemplate:OnWorldMapUpdate()
 end
 
 function TWMFrameTemplate:OnWorldMapUpdateU(u)
+    -- The player is inside a dungeon/raid/scenario we have a map for: only
+    -- switch to that map, no positioning. Checked before the continent
+    -- lookup, whose C_Map parent walk can return the outdoor continent for an
+    -- instance.
+    if(u == "player") then
+        local inst = TWM_GetPlayerInstanceMap();
+        if(inst) then
+            if(u == self.trackseek) then
+                self.trackseek = nil;
+                self:SelectMap(inst);
+            elseif(u == self.opt.track and self.opt.Map ~= inst) then
+                self:SelectMap(inst);
+            end
+            return;
+        end
+    end
+
     local map, x, y = TWM_GetUnitContinentPosition(u);
     local lm = self:GetName();
     local viewframe = _G[lm.."ViewFrame"];
