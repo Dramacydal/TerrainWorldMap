@@ -132,10 +132,40 @@ function set.internal.CreateEventFrame()
     eventframe:RegisterEvent("GROUP_ROSTER_UPDATE");
 end
 
+-- Class icon from the client's class-icon atlas, else the class icon sheet.
+local function SetClassIcon(icon, class)
+    local atlas = "classicon-" .. class:lower();
+    if(C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(atlas)) then
+        icon:SetAtlas(atlas);
+        return true;
+    end
+
+    local coords = CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[class];
+    if(coords) then
+        icon:SetTexture("Interface\\GLUES\\CHARACTERCREATE\\UI-CHARACTERCREATE-CLASSES");
+        icon:SetTexCoord(unpack(coords));
+        return true;
+    end
+    return false;
+end
+
+-- The unit's name in its class color plus its class icon; plain name and no
+-- icon when the class is unknown.
 function set.setuplegend(point, env, dat)
+    local name = UnitName(dat.name);
+    local class = select(2, UnitClass(dat.name));
+    local color = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class];
+
     point:Show();
-    point.Text:SetText(UnitName(dat.name));
+    if(color and name) then
+        name = string.format("|cff%02x%02x%02x%s|r",
+            math.floor(color.r * 255 + 0.5), math.floor(color.g * 255 + 0.5), math.floor(color.b * 255 + 0.5), name);
+    end
+    point.Text:SetText(name);
     point.Icon:SetTexture(nil);
+    if(class) then
+        SetClassIcon(point.Icon, class);
+    end
     point.Text:Show();
     point.Icon:SetHeight(env.iconsize);
     point.Icon:SetWidth(env.iconsize);

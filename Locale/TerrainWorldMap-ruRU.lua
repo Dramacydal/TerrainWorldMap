@@ -4,6 +4,7 @@ TWM_BUTTON_TOOLTIP1 = "TerrainWorldMap";
 TWM_PLAYERJUMP = "К игроку";
 TWM_TOOLTIP_PLAYERJUMP = "Центрирует карту на вашем персонаже.";
 TWM_TOOLTIP_PLAYERJUMP_FOLLOW = "Shift+клик: включить или выключить режим слежения (карта следует за вами; только на континентах). Перетаскивание карты его отключает.";
+TWM_TOOLTIP_CLICK_OPEN_MAP = "Клик: открыть эту карту";
 TWM_OPTIONSBUTTON = "Настройки";
 
 -- Подсказки и контекстное меню кнопки на миникарте/карте мира

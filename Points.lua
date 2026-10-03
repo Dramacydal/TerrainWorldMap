@@ -391,6 +391,7 @@ function TWMPoints_GetPoint(frame, id)
     f.SetOffset = TWMP_SetOffset;
 
     f:SetScript("OnEnter", TWMP_OnEnter);
+    f:SetScript("OnLeave", TWMP_OnLeave);
 
     frame.pointframes[id] = f;
     return f;
@@ -432,6 +433,7 @@ function TWMPoints_AllocMobilePoint(frame, id)
     f.Update = TWMMP_Update;
 
     f:SetScript("OnEnter", TWMP_OnEnter);
+    f:SetScript("OnLeave", TWMP_OnLeave);
 
     frame.mobilepointframes[id] = f;
     return f;
@@ -483,6 +485,22 @@ function TWMPoints_UpdateTooltip(frame, tooltip, point, op)
             end
             -- tooltip:AddDataPoint(point.dat.name);
         end
+
+        -- One hint row (a set's optional legendhint(dat)) under the legend,
+        -- aligned with the names; the color is an escape, not SetTextColor,
+        -- because legend rows are pooled.
+        for _, point in ipairs(tooltip.points) do
+            local hintfunc = sets[point.dat.setname].legendhint;
+            local hint = hintfunc and hintfunc(point.dat);
+            local row = hint and tooltip:GetNext();
+            if(row) then
+                row.Icon:SetTexture(nil);
+                row.Foreground:SetText("");
+                row.Text:SetText("|cffffd100" .. hint .. "|r");
+                row:Show();
+                break;
+            end
+        end
         tooltip:Show();
     else
         tooltip:Hide();
@@ -523,6 +541,11 @@ end
 -- polled from the ViewFrame's own OnUpdate (see TWMFrameViewFrame_OnDrag)
 -- rather than an OnDragStop tied to this specific icon, makes the drag's
 -- lifetime independent of whether this icon frame still exists.
+--
+-- A left click that did not move (TWMP_CLICK_MAX_MOVE screen pixels) is
+-- passed to the set's optional onclick(dat, frame).
+local TWMP_CLICK_MAX_MOVE = 4;
+
 function TWMP_EnableDragThrough(point, viewframe)
     point:SetScript("OnMouseDown", function(self, button)
         if(button == "LeftButton" or button == "RightButton") then
@@ -530,10 +553,27 @@ function TWMP_EnableDragThrough(point, viewframe)
             twm_lastdragx = nil;
             twm_lastdragy = nil;
         end
+        if(button == "LeftButton") then
+            self.downX, self.downY = GetCursorPosition();
+        end
+    end);
+    point:SetScript("OnMouseUp", function(self, button)
+        local dx, dy = self.downX, self.downY;
+        self.downX, self.downY = nil, nil;
+        if(button ~= "LeftButton" or not dx or not self.dat) then return; end
+
+        local x, y = GetCursorPosition();
+        if(math.abs(x - dx) > TWMP_CLICK_MAX_MOVE or math.abs(y - dy) > TWMP_CLICK_MAX_MOVE) then return; end
+
+        local set = sets[self.dat.setname];
+        if(set and set.onclick) then
+            set.onclick(self.dat, viewframe:GetParent());
+        end
     end);
 end
 
 function TWMP_Clear(point)
+    point.hovered = nil;
     point:Hide();
     point:ClearAllPoints();
     point:SetPoint("TOPLEFT", point:GetParent());
@@ -577,24 +617,38 @@ local function TWM_IsMouseOverFrame(frame)
 end
 
 function TWMP_OnEnter(self)
-    local vf = self:GetParent(); 
+    local vf = self:GetParent();
     local f = vf:GetParent();
     local tp = _G[f.hoverTooltip];
-    
+
+    self.hovered = true;
     vf.inpoint = true;
     if(tp and tp.knownshownlines == nil) then
         tp.knownshownlines = 0;
     end
-    
+
+end
+
+function TWMP_OnLeave(self)
+    self.hovered = nil;
+end
+
+-- The client's own hit test (OnEnter/OnLeave) and Region:IsMouseOver()
+-- can disagree by a pixel at the icon's edge. Polling on IsMouseOver alone
+-- then found "nothing hovered" right after OnEnter, dropped vf.inpoint and
+-- stopped polling, so the tooltip never appeared until the cursor left and
+-- re-entered. `hovered` (set by OnEnter, cleared by OnLeave) counts too.
+local function TWM_IsPointHovered(point)
+    return TWM_IsMouseOverFrame(point) or (point.hovered and point:IsShown());
 end
 
 
-function TWMFrameViewFrame_UpdatePointTooltip(self) 
+function TWMFrameViewFrame_UpdatePointTooltip(self)
     local f = self:GetParent();
     local tp = _G[f.hoverTooltip];
 
     for h,v in pairs(f.pointframes) do
-        if(v.intooltip and not TWM_IsMouseOverFrame(v)) then
+        if(v.intooltip and not TWM_IsPointHovered(v)) then
             TWMPoints_UpdateTooltip(f, tp, v, "remove");
             tp.knownshownlines = tp.knownshownlines - 1;
 
@@ -604,7 +658,7 @@ function TWMFrameViewFrame_UpdatePointTooltip(self)
                 TWM_HoveredTaxiNodeID = nil;
                 if(TWM_FlightPaths_Refresh) then TWM_FlightPaths_Refresh(); end
             end
-        elseif(not v.intooltip and TWM_IsMouseOverFrame(v)) then
+        elseif(not v.intooltip and TWM_IsPointHovered(v)) then
             TWMPoints_UpdateTooltip(f, tp, v, "add");
             tp.knownshownlines = tp.knownshownlines + 1;
 
@@ -619,10 +673,10 @@ function TWMFrameViewFrame_UpdatePointTooltip(self)
     end
 
     for h,v in pairs(f.mobilepointframes) do
-        if(v.intooltip and not TWM_IsMouseOverFrame(v)) then
+        if(v.intooltip and not TWM_IsPointHovered(v)) then
             TWMPoints_UpdateTooltip(f, tp, v, "remove");
             tp.knownshownlines = tp.knownshownlines - 1;
-        elseif(not v.intooltip and TWM_IsMouseOverFrame(v) and v:IsShown()) then
+        elseif(not v.intooltip and TWM_IsPointHovered(v) and v:IsShown()) then
             TWMPoints_UpdateTooltip(f, tp, v, "add");
             tp.knownshownlines = tp.knownshownlines + 1;
         end
@@ -785,57 +839,42 @@ end
 ---       historical significance
 ---
 
-function TWMFOO_Init(self, frame)
-    if(not frame) then
-        frame = self;
-    end
-
-    UIDropDownMenu_Initialize(frame, TWMFOODropDown_Initialize, "MENU");
-    UIDropDownMenu_SetButtonWidth(frame,50);
-    UIDropDownMenu_SetWidth(frame,50);
-end
-
-function TWMFOODropDown_Initialize()
-    local func;
-
-    if(current_frame == nil) then
-        return;
-    end
-
-    local lm = current_frame:GetName();
-
-    if(UIDROPDOWNMENU_MENU_LEVEL == 1) then
-        local info = {};
-        info.text = TWM_POINTS_SHOWPOINTS_TITLE;
-        info.notClickable = 1;
-        info.isTitle = 1;
-        info.notCheckable = 1;
-        UIDropDownMenu_AddButton(info);
-    end
-
-    if(TWMOption.Frames and TWMOption.Frames[lm]) then
-        for h,v in pairs(sets) do
-            func = v.configmenu;
-            if(func) then
-                func(h, lm);
-            end
-        end
-    end
+-- Called by a set's configmenu: one checkbox that shows/hides the set `name`.
+-- PointCfg[name] means "hidden"; the checkbox means "shown".
+function TWMFOO_AddToggle(menu, lm, name, text)
+    menu:CreateCheckbox(text,
+        function()
+            local cfg = TWMOption.Frames[lm].PointCfg;
+            return not (cfg and cfg[name]);
+        end,
+        function()
+            local cfg = TWMOption.Frames[lm].PointCfg;
+            cfg[name] = not cfg[name];
+            TWMPoints_ForceUpdate(_G[lm]);
+        end);
 end
 
 function TWMFOO_OnClick(self)
-    current_frame = self;
-    while(current_frame and not current_frame.SetLocation) do
-        current_frame = current_frame:GetParent()
+    local frame = self;
+    while(frame and not frame.SetLocation) do
+        frame = frame:GetParent();
     end
+    local lm = frame:GetName();
 
-    ToggleDropDownMenu(1, nil, _G[self:GetName().."DropDown"], self:GetName(), 0, 0);
-end
+    MenuUtil.CreateContextMenu(self, function(owner, root)
+        root:CreateTitle(TWM_POINTS_SHOWPOINTS_TITLE);
 
-function TWMFOODropDown_do_toggle_normal(self)
-    -- PointCfg[name] means "hidden"; the checkbox means "shown", so invert.
-    TWMOption.Frames[current_frame:GetName()].PointCfg[self.value] = not UIDropDownMenuButton_GetChecked(self)
-    TWMPoints_ForceUpdate(current_frame)
+        if(not (TWMOption.Frames and TWMOption.Frames[lm])) then return; end
+
+        local names = {};
+        for h, v in pairs(sets) do
+            if(v.configmenu) then tinsert(names, h); end
+        end
+        table.sort(names);
+        for _, h in ipairs(names) do
+            sets[h].configmenu(root, h, lm);
+        end
+    end);
 end
 
 ---

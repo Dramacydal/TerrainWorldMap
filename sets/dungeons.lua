@@ -12,7 +12,7 @@ function set.getpoints(name, map)
         for h,v in ipairs(Twm_instances[map]) do
             local x,y = TWM_Big2Mini_Coord(v[4],v[5]);
 
-            TWMPoints_AddPoint(nil, "dungeons", GetRealZoneText(v[2]) or v[3], x, y, nil, {v[1]});
+            TWMPoints_AddPoint(nil, "dungeons", GetRealZoneText(v[2]) or v[3], x, y, nil, {v[1], v[2]});
         end
     end
 end
@@ -33,6 +33,18 @@ function set.setuppoint(point, env, dat)
     bg:SetTexCoord(0, 1, 0, 1);
 end
 
+-- A click on the marker opens the instance's own map (see TWMP_EnableDragThrough).
+function set.onclick(dat, frame)
+    TWM_OpenInstanceMap(frame, dat.userdat[2]);
+end
+
+-- Extra tooltip line (see TWMPoints_UpdateTooltip).
+function set.legendhint(dat)
+    if(TWM_GetOpenableInstanceMap(dat.userdat[2])) then
+        return TWM_TOOLTIP_CLICK_OPEN_MAP;
+    end
+end
+
 function set.setuplegend(point, env, dat)
     env.iconsize = 16;
     set.setuppoint(point, env, dat);
@@ -40,16 +52,8 @@ function set.setuplegend(point, env, dat)
     point.Text:SetText(dat.name);
 end
 
-function set.configmenu(name, lm)
-    if(UIDROPDOWNMENU_MENU_LEVEL == 1) then
-        local info = {};
-        info.text = TWM_POINTS_DUNGEONS;
-        info.func = TWMFOODropDown_do_toggle_normal;
-        info.checked = TWMOption.Frames[lm].PointCfg and not TWMOption.Frames[lm].PointCfg[name];
-        info.value = name;
-        info.keepShownOnClick = 1;
-        UIDropDownMenu_AddButton(info);
-    end
+function set.configmenu(menu, name, lm)
+    TWMFOO_AddToggle(menu, lm, name, TWM_POINTS_DUNGEONS);
 end
 
 TWMPoints_RegisterSet(set);

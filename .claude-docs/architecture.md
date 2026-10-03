@@ -86,12 +86,22 @@ Non-continent maps keep the old "re-center when the unit leaves the view" logic
 in `OnWorldMapUpdateU`. Inside a dungeon/raid/scenario that is in our lists (`TWM_GetPlayerInstanceMap`: `GetInstanceInfo()`'s
 instanceID against the lists' `.mapID`) Goto Player only switches to that instance's map (`SelectMap`), no positioning; this
 is checked before the continent lookup because `C_Map`'s parent walk can return the outdoor continent for an instance.
+Clicking a dungeon/raid entrance marker on a continent opens that instance's map: `Points.lua` calls a set's optional
+`onclick(dat, frame)` on a left click that moved less than 4 screen pixels (`TWMP_EnableDragThrough`); `sets/dungeons.lua`'s
+`onclick` -> `TWM_OpenInstanceMap` (Map.csv ID from `userdat[2]` -> list key; hidden/dev maps are not opened).
 
-**The two header dropdowns** (`TerrainWorldMap.lua`): the left one is a category tree (Continents / Dungeons > expansion /
+**Frame chrome** (`TerrainWorldMap.xml`): no title/portrait. `TWMFrameViewFrame` fills the frame with a 4px inset (flat 1px
+backdrop border from `TWMFrame_OnLoadExtra`). Controls (two dropdowns, Goto Player, Settings, Lock, Close) live in
+`TWMFrameHeader`, a 32px strip overlaid on the top of the map (frame level above `TWM_WMO_FRAME_BAND`); it is also the drag
+handle for moving the frame (forwards to `TWMFrame`'s own `OnDragStart/OnDragStop`) and forwards the mouse wheel to zoom. The
+resize grip and the Show Terrain/WMO checkboxes are offset to stay clear of the strip. `TWM_FRAME_MIN_WIDTH` is the width
+floor so the strip's left and right clusters never overlap.
+
+**The two header dropdowns** (`TerrainWorldMap.lua`; Blizzard_Menu `DropdownButton`s, see gotchas.md): the left one is a category tree (Continents / Dungeons > expansion /
 Raids / Scenarios / Battlegrounds / Arenas). For a continent the right one lists its zones (`zonepulldowns`) and shows the
 zone under the view center (`UpdateDropDown2`). For any other map `TWM_GetMapGroup(map)` (set in `SetMap` as
 `frame.mapGroupText`/`frame.mapGroup`) makes the left one read "Dungeons: Vanilla" (just "Dungeons" when the flavor has
-one expansion) and the right one list that group's maps; picking one calls `TWM_PickMap` (`SelectMap` + `CloseDropDownMenus`).
+one expansion) and the right one list that group's maps; picking one calls `TWM_PickMap` (`SelectMap`; the menu closes itself).
 `UpdateDropDown2` runs from `SetLocation` AFTER `opt.Location` is stored (it reads it).
 
 ## Live name resolution — don't bake locale into generated data

@@ -74,16 +74,8 @@ function set.setuplegend(point, env, dat)
     point.Text:SetText(dat.name);
 end
 
-function set.configmenu(name, lm)
-    if(UIDROPDOWNMENU_MENU_LEVEL == 1) then
-        local info = {};
-        info.text = TWM_POINTS_CAPITALS;
-        info.func = TWMFOODropDown_do_toggle_normal;
-        info.checked = TWMOption.Frames[lm].PointCfg and not TWMOption.Frames[lm].PointCfg[name];
-        info.value = name;
-        info.keepShownOnClick = 1;
-        UIDropDownMenu_AddButton(info);
-    end
+function set.configmenu(menu, name, lm)
+    TWMFOO_AddToggle(menu, lm, name, TWM_POINTS_CAPITALS);
 end
 
 TWMPoints_RegisterSet(set);

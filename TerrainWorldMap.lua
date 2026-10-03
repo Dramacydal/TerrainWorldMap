@@ -85,6 +85,10 @@ function TWM_ClearFrameTileTextures()
     end
 end
 
+-- Width floor: keeps the dropdowns and "Goto Player" on the left of the
+-- control strip clear of the Settings/Lock/Close buttons on the right.
+TWM_FRAME_MIN_WIDTH = 680;
+
 TWM_FRAME_OPTION_DEFAULTS = {
     ["Locked"] = false,
     ["Map"] = "Kalimdor",
@@ -95,7 +99,7 @@ TWM_FRAME_OPTION_DEFAULTS = {
     ["ShowWMOOverlay"] = true,
     ["ShowTerrain"] = true,
     ["Zoom"] = 256,
-    ["Width"] = 539,
+    ["Width"] = 720,
     ["Height"] = 628,
 };
 
@@ -1171,9 +1175,7 @@ end
 -- dungeon/raid/scenario the player is inside, or nil. GetInstanceInfo's
 -- instanceID is the Map.csv ID, which the lists carry as `.mapID`.
 local TWM_InstanceKeyByMapID;
-function TWM_GetPlayerInstanceMap()
-    if(not IsInInstance()) then return nil; end
-
+local function TWM_GetInstanceMapKey(mapID)
     if(not TWM_InstanceKeyByMapID) then
         TWM_InstanceKeyByMapID = {};
         for _, list in ipairs({TWM_DUNGEONS or {}, TWM_RAIDS or {}, TWM_SCENARIOS or {}}) do
@@ -1182,9 +1184,25 @@ function TWM_GetPlayerInstanceMap()
             end
         end
     end
+    return mapID and TWM_InstanceKeyByMapID[tostring(mapID)] or nil;
+end
 
-    local instanceID = select(8, GetInstanceInfo());
-    return instanceID and TWM_InstanceKeyByMapID[tostring(instanceID)] or nil;
+function TWM_GetPlayerInstanceMap()
+    if(not IsInInstance()) then return nil; end
+    return TWM_GetInstanceMapKey((select(8, GetInstanceInfo())));
+end
+
+-- Map key of the dungeon/raid with Map.csv ID `mapID`, nil when we have no
+-- visible map for it.
+function TWM_GetOpenableInstanceMap(mapID)
+    local key = TWM_GetInstanceMapKey(mapID);
+    if(not key or TWM_IsMapHidden(tostring(mapID))) then return nil; end
+    return key;
+end
+
+function TWM_OpenInstanceMap(frame, mapID)
+    local key = TWM_GetOpenableInstanceMap(mapID);
+    if(key) then frame:SelectMap(key); end
 end
 
 -- Replaces the old GetPlayerMapPosition(u); returns nil if the unit isn't on
@@ -1315,29 +1333,22 @@ function TWMFrame_OnLoadExtra()
 
     TWMFrame.hoverTooltip = "TWMTooltip";
 
-    -- Modern tiled backdrop replacing the old fixed corner-art border, since
-    -- that art can't stretch -- needed for real (non-scaled) resizing.
+    -- Thin flat border; the map view covers the rest of the frame.
     TWMFrame:SetBackdrop({
-        bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-        tile = true, tileSize = 16, edgeSize = 16,
-        insets = {left = 4, right = 4, top = 4, bottom = 4},
+        bgFile = "Interface\\Buttons\\WHITE8X8",
+        edgeFile = "Interface\\Buttons\\WHITE8X8",
+        edgeSize = 1,
+        insets = {left = 1, right = 1, top = 1, bottom = 1},
     });
     TWMFrame:SetBackdropColor(0, 0, 0, 1);
+    TWMFrame:SetBackdropBorderColor(0.3, 0.3, 0.3, 1);
 
-    -- Set here (not XML) since a layer region can't forward-reference a
-    -- child Frame declared later in the same XML block. Anchored to the
-    -- Options button (not the lock button directly) since that button now
-    -- sits between them: Version -- Options -- Lock -- Close.
-    TWMFrameVersion:ClearAllPoints();
-    TWMFrameVersion:SetPoint("RIGHT", TWMFrameOptionsButton, "LEFT", -6, 0);
+    -- The control strip and its buttons sit over the map, above everything
+    -- the map hosts (see TWM_WMO_FRAME_BAND).
+    TWMFrameHeader:SetFrameLevel(TWMFrameViewFrame:GetFrameLevel() + TWM_WMO_FRAME_BAND + 40);
 
     TWMFrame:SetResizable(true);
-    -- Width floor keeps the continent/zone dropdowns and the "Goto Player"
-    -- button (58+176 from the left, 176 wide, 108+6 from the right -- see
-    -- TWMFrame_LayoutHeader) from ever being squeezed into overlapping
-    -- each other.
-    TWMFrame:SetResizeBounds(530, 300);
+    TWMFrame:SetResizeBounds(TWM_FRAME_MIN_WIDTH, 300);
 
     -- See TWM_ResetFramePosition: a size change applied while the frame
     -- is hidden doesn't actually reach the (anchor-derived) ViewFrame until
@@ -1396,36 +1407,7 @@ function TWMFrame_OnResizeStop(self, isFinal)
     end
 
     self:SetZoom(self.opt.Zoom, true, not forcePoints);
-    TWMFrame_LayoutHeader(self);
     self.inResizeRefresh = false;
-end
-
--- Keeps the continent dropdown, zone dropdown and "Goto Player" button
--- together as one tightly-spaced group (fixed gaps between them, like the
--- original fixed layout), and re-centers that whole group under the frame's
--- current width as it's resized -- rather than spreading the three apart to
--- the edges. XML anchors can't express "center this cluster within
--- whatever the current width is" on their own, so this recomputes it in
--- pixels each time.
-local TWM_HEADER_GAP = 8;
-function TWMFrame_LayoutHeader(self)
-    local lm = self:GetName();
-    local dd1 = _G[lm.."DropDown"];
-    local dd2 = _G[lm.."DropDown2"];
-    local jump = _G[lm.."PlayerJumpButton"];
-    if(not (dd1 and dd2 and jump)) then return; end
-
-    local groupWidth = dd1:GetWidth() + TWM_HEADER_GAP + dd2:GetWidth() + TWM_HEADER_GAP + jump:GetWidth();
-    local leftMargin = (self:GetWidth() - groupWidth) / 2;
-
-    dd1:ClearAllPoints();
-    dd1:SetPoint("TOPLEFT", self, "TOPLEFT", leftMargin, -40);
-
-    dd2:ClearAllPoints();
-    dd2:SetPoint("LEFT", dd1, "RIGHT", TWM_HEADER_GAP, 0);
-
-    jump:ClearAllPoints();
-    jump:SetPoint("LEFT", dd2, "RIGHT", TWM_HEADER_GAP, 0);
 end
 
 function TWMFrameTemplate:OnEvent(event, ...)
@@ -1463,11 +1445,11 @@ function TWMFrameTemplate:OnEvent(event, ...)
         end
 
         if(self.opt.Width and self.opt.Height) then
-            self:SetSize(self.opt.Width, self.opt.Height);
+            self:SetSize(math.max(self.opt.Width, TWM_FRAME_MIN_WIDTH), self.opt.Height);
         end
         self:SetZoom(self.opt.Zoom);
+        TWM_SetupDropdowns(self);
         self:SetMap(self.opt.Map);
-        TWMFrame_LayoutHeader(self);
 
         self:UpdateLock();
         self:SetAlpha(self.opt.Alpha);
@@ -1524,64 +1506,6 @@ function TWMFrameTemplate:Toggle()
             -- SetupWorldMapScale();
             ShowUIPanel(self);
 	end
-    end
-end
-
-function TWMFrameDropDown_OnLoad(self)
-    self:RegisterEvent("VARIABLES_LOADED");
-end
-
--- Blizzard declares DropDownList1..3 in XML but starts with
--- UIDROPDOWNMENU_MAXLEVELS = 2, so the first level-3 menu creates a SECOND
--- frame named DropDownList3. The global name (and the list that is shown)
--- stays with the XML one, which only has the template's 8 buttons; buttons
--- 9..N exist only in the hidden second list, so entries 9..N of a level-3
--- list are invisible. Fix: raise the button count to the longest list we
--- build (public AddButton path, covers levels 1-2) and create the matching
--- buttons 9..N inside the XML DropDownList3 ourselves, before any menu opens.
-local function TWM_PreGrowDropDownButtons(dropdown)
-    -- Classic-style UIDropDownMenu only; the newer implementation (WoW:
-    -- Forever) has neither the globals nor the two-list problem.
-    if(type(UIDROPDOWNMENU_MINBUTTONS) ~= "number" or type(UIDROPDOWNMENU_MAXBUTTONS) ~= "number") then
-        return;
-    end
-
-    local n = 16;
-    for _, areas in pairs(Twm_mapareas or {}) do
-        local c = 0;
-        for areaID in pairs(areas) do
-            if(Twm_areadb[areaID]) then c = c + 1; end
-        end
-        if(c > n) then n = c; end
-    end
-    UIDropDownMenu_Initialize(dropdown, function()
-        for i = 1, n do
-            UIDropDownMenu_AddButton({text = " ", notCheckable = true}, 1);
-        end
-    end);
-
-    local list3 = _G["DropDownList3"];
-    if(list3) then
-        for i = UIDROPDOWNMENU_MINBUTTONS + 1, UIDROPDOWNMENU_MAXBUTTONS do
-            if(not _G["DropDownList3Button"..i]) then
-                CreateFrame("Button", "DropDownList3Button"..i, list3, "UIDropDownMenuButtonTemplate"):SetID(i);
-            end
-        end
-    end
-end
-
-function TWMFrameDropDown_OnEvent(self, event)
-    if(event == "VARIABLES_LOADED") then
-        TWM_PreGrowDropDownButtons(self);
-        UIDropDownMenu_Initialize(self, TWMFrameDropDown_Initialize);
-        -- No UIDropDownMenu_SetSelectedID here -- it drives its own
-        -- persistent "checked" highlight on whichever button sits at that
-        -- ID, independent of (and in addition to) each button's own
-        -- info.checked field below. Leaving it at its leftover value from
-        -- the old flat (pre-category-tree) menu meant button #1 of whatever
-        -- submenu was open stayed permanently highlighted alongside the one
-        -- info.checked correctly marked for the frame's actual current map.
-        UIDropDownMenu_SetWidth(self, 150);
     end
 end
 
@@ -1722,197 +1646,85 @@ function TWM_GetMapGroup(mapname)
     return nil;
 end
 
--- Dungeon/raid buttons of one expansion (names = sorted, list = TWM_DUNGEONS
--- or TWM_RAIDS).
-local function TWM_AddInstanceButtons(names, list, expID, onClick, level)
-    local currentMap = _G["TWMFrame"].opt.Map;
-    for _, h in ipairs(names) do
-        if(list[h].expansion == expID) then
-            UIDropDownMenu_AddButton({
-                text = h,
-                func = onClick,
-                arg1 = list[h][1],
-                checked = (list[h][1] == currentMap),
-                colorCode = TWM_IsDevelopmentMap(list[h].mapID) and TWM_DEV_MAP_COLOR or nil,
-            }, level);
-        end
+-- The header dropdowns are Blizzard_Menu DropdownButtons (WowStyle1Dropdown).
+-- Their displayed text is always set explicitly (TWM_SetDropdownText), never
+-- derived from the selected radio.
+local TWM_MENU_MAX_HEIGHT = 400;
+
+-- OverrideText ignores selection state; skip the redundant calls made on every pan.
+local function TWM_SetDropdownText(dropdown, text)
+    if(dropdown:GetText() ~= text) then
+        dropdown:OverrideText(text);
     end
 end
 
--- Top-level dropdown is a category tree (Continents/Dungeons/Raids/
--- Scenarios/Battlegrounds/Arenas) instead of a flat continent list --
--- Continents keeps working exactly as before, just one level deeper --
--- TWMFrameDropDownButton_OnClick's use of GetID() as an index into
--- TWM_GetSortedMapNames() still works unchanged, since a submenu's buttons
--- are numbered from 1 within that submenu, same as they were at the top
--- level before this change.
-function TWMFrameDropDown_Initialize()
-    local info;
-    local level = UIDROPDOWNMENU_MENU_LEVEL;
-    if(level == 1) then
-        info = {text = TWM_CATEGORY_CONTINENTS, hasArrow = true, notCheckable = true, value = "continents"};
-        UIDropDownMenu_AddButton(info, level);
-
-        if(TWM_DUNGEONS) then
-            info = {text = TWM_CATEGORY_DUNGEONS, hasArrow = true, notCheckable = true, value = "dungeons"};
-            UIDropDownMenu_AddButton(info, level);
-        end
-
-        if(TWM_RAIDS) then
-            info = {text = TWM_CATEGORY_RAIDS, hasArrow = true, notCheckable = true, value = "raids"};
-            UIDropDownMenu_AddButton(info, level);
-        end
-
-        if(TWM_SCENARIOS) then
-            info = {text = TWM_CATEGORY_SCENARIOS, hasArrow = true, notCheckable = true, value = "scenarios"};
-            UIDropDownMenu_AddButton(info, level);
-        end
-
-        info = {text = TWM_CATEGORY_BATTLEGROUNDS, hasArrow = true, notCheckable = true, value = "battlegrounds"};
-        UIDropDownMenu_AddButton(info, level);
-
-        if(TWM_ARENAS) then
-            info = {text = TWM_CATEGORY_ARENAS, hasArrow = true, notCheckable = true, value = "arenas"};
-            UIDropDownMenu_AddButton(info, level);
-        end
-    elseif(UIDROPDOWNMENU_MENU_VALUE == "continents") then
-        local currentMap = _G["TWMFrame"].opt.Map;
-        for i,h in ipairs(TWM_GetSortedMapNames()) do
-            info = {
-                    text = h;
-                    func = TWMFrameDropDownButton_OnClick;
-                    -- Without this, the checkmark falls back to comparing
-                    -- each button's own ID against UIDropDownMenu_SetSelectedID
-                    -- (set once, to 1, back at load time and never since --
-                    -- there's no single "selected ID" that means anything once
-                    -- this list lives inside a submenu) -- always checking
-                    -- whichever entry sorts first, regardless of the frame's
-                    -- actual current map.
-                    checked = (TWM_MAPS[h][1] == currentMap);
-            };
-            UIDropDownMenu_AddButton(info, level);
-        end
-    elseif(UIDROPDOWNMENU_MENU_VALUE == "battlegrounds") then
-        local currentMap = _G["TWMFrame"].opt.Map;
-        for i,h in ipairs(TWM_GetSortedBattlegroundNames()) do
-            info = {
-                    text = h;
-                    func = TWMFrameDropDownButton_Battleground_OnClick;
-                    checked = (TWM_BATTLEGROUNDS[h][1] == currentMap);
-            };
-            UIDropDownMenu_AddButton(info, level);
-        end
-    elseif(UIDROPDOWNMENU_MENU_VALUE == "arenas") then
-        local currentMap = _G["TWMFrame"].opt.Map;
-        for i,h in ipairs(TWM_GetSortedArenaNames()) do
-            info = {
-                    text = h;
-                    func = TWMFrameDropDownButton_Arena_OnClick;
-                    checked = (TWM_ARENAS[h][1] == currentMap);
-            };
-            UIDropDownMenu_AddButton(info, level);
-        end
-    elseif(UIDROPDOWNMENU_MENU_VALUE == "dungeons") then
-        -- One level deeper than every other category here: pick an
-        -- expansion first (Map.db2's ExpansionID), then the actual dungeon
-        -- list below, filtered to it -- see gen_instance_maps.js/
-        -- TWM_GetSortedExpansionIDs. With only one expansion (Vanilla,
-        -- Forever) that level is skipped and the list is shown directly.
-        local expIDs = TWM_GetSortedExpansionIDs(TWM_DUNGEONS);
-        if(#expIDs == 1) then
-            TWM_AddInstanceButtons(TWM_GetSortedDungeonNames(), TWM_DUNGEONS, expIDs[1], TWMFrameDropDownButton_Dungeon_OnClick, level);
-        else
-            for _, expID in ipairs(expIDs) do
-                info = {text = TWM_GetExpansionName(expID), hasArrow = true, notCheckable = true, value = "dungeons_exp_" .. expID};
-                UIDropDownMenu_AddButton(info, level);
-            end
-        end
-    elseif(UIDROPDOWNMENU_MENU_VALUE == "raids") then
-        local expIDs = TWM_GetSortedExpansionIDs(TWM_RAIDS);
-        if(#expIDs == 1) then
-            TWM_AddInstanceButtons(TWM_GetSortedRaidNames(), TWM_RAIDS, expIDs[1], TWMFrameDropDownButton_Raid_OnClick, level);
-        else
-            for _, expID in ipairs(expIDs) do
-                info = {text = TWM_GetExpansionName(expID), hasArrow = true, notCheckable = true, value = "raids_exp_" .. expID};
-                UIDropDownMenu_AddButton(info, level);
-            end
-        end
-    elseif(type(UIDROPDOWNMENU_MENU_VALUE) == "string" and UIDROPDOWNMENU_MENU_VALUE:match("^dungeons_exp_")) then
-        local expID = UIDROPDOWNMENU_MENU_VALUE:match("^dungeons_exp_(.+)$");
-        TWM_AddInstanceButtons(TWM_GetSortedDungeonNames(), TWM_DUNGEONS, expID, TWMFrameDropDownButton_Dungeon_OnClick, level);
-    elseif(type(UIDROPDOWNMENU_MENU_VALUE) == "string" and UIDROPDOWNMENU_MENU_VALUE:match("^raids_exp_")) then
-        local expID = UIDROPDOWNMENU_MENU_VALUE:match("^raids_exp_(.+)$");
-        TWM_AddInstanceButtons(TWM_GetSortedRaidNames(), TWM_RAIDS, expID, TWMFrameDropDownButton_Raid_OnClick, level);
-    elseif(UIDROPDOWNMENU_MENU_VALUE == "scenarios") then
-        local currentMap = _G["TWMFrame"].opt.Map;
-        for i,h in ipairs(TWM_GetSortedScenarioNames()) do
-            info = {
-                    text = h;
-                    func = TWMFrameDropDownButton_Scenario_OnClick;
-                    checked = (TWM_SCENARIOS[h][1] == currentMap);
-                    colorCode = TWM_IsDevelopmentMap(TWM_SCENARIOS[h].mapID) and TWM_DEV_MAP_COLOR or nil;
-            };
-            UIDropDownMenu_AddButton(info, level);
-        end
-    end
-end
-
--- After a pick only the clicked list is hidden by the client here; the upper
--- levels of the category tree stay open (CloseDropDownMenus closes them).
 local function TWM_PickMap(mapname)
     _G["TWMFrame"]:SelectMap(mapname);
-    CloseDropDownMenus();
 end
 
-function TWMFrameDropDownButton_OnClick(self)
-        local i = self:GetID();
-        local h = TWM_GetSortedMapNames()[i];
-        if(h) then
-            return TWM_PickMap(TWM_MAPS[h][1]);
-        end
+local function TWM_IsCurrentMap(mapname)
+    return _G["TWMFrame"].opt.Map == mapname;
 end
 
-function TWMFrameDropDownButton_Battleground_OnClick(self)
-        local i = self:GetID();
-        local h = TWM_GetSortedBattlegroundNames()[i];
-        if(h) then
-            return TWM_PickMap(TWM_BATTLEGROUNDS[h][1]);
-        end
+local function TWM_AddMapRadio(menu, text, mapname, mapID, onPick)
+    if(TWM_IsDevelopmentMap(mapID)) then
+        text = TWM_DEV_MAP_COLOR .. text .. "|r";
+    end
+    return menu:CreateRadio(text, TWM_IsCurrentMap, onPick or TWM_PickMap, mapname);
 end
 
-function TWMFrameDropDownButton_Arena_OnClick(self)
-        local i = self:GetID();
-        local h = TWM_GetSortedArenaNames()[i];
-        if(h) then
-            return TWM_PickMap(TWM_ARENAS[h][1]);
+-- Submenu with one radio per map of `list` (names = sorted keys of it).
+-- `expID` restricts it to one expansion.
+local function TWM_FillMapMenu(menu, names, list, expID)
+    menu:SetScrollMode(TWM_MENU_MAX_HEIGHT);
+    for _, h in ipairs(names) do
+        local e = list[h];
+        if(not expID or e.expansion == expID) then
+            TWM_AddMapRadio(menu, h, e[1], e.mapID);
         end
+    end
 end
 
--- Unlike the other categories' OnClick handlers, self:GetID() can't be used
--- here to index back into TWM_GetSortedDungeonNames()/RaidNames() -- that ID
--- is the button's position within the expansion-filtered submenu that built
--- it (TWMFrameDropDown_Initialize's "dungeons_exp_"/"raids_exp_" branches),
--- not into the full unfiltered name list. Takes the map key directly instead,
--- passed through as arg1 (WoW's dropdown framework calls
--- info.func(self, arg1, arg2, checked)) -- no lookup needed at all.
-function TWMFrameDropDownButton_Dungeon_OnClick(self, mapname)
-        if(mapname) then
-            return TWM_PickMap(mapname);
-        end
+local function TWM_AddMapCategory(root, title, names, list)
+    if(#names == 0) then return; end
+    TWM_FillMapMenu(root:CreateButton(title), names, list);
 end
 
-function TWMFrameDropDownButton_Raid_OnClick(self, mapname)
-        if(mapname) then
-            return TWM_PickMap(mapname);
+-- Dungeons/raids: an expansion level first (Map.db2's ExpansionID, see
+-- TWM_GetSortedExpansionIDs), skipped when the flavor has only one expansion.
+local function TWM_AddInstanceCategory(root, title, names, list)
+    local expIDs = TWM_GetSortedExpansionIDs(list);
+    if(#expIDs == 0) then return; end
+
+    local menu = root:CreateButton(title);
+    if(#expIDs == 1) then
+        TWM_FillMapMenu(menu, names, list, expIDs[1]);
+    else
+        for _, expID in ipairs(expIDs) do
+            TWM_FillMapMenu(menu:CreateButton(TWM_GetExpansionName(expID)), names, list, expID);
         end
+    end
 end
 
-function TWMFrameDropDownButton_Scenario_OnClick(self)
-        local i = self:GetID();
-        local h = TWM_GetSortedScenarioNames()[i];
-        if(h) then
-            return TWM_PickMap(TWM_SCENARIOS[h][1]);
-        end
+-- Left dropdown: the category tree (Continents / Dungeons / Raids /
+-- Scenarios / Battlegrounds / Arenas).
+local function TWM_GenerateMapMenu(dropdown, root)
+    TWM_AddMapCategory(root, TWM_CATEGORY_CONTINENTS, TWM_GetSortedMapNames(), TWM_MAPS);
+    if(TWM_DUNGEONS) then
+        TWM_AddInstanceCategory(root, TWM_CATEGORY_DUNGEONS, TWM_GetSortedDungeonNames(), TWM_DUNGEONS);
+    end
+    if(TWM_RAIDS) then
+        TWM_AddInstanceCategory(root, TWM_CATEGORY_RAIDS, TWM_GetSortedRaidNames(), TWM_RAIDS);
+    end
+    if(TWM_SCENARIOS) then
+        TWM_AddMapCategory(root, TWM_CATEGORY_SCENARIOS, TWM_GetSortedScenarioNames(), TWM_SCENARIOS);
+    end
+    if(TWM_BATTLEGROUNDS) then
+        TWM_AddMapCategory(root, TWM_CATEGORY_BATTLEGROUNDS, TWM_GetSortedBattlegroundNames(), TWM_BATTLEGROUNDS);
+    end
+    if(TWM_ARENAS) then
+        TWM_AddMapCategory(root, TWM_CATEGORY_ARENAS, TWM_GetSortedArenaNames(), TWM_ARENAS);
+    end
 end
 
 -- What actually runs when a map is picked from the dropdown -- as opposed to
@@ -2006,48 +1818,24 @@ function TWMFrameTemplate:SetMap(mapname)
 
     TWM_UpdateOverlayButtons(self);
 
+    -- The left dropdown shows the continent, or for any other map the group
+    -- (category and expansion); the right one lists the continent's zones or
+    -- the group's maps.
     local mapdropdown = _G[lm.."DropDown"];
     if(mapdropdown) then
-        for i,h in ipairs(TWM_GetSortedMapNames()) do
-            if(TWM_MAPS[h][1] == mapname) then
-                -- No UIDropDownMenu_SetSelectedID here -- that tracks a
-                -- checkmark against a button's position in the level it was
-                -- set for, and the continent list now lives one level down
-                -- (inside the "Continents" category), not at the top level
-                -- this call would otherwise target. SetText below is what
-                -- actually matters -- it's what keeps the closed dropdown
-                -- button showing the current continent's name.
-                UIDropDownMenu_SetText(mapdropdown,h);
+        local caption = self.mapGroupText;
+        if(not caption) then
+            for h in pairs(TWM_MAPS) do
+                if(TWM_MAPS[h][1] == mapname) then caption = h; end
             end
         end
-        -- Not a continent: the left dropdown names the group (category and
-        -- expansion), the right one lists that group's maps.
-        if(self.mapGroupText) then
-            UIDropDownMenu_SetText(mapdropdown, self.mapGroupText);
+        if(caption) then
+            TWM_SetDropdownText(mapdropdown, caption);
         end
     end
 
-    -- initialize zone pulldown
-    local mapdropdown2 = _G[lm.."DropDown2"];
-    if(mapdropdown2) then
-        UIDropDownMenu_ClearAll(mapdropdown2);
-        -- SetInitializeFunction only STORES the callback (ToggleDropDownMenu
-        -- initializes the list when the dropdown is opened). Not
-        -- UIDropDownMenu_Initialize: that runs the callback immediately and
-        -- fills Blizzard's shared lists with this map's zones on every map
-        -- change, raising UIDROPDOWNMENU_MAXBUTTONS long before any menu is
-        -- opened (see gotchas.md, "two frames named DropDownList3").
-        UIDropDownMenu_SetInitializeFunction(mapdropdown2, TWMFrameDropDown2_Initialize);
-    end
-
-    -- The callback above is only STORED -- WoW's
-    -- dropdown framework runs it lazily, the next time the Zone dropdown is
-    -- actually opened, not synchronously here. Without this, self.zonepulldowns
-    -- below would still hold whatever map was last zone-browsed (e.g. a
-    -- continent), and both this fallback and SelectMap's own FitMapToViewport
-    -- call would silently look up a stale, foreign zone key against the new
-    -- map's Twm_mapareas -- get nil back -- and no-op instead of centering.
-    -- Recompute it fresh for the map actually being switched to.
+    -- Recomputed here for the map being switched to: SelectMap's
+    -- FitMapToViewport and the jump-to-first-zone fallback below read it.
     self.zonepulldowns = TWM_BuildZonePulldowns(mapname);
 
     self:AdjustLocation(0,0,true);
@@ -2074,21 +1862,9 @@ function TWMFrameTemplate:SetMap(mapname)
     self.lastmap = self.opt.Map;
 end
 
-function TWMFrameDropDown2_OnLoad(self)
-    self:RegisterEvent("VARIABLES_LOADED");
-end
-
-function TWMFrameDropDown2_OnEvent(self, event)
-    if(event == "VARIABLES_LOADED") then
-        UIDropDownMenu_SetWidth(self, 150);
-    end
-end
-
 -- Sorted list of Twm_areadb zone IDs registered for `map` in Twm_mapareas
 -- (real named sub-zones, e.g. a continent's -- dungeons/raids/scenarios/
--- arenas/battlegrounds have none). Shared by TWMFrameDropDown2_Initialize
--- (populates the Zone dropdown UI) and SetMap (see its own comment for why
--- it must call this itself rather than trust self.zonepulldowns).
+-- arenas/battlegrounds have none). Shared by the zone menu and SetMap.
 function TWM_BuildZonePulldowns(map)
     local list = {};
     if(Twm_mapareas[map] ~= nil) then
@@ -2102,37 +1878,6 @@ function TWM_BuildZonePulldowns(map)
     return list;
 end
 
-function TWMFrameDropDown2_Initialize()
-    --local lm = string.gsub(UIDROPDOWNMENU_INIT_MENU,"DropDown2","");
-    local lm = "TWMFrame";
-
-    local frame = _G[lm];
-    frame.zonepulldowns = TWM_BuildZonePulldowns(frame.opt.Map);
-    local info;
-
-    -- Non-continent map: the maps of its group instead of zones.
-    if(frame.mapGroup) then
-        for _, g in ipairs(frame.mapGroup) do
-            UIDropDownMenu_AddButton({
-                text = g.name;
-                value = frame;
-                func = TWMFrameDropDownButton2_OnClick;
-                colorCode = TWM_IsDevelopmentMap(g.mapID) and TWM_DEV_MAP_COLOR or nil;
-            });
-        end
-        return;
-    end
-
-    for j,v in ipairs(frame.zonepulldowns) do
-        info = {
-            text = Twm_areadb[v];
-            value = frame;
-            func = TWMFrameDropDownButton2_OnClick;
-        };
-        UIDropDownMenu_AddButton(info);
-    end
-
-end
 
 function TWMFrameTemplate:CenterOnZone(z)
     local map = self.opt.Map;
@@ -2156,96 +1901,74 @@ function TWMFrameTemplate:CenterOnZone(z)
     self:SetLocation(mx-(vw/2)/zoom, my-(vh/2)/zoom);
 end
 
-function TWMFrameDropDownButton2_OnClick(self)
-    local frame = self.value;
-    local lm = frame:GetName();
+local function TWM_PickZone(zoneID)
+    local frame = _G["TWMFrame"];
+    frame:CenterOnZone(zoneID);
+
+    -- SetLocation() re-derives the zone from the new view's center
+    -- (GetZoneIDs picks the smallest box containing it), which isn't
+    -- guaranteed to be the zone just picked; show the picked one.
+    TWM_SetDropdownText(_G[frame:GetName().."DropDown2"], Twm_areadb[zoneID]);
+end
+
+-- Right dropdown: the zones of a continent, or for any other map the maps of
+-- its group.
+local function TWM_GenerateZoneMenu(dropdown, root)
+    local frame = _G["TWMFrame"];
+    root:SetScrollMode(TWM_MENU_MAX_HEIGHT);
 
     if(frame.mapGroup) then
-        local g = frame.mapGroup[self:GetID()];
-        if(g and g.key ~= frame.opt.Map) then TWM_PickMap(g.key); end
+        for _, g in ipairs(frame.mapGroup) do
+            TWM_AddMapRadio(root, g.name, g.key, g.mapID, function(key)
+                if(key ~= frame.opt.Map) then TWM_PickMap(key); end
+            end);
+        end
         return;
     end
 
-    local z = frame.zonepulldowns[self:GetID()];
-
-    if(not z) then return; end
-
-    frame:CenterOnZone(z);
-
-    -- SetLocation() re-derives a zone from the new view's center via
-    -- GetZoneIDs(), which picks the smallest-area (most specific) zone
-    -- whose box contains that point -- for a zone whose own box is fully
-    -- nested inside another's (e.g. a city inset), the center can still
-    -- land there and get correctly reselected, but it's not guaranteed to
-    -- exactly match `z` (e.g. dead center of a oddly-shaped zone can fall
-    -- just outside its own box). We already know exactly which zone was
-    -- picked here, so re-assert it rather than trust the recomputation.
-    local dd2 = _G[lm.."DropDown2"];
-    if(dd2) then
-        for i,v in ipairs(frame.zonepulldowns) do
-            if(v == z) then
-                UIDropDownMenu_SetSelectedID(dd2, i);
-                UIDropDownMenu_SetText(dd2, Twm_areadb[z]);
-                break;
-            end
-        end
+    frame.zonepulldowns = TWM_BuildZonePulldowns(frame.opt.Map);
+    local currentZone = frame:GetZoneIDs();
+    for _, z in ipairs(frame.zonepulldowns) do
+        root:CreateRadio(Twm_areadb[z], function(id) return id == currentZone; end, TWM_PickZone, z);
     end
 end
 
--- UIDropDownMenu_SetSelectedID walks the buttons of the shared, currently
--- open DropDownList whichever dropdown owns it, so while another menu
--- ("Show Points", the map/dungeon list) is open it would check the button
--- whose index equals the zone's index there. In that case only the stored
--- selection and the text are updated.
-local function TWM_SetZoneDropdown(dd2, id, text)
-    local open = UIDROPDOWNMENU_OPEN_MENU;
-    if(open and open ~= dd2) then
-        dd2.selectedID = id;
-    else
-        UIDropDownMenu_SetSelectedID(dd2, id);
-    end
-    UIDropDownMenu_SetText(dd2, text);
+function TWM_SetupDropdowns(frame)
+    local lm = frame:GetName();
+    _G[lm.."DropDown"]:SetupMenu(TWM_GenerateMapMenu);
+    _G[lm.."DropDown2"]:SetupMenu(TWM_GenerateZoneMenu);
 end
 
 function TWMFrameTemplate:UpdateDropDown2()
-    local framename = self:GetName();
-    local dd2 = _G[framename.."DropDown2"];
-    if(dd2 and self.zonepulldowns) then
-        -- Non-continent map: the right dropdown shows this map within its group.
-        if(self.mapGroup) then
-            for i, g in ipairs(self.mapGroup) do
-                if(g.key == self.opt.Map) then
-                    TWM_SetZoneDropdown(dd2, i, g.name);
-                    return;
-                end
-            end
-            TWM_SetZoneDropdown(dd2, 0, "");
-            return;
-        end
+    local dd2 = _G[self:GetName().."DropDown2"];
+    if(not (dd2 and self.zonepulldowns)) then return; end
 
+    -- Non-continent map: this map within its group. Continent: the zone
+    -- under the view center; blank when there is none (e.g. panned past the
+    -- map edge) rather than snapping the view somewhere else mid-drag.
+    local text = "";
+    if(self.mapGroup) then
+        for _, g in ipairs(self.mapGroup) do
+            if(g.key == self.opt.Map) then text = g.name; break; end
+        end
+    else
         local zid = self:GetZoneIDs();
-        local found = false;
-        for i,v in ipairs(self.zonepulldowns) do
-            if(v == zid) then
-                TWM_SetZoneDropdown(dd2, i, Twm_areadb[zid]);
-                found = true;
-                break;
-            end
-        end
-
-        -- no zone under the current view center (e.g. panned past the map
-        -- edge) -- just leave the dropdown blank rather than snapping the
-        -- view somewhere else out from under the player's drag.
-        if(not found) then
-            TWM_SetZoneDropdown(dd2, 0, "");
+        for _, v in ipairs(self.zonepulldowns) do
+            if(v == zid) then text = Twm_areadb[zid]; break; end
         end
     end
+    TWM_SetDropdownText(dd2, text);
 end
 
 --
 
+-- The button sits in the header strip, whose parent is the map frame.
+local function TWMFramePlayerJumpButton_GetFrame(btn)
+    return btn:GetParent():GetParent();
+end
+
 function TWMFramePlayerJumpButton_Toggle(btn)
-    local f = btn:GetParent();
+    local f = TWMFramePlayerJumpButton_GetFrame(btn);
     local o = f.opt;
     if(o.track) then
         o.track = nil;
@@ -2258,7 +1981,7 @@ function TWMFramePlayerJumpButton_Toggle(btn)
 end
 
 function TWMFramePlayerJumpButton_Jump(btn)
-    local f = btn:GetParent();
+    local f = TWMFramePlayerJumpButton_GetFrame(btn);
     local o = f.opt;
     
     o.track = nil;
@@ -2288,8 +2011,9 @@ function TWMFrame_SeekOnShow(frame, unit)
 end
 
 function TWMFramePlayerJumpButton_Update(btn)
-    if(btn:GetParent() and btn:GetParent().opt) then
-        local t = btn:GetParent().opt.track;
+    local f = TWMFramePlayerJumpButton_GetFrame(btn);
+    if(f and f.opt) then
+        local t = f.opt.track;
 
         if(t) then
             tex = "Interface\\Buttons\\UI-Panel-Button-Down";
@@ -3095,7 +2819,11 @@ end
 function TWMTooltipTemplate:GetNext()
     if(self.nextfree < self.nextnew) then
         self.nextfree = self.nextfree + 1;
-        return self.lines[self.nextfree-1];
+        -- Pooled row: drop the tint/coords the previous legend left on the icon.
+        local row = self.lines[self.nextfree-1];
+        row.Icon:SetVertexColor(1, 1, 1, 1);
+        row.Icon:SetTexCoord(0, 1, 0, 1);
+        return row;
     end
 
     if(self.nextnew > 32) then
@@ -3128,7 +2856,7 @@ function TWMTooltipTemplate:GetNext()
 
     f.Text = f:CreateFontString(nil, "ARTWORK");
     f.Text:SetFontObject(GameFontHighlight);
-    f.Text:SetPoint("TOPLEFT", f.Icon, 24, 0);
+    f.Text:SetPoint("LEFT", f.Icon, "LEFT", 24, 0);
   
     if(self.nextnew == 1) then
         f:SetPoint("TOPLEFT", self, "TOPLEFT", 8, -8);
@@ -3142,7 +2870,11 @@ function TWMTooltipTemplate:GetNext()
     return f;
 end
 
-function TWMTooltipTemplate:FixSize() 
+-- Row layout (see GetNext): 8px left margin, 24px icon column, then the text.
+local TWM_TOOLTIP_TEXT_OFFSET = 8 + 24;
+local TWM_TOOLTIP_RIGHT_MARGIN = 8;
+
+function TWMTooltipTemplate:FixSize()
     local hei = 16;
     local wid = 4;
 
@@ -3153,7 +2885,7 @@ function TWMTooltipTemplate:FixSize()
         end
     end
     self:SetHeight(hei);
-    self:SetWidth(wid+64);
+    self:SetWidth(TWM_TOOLTIP_TEXT_OFFSET + wid + TWM_TOOLTIP_RIGHT_MARGIN);
 end
 
 

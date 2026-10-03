@@ -8,6 +8,7 @@ TWM_BUTTON_TOOLTIP1 = "地形世界地图";
 TWM_PLAYERJUMP = "玩家位置";
 TWM_TOOLTIP_PLAYERJUMP = "将地图居中到你的角色。";
 TWM_TOOLTIP_PLAYERJUMP_FOLLOW = "Shift+点击：开启/关闭跟随模式（地图会持续跟随你；仅限大陆）。拖动地图会关闭跟随。";
+TWM_TOOLTIP_CLICK_OPEN_MAP = "点击：打开此地图";
 TWM_OPTIONSBUTTON = "设定";
 
 -- 小地图/世界地图按钮的提示和右键菜单

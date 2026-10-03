@@ -340,7 +340,7 @@ plain `OnMouseDown` (no `RegisterForDrag`/`OnDragStart`) — and
 `dragme`, instead of relying on an `OnDragStop` tied to a specific frame
 that might not survive the whole gesture.
 
-## `UIDropDownMenu` entries need `tooltipOnButton = true` to show a tooltip on hover
+## (Historical, classic menu only) `UIDropDownMenu` entries need `tooltipOnButton = true` to show a tooltip on hover
 
 Setting `info.tooltipTitle`/`info.tooltipText` on a dropdown button (e.g.
 `Settings.lua`'s tile-filter dropdown) is not enough by itself — without
@@ -853,7 +853,29 @@ that must draw above the tiles needs `+ TWM_WMO_FRAME_BAND` in its level too. Th
 dedicated frame at `ViewFrame + TWM_WMO_FRAME_BAND`. Side effect: the ADT-tile debug borders (OVERLAY 7 on ViewFrame
 itself) now draw under the WMO tiles.
 
-## Entries 9..N of a level-3 dropdown list are invisible: two frames named `DropDownList3`
+## Point tooltip sometimes never appears: `OnEnter` and `Region:IsMouseOver()` disagree at the icon's edge
+The tooltip is driven by polling in the ViewFrame's `OnUpdate`, which runs only while `vf.inpoint` is set (by the icon's
+`OnEnter`) and clears it as soon as the poll finds nothing hovered. If the poll's `IsMouseOver` is false right after an
+`OnEnter` (the engine hit test and the exact float rect can differ by a pixel; 1 UI unit = 1.5 px at scale 0.8), polling
+stops and no new `OnEnter` comes while the cursor moves inside the icon. Fix (Points.lua): `OnEnter`/`OnLeave` maintain
+`point.hovered`, and `TWM_IsPointHovered` = `IsMouseOver` OR (`hovered` and shown) is used for both add and remove.
+Tooltip width: `TWMTooltipTemplate:FixSize` = text offset (8 margin + 24 icon column) + widest text + 8; it was text + 64,
+leaving ~30px empty on the right.
+
+## All dropdowns/menus are Blizzard_Menu (`DropdownButton`, `MenuUtil`), not `UIDropDownMenu`
+The two header dropdowns (`TWMFrameDropDown`, `TWMFrameDropDown2`) are `DropdownButton` + `WowStyle1DropdownTemplate`
+(menus built by `TWM_GenerateMapMenu`/`TWM_GenerateZoneMenu` in `TerrainWorldMap.lua`, set up by `TWM_SetupDropdowns`).
+The "Show Points" button (`TWMFOO_OnClick`, Points.lua) opens `MenuUtil.CreateContextMenu` with checkboxes added by each
+set's `configmenu(menu, name, lm)` via `TWMFOO_AddToggle` (checkbox response is Refresh, so the menu stays open). The
+Settings tile filter is a `DropdownButton` with radios. No `UIDropDownMenu` code is left; the next two sections are
+historical. Notes for the header dropdowns: the button text is always set explicitly
+(`TWM_SetDropdownText` -> `OverrideText`, which ignores radio selection); `OverrideText` is skipped when the text is
+unchanged because `UpdateDropDown2` runs on every pan; menus are regenerated on every open, so `IsSelected` callbacks see
+current state; long lists use `SetScrollMode`. Dev-map orange is a `|cff...|r` prefix in the radio text. Blizzard source
+(extracted from CASC): `interface/addons/blizzard_menu/{dropdownbutton,menutemplates,menu}.lua`, the usage guide is
+`11_0_0_menuimplementationguide.lua` in the same folder.
+
+## (UIDropDownMenu only) Entries 9..N of a level-3 dropdown list are invisible: two frames named `DropDownList3`
 Symptom (Anniversary, the Dungeons > Classic list, 19 entries): rows 1-8 render, the list frame has room for all 19, but
 rows 9..N are blank and unclickable; which rows depended on the CURRENT map (Eastern Kingdoms: 9-19, Outland: 9-15,
 arena: none). Cause: Blizzard's classic `UIDropDownMenu` starts with `UIDROPDOWNMENU_MAXLEVELS = 2` and builds
@@ -924,8 +946,8 @@ be fractional: tile 1's texcoord uses the exact fraction, so a floored offset sh
 Follow mode: the followed unit's marker is anchored to the view center (`TWMP_CenterOnView`), not placed by its true
 position, otherwise it jitters by the view's snapping error.
 
-## "Show Points" checkmarks vanish while the map is dragged: `UIDropDownMenu_SetSelectedID` touches the shared open list
-Symptom: with the "Show Points" menu (TWMFOO) open, dragging the map (or follow mode, once a second) clears/moves its
+## (Historical) "Show Points" checkmarks vanish while the map is dragged: `UIDropDownMenu_SetSelectedID` touches the shared open list
+No longer applies (no classic `UIDropDownMenu` code left); only relevant if one is reintroduced. Symptom: with the "Show Points" menu (TWMFOO) open, dragging the map (or follow mode, once a second) clears/moves its
 checkmarks; the saved `PointCfg` is fine and reopening the menu shows the right state. Cause:
 `TWMFrameTemplate:UpdateDropDown2` refreshed the Zone dropdown with `UIDropDownMenu_SetSelectedID`, which updates the
 buttons of the shared, currently open `DropDownList` regardless of which dropdown owns it.

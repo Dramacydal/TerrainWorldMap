@@ -669,7 +669,7 @@
 				-- would need to out-guess all of those. Bumping strata
 				-- instead guarantees this popup draws above everything in
 				-- "HIGH" regardless of frame level, the same way TWMFOO's
-				-- settings dropdown (a native UIDropDownMenuTemplate, always
+				-- context menu (Blizzard_Menu, always
 				-- drawn through its own top-level system) is never obscured.
 				self:SetFrameStrata("DIALOG");
 			</OnLoad>

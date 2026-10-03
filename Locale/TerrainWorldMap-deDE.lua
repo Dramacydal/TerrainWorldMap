@@ -13,6 +13,7 @@ TWM_BUTTON_TOOLTIP1 = "TerrainWorldMap";
 TWM_PLAYERJUMP = "Spielerposition";
 TWM_TOOLTIP_PLAYERJUMP = "Zentriert die Karte auf deinen Charakter.";
 TWM_TOOLTIP_PLAYERJUMP_FOLLOW = "Umschalt+Klick: Folgemodus ein-/ausschalten (die Karte folgt dir; nur auf Kontinenten). Das Ziehen der Karte beendet ihn.";
+TWM_TOOLTIP_CLICK_OPEN_MAP = "Klick: diese Karte öffnen";
 TWM_OPTIONSBUTTON = "Optionen";
 
 -- Minimap-/Weltkarten-Button: Tooltips und Rechtsklick-Kontextmen\195\188

@@ -79,26 +79,22 @@ tileFilterLabel:SetJustifyH("LEFT");
 tileFilterLabel:SetPoint("TOPLEFT", enableButton, "BOTTOMLEFT", 0, -12);
 tileFilterLabel:SetText(TWM_OPTIONS_TILEFILTER);
 
-local tileFilterDropDown = CreateFrame("Frame", "TWMOptionTileFilterDropDown", MainPanel, "UIDropDownMenuTemplate");
-tileFilterDropDown:SetPoint("TOPLEFT", tileFilterLabel, "BOTTOMLEFT", -16, -4);
-UIDropDownMenu_SetWidth(tileFilterDropDown, 180);
+local tileFilterDropDown = CreateFrame("DropdownButton", "TWMOptionTileFilterDropDown", MainPanel, "WowStyle1DropdownTemplate");
+tileFilterDropDown:SetPoint("TOPLEFT", tileFilterLabel, "BOTTOMLEFT", 0, -4);
+tileFilterDropDown:SetSize(220, 24);
 
-local function TileFilterDropDown_Initialize()
+-- The button text is the selected radio's text.
+tileFilterDropDown:SetupMenu(function(dropdown, root)
     for _, opt in ipairs(TWM_TILE_FILTER_OPTIONS) do
-        local info = UIDropDownMenu_CreateInfo();
-        info.text = opt.label;
-        info.checked = (TWM_GetTileFilter() == opt.value);
-        info.tooltipTitle = opt.label;
-        info.tooltipText = opt.tooltip;
-        info.tooltipOnButton = true;
-        info.func = function()
-            TWM_SetTileFilter(opt.value);
-            UIDropDownMenu_SetText(tileFilterDropDown, opt.label);
-        end
-        UIDropDownMenu_AddButton(info);
+        local radio = root:CreateRadio(opt.label,
+            function(value) return TWM_GetTileFilter() == value; end,
+            TWM_SetTileFilter, opt.value);
+        radio:SetTooltip(function(tooltip)
+            GameTooltip_SetTitle(tooltip, opt.label);
+            GameTooltip_AddNormalLine(tooltip, opt.tooltip);
+        end);
     end
-end
-UIDropDownMenu_Initialize(tileFilterDropDown, TileFilterDropDown_Initialize);
+end);
 
 -- Only exists for flavors whose data was actually generated with a minimaps
 -- dir and found at least one noLiquid tile (see TWM_HasNoLiquidData() in
@@ -106,7 +102,7 @@ UIDropDownMenu_Initialize(tileFilterDropDown, TileFilterDropDown_Initialize);
 local drawUnderwaterButton;
 if(TWM_HasNoLiquidData()) then
     drawUnderwaterButton = CreateCheckbox(MainPanel, "TWMOptionDrawUnderwater", TWM_MENU_DRAW_UNDERWATER);
-    drawUnderwaterButton:SetPoint("TOPLEFT", tileFilterDropDown, "BOTTOMLEFT", 16, -12);
+    drawUnderwaterButton:SetPoint("TOPLEFT", tileFilterDropDown, "BOTTOMLEFT", 0, -12);
     drawUnderwaterButton:SetScript("OnClick", function(self)
         TWM_SetDrawUnderwater(self:GetChecked() and true or false);
     end);
@@ -115,11 +111,7 @@ end
 
 function MainPanel.OnRefresh()
     enableButton:SetChecked(TWMOption.ShowButton);
-    for _, opt in ipairs(TWM_TILE_FILTER_OPTIONS) do
-        if(opt.value == TWM_GetTileFilter()) then
-            UIDropDownMenu_SetText(tileFilterDropDown, opt.label);
-        end
-    end
+    tileFilterDropDown:GenerateMenu();
     if(drawUnderwaterButton) then
         drawUnderwaterButton:SetChecked(TWM_IsDrawUnderwaterEnabled());
     end
