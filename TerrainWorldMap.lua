@@ -408,11 +408,14 @@ end
 -- sharing a name in a locale would overwrite each other (Mists' old and new
 -- Scholomance are both "Некроситет" in ruRU, also in deDE/frFR/koKR). Returns
 -- the display name of every entry: all entries of a shared name get the
--- map's enUS name (its ID if that is no different) appended.
+-- map's enUS name (its ID if that is no different) appended. Also returns the
+-- plain names (`bases`): TWM_VisibleName shows those again when the other maps
+-- of a shared name are hidden.
 local function TWM_DisplayNames(entries)
-    local names, count = {}, {};
+    local names, count, bases = {}, {}, {};
     for i, e in ipairs(entries) do
         names[i] = TWM_ResolveLocaleName(e.name);
+        bases[i] = names[i];
         count[names[i]] = (count[names[i]] or 0) + 1;
     end
 
@@ -428,7 +431,7 @@ local function TWM_DisplayNames(entries)
         end
         used[names[i]] = true;
     end
-    return names;
+    return names, bases;
 end
 
 -- TWM_ARENAS (dropdown name -> {key}, same shape as TWM_BATTLEGROUNDS) is
@@ -457,17 +460,17 @@ end
 -- TWM_GetSortedExpansionIDs/TWM_GetExpansionName below).
 if(Twm_DungeonNames) then
     TWM_DUNGEONS = {};
-    local names = TWM_DisplayNames(Twm_DungeonNames);
+    local names, bases = TWM_DisplayNames(Twm_DungeonNames);
     for i, e in ipairs(Twm_DungeonNames) do
-        TWM_DUNGEONS[names[i]] = {e.key, expansion = e.expansion, mapID = e.mapID};
+        TWM_DUNGEONS[names[i]] = {e.key, expansion = e.expansion, mapID = e.mapID, base = bases[i]};
     end
 end
 
 if(Twm_RaidNames) then
     TWM_RAIDS = {};
-    local names = TWM_DisplayNames(Twm_RaidNames);
+    local names, bases = TWM_DisplayNames(Twm_RaidNames);
     for i, e in ipairs(Twm_RaidNames) do
-        TWM_RAIDS[names[i]] = {e.key, expansion = e.expansion, mapID = e.mapID};
+        TWM_RAIDS[names[i]] = {e.key, expansion = e.expansion, mapID = e.mapID, base = bases[i]};
     end
 end
 
@@ -516,10 +519,24 @@ end
 
 if(Twm_ScenarioNames) then
     TWM_SCENARIOS = {};
-    local names = TWM_DisplayNames(Twm_ScenarioNames);
+    local names, bases = TWM_DisplayNames(Twm_ScenarioNames);
     for i, e in ipairs(Twm_ScenarioNames) do
-        TWM_SCENARIOS[names[i]] = {e.key, mapID = e.mapID};
+        TWM_SCENARIOS[names[i]] = {e.key, mapID = e.mapID, base = bases[i]};
     end
+end
+
+-- The name of list[key] as shown in the menus: the plain name, unless another
+-- VISIBLE map of the same list shares it (then the disambiguated key). The
+-- keys themselves stay unique (they were built from all maps).
+function TWM_VisibleName(list, key)
+    local entry = list[key];
+    if(not entry or not entry.base or entry.base == key) then return key; end
+    for otherKey, other in pairs(list) do
+        if(otherKey ~= key and other.base == entry.base and not TWM_IsMapHidden(other.mapID)) then
+            return key;
+        end
+    end
+    return entry.base;
 end
 
 -- "Show WMO Layers" overlay: a few maps (arenas so far -- Dalaran Sewers,
@@ -1696,7 +1713,7 @@ function TWM_GetMapGroup(mapname)
                 for _, name in ipairs(c.names()) do
                     local ne = list[name];
                     if(not exp or ne.expansion == exp) then
-                        tinsert(group, {name = name, key = ne[1], mapID = ne.mapID});
+                        tinsert(group, {name = TWM_VisibleName(list, name), key = ne[1], mapID = ne.mapID});
                     end
                 end
                 if(exp and #TWM_GetSortedExpansionIDs(list) > 1) then
@@ -1751,7 +1768,7 @@ local function TWM_FillMapMenu(menu, names, list, expID)
     for _, h in ipairs(names) do
         local e = list[h];
         if(not expID or e.expansion == expID) then
-            TWM_AddMapRadio(menu, h, e[1], e.mapID);
+            TWM_AddMapRadio(menu, TWM_VisibleName(list, h), e[1], e.mapID);
         end
     end
 end
@@ -1887,18 +1904,15 @@ function TWMFrameTemplate:UpdateLock()
     end
 end
 
-function TWMFrameTemplate:SetMap(mapname)
-    local lm = self:GetName();
-
-    self.opt.Map = mapname;
+-- The left dropdown shows the continent, or for any other map the group
+-- (category and expansion); the right one lists the continent's zones or
+-- the group's maps. Both depend on which maps are hidden (development and
+-- season-only maps), so this is also run when that visibility changes.
+function TWMFrameTemplate:UpdateMapGroup()
+    local mapname = self.opt.Map;
     self.mapGroupText, self.mapGroup = TWM_GetMapGroup(mapname);
 
-    TWM_UpdateOverlayButtons(self);
-
-    -- The left dropdown shows the continent, or for any other map the group
-    -- (category and expansion); the right one lists the continent's zones or
-    -- the group's maps.
-    local mapdropdown = _G[lm.."DropDown"];
+    local mapdropdown = _G[self:GetName().."DropDown"];
     if(mapdropdown) then
         local caption = self.mapGroupText;
         if(not caption) then
@@ -1910,6 +1924,15 @@ function TWMFrameTemplate:SetMap(mapname)
             TWM_SetDropdownText(mapdropdown, caption);
         end
     end
+end
+
+function TWMFrameTemplate:SetMap(mapname)
+    local lm = self:GetName();
+
+    self.opt.Map = mapname;
+    self:UpdateMapGroup();
+
+    TWM_UpdateOverlayButtons(self);
 
     -- Recomputed here for the map being switched to: SelectMap's
     -- FitMapToViewport and the jump-to-first-zone fallback below read it.

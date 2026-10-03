@@ -2,6 +2,8 @@
 -- meant for players) that nevertheless have WMO or ADT data (Map.csv IDs,
 -- strings). Hidden from the dungeon/raid/scenario lists unless
 -- TWMOption.ShowDevelopmentMaps is on (TerrainWorldMap.lua, TWM_IsMapHidden).
+-- A map that is dev in only one flavor is added from that flavor's own
+-- Data_<Flavor>/mapdata_poi.lua instead (Mists: 309, 289).
 Twm_DevelopmentMaps = {
     "169",  -- Emerald Dream
     "734",  -- Ahn'Qiraj Terrace

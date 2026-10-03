@@ -315,6 +315,9 @@ local showDevelopmentMapsButton = CreateCheckbox(browserContent, "TWMOptionShowD
 showDevelopmentMapsButton:SetPoint("TOPLEFT", wmoTileManagementButton, "BOTTOMLEFT", 0, -12);
 showDevelopmentMapsButton:SetScript("OnClick", function(self)
     TWMOption.ShowDevelopmentMaps = self:GetChecked() and true or false;
+    -- The dropdown lists hold the visible maps; recompute what was cached.
+    TWMFrame:UpdateMapGroup();
+    TWMFrame:UpdateDropDown2();
 end);
 SetTooltip(showDevelopmentMapsButton, TWM_OPTIONS_SHOW_DEVELOPMENT_MAPS, TWM_TOOLTIP_OPT_SHOWDEVELOPMENTMAPS);
 
@@ -341,6 +344,8 @@ resetPositionButton:SetScript("OnClick", function()
     if(TWM_SetFlightPathThickness) then TWM_SetFlightPathThickness(nil); end
     if(TWM_SetFlightPathInterpolation) then TWM_SetFlightPathInterpolation(nil); end
 
+    TWMFrame:UpdateMapGroup();
+    TWMFrame:UpdateDropDown2();
     TWMPoints_ForceUpdate(TWMFrame);
     TWM_UpdateOverlayButtons(TWMFrame);
     BrowserPanel.OnRefresh();

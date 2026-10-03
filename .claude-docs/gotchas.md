@@ -941,7 +941,9 @@ later duplicate list then cannot take over the names. Check in game right after 
 (ID 289, enUS "Scholomance OLD") and `NewScholomance` (ID 1007); in ruRU/deDE/frFR/koKR both are named alike, so the later
 one replaced the earlier. `TWM_DisplayNames` (TerrainWorldMap.lua) appends the map's enUS name (its ID when that equals the
 shared name) to EVERY entry of a shared name, so e.g. ruRU shows "Некроситет (Scholomance OLD)" and "Некроситет (Scholomance)".
-Names that are unique in the locale stay untouched.
+Names that are unique in the locale stay untouched. The suffix is only for the keys: `TWM_VisibleName(list, key)` shows the
+plain name (`entry.base`) when no OTHER visible map of the list shares it, so with "Show Development Maps" off a lone
+Scholomance has no suffix; the right dropdown's group list is recomputed when that option toggles (`UpdateMapGroup`).
 
 ## Instance maps listed with no drawable tiles: the WDT/MAID and the listfile describe other builds too
 Symptom (Mists): dropdown entries (Abyssal Maw outer, Deathwing fight, Stormgarde Keep, Mogu Island Loot Room, ...) that

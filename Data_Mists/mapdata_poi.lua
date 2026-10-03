@@ -43,3 +43,10 @@ TWM_MAPS = {
     [C_Map.GetMapInfo(Twm_ContinentMapID["TolBarad"]).name] = {"TolBarad"},
     [C_Map.GetMapInfo(Twm_ContinentMapID["MoguIslandDailyArea"]).name] = {"MoguIslandDailyArea"},
 };
+
+-- Mists-only development maps (added to the shared list in
+-- mapdata_development.lua): in this flavor the old, level-60 instances are
+-- superseded by the redesigned ones, in the other flavors they are the real
+-- ones.
+tinsert(Twm_DevelopmentMaps, "309"); -- Ancient Zul'Gurub (Zul'gurub)
+tinsert(Twm_DevelopmentMaps, "289"); -- Scholomance OLD (SchoolofNecromancy)

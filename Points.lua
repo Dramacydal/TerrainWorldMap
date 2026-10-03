@@ -875,6 +875,13 @@ function TWM_ShowOptionsMenu(self)
         for _, h in ipairs(names) do
             sets[h].configmenu(root, h, lm);
         end
+
+        -- Only for flavors with underwater tile variants (same as the map button's menu).
+        if(TWM_HasNoLiquidData()) then
+            root:CreateCheckbox(TWM_MENU_DRAW_UNDERWATER,
+                TWM_IsDrawUnderwaterEnabled,
+                function() TWM_SetDrawUnderwater(not TWM_IsDrawUnderwaterEnabled()); end);
+        end
     end);
 end
 
