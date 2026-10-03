@@ -15,4 +15,7 @@ Twm_DevelopmentMaps = {
     "1125", -- Alliance Hub - Mogu Island Progression Scenario
     "1126", -- Mogu Island Progression Events
     "1127", -- Final Gate - Mogu Island Progression Scenario
+    "1112", -- Pursuing the Black Harvest (scenario)
+    "1161", -- Celestial Tournament (scenario)
+    "1035", -- Temple of Kotmogu (scenario)
 };

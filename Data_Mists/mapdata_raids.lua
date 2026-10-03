@@ -660,14 +660,11 @@ Twm_mapareas["ChamberOfAspectsBlack"] = {
 Twm_mapareas["NexusRaid"] = {
     [0] = {2666.666666666667, 0, 2133.3333333333335, -533.3333333333334},    --TheEyeofEternity
 }
-Twm_mapareas["WintergraspRaid"] = {
-    [0] = {533.3333333333334, -1066.6666666666667, 533.3333333333334, -1066.6666666666667},    --VaultofArchavon
-}
 Twm_mapareas["IcecrownCitadel"] = {
     [0] = {3733.3333333333335, -3200, 5866.666666666667, -2133.3333333333335},    --IcecrownCitadel
 }
 Twm_mapareas["ArgentTournamentRaid"] = {
-    [0] = {2133.3333333333335, -533.3333333333334, 2666.666666666667, 0},    --TrialoftheCrusader
+    [0] = {533.3333333333334, -533.3333333333334, 1066.6666666666667, 0},    --TrialoftheCrusader
 }
 Twm_mapareas["Firelands1"] = {
     [0] = {1066.6666666666667, -1066.6666666666667, 2133.3333333333335, -1066.6666666666667},    --Firelands
@@ -679,7 +676,7 @@ Twm_mapareas["SkywallRaid"] = {
     [0] = {1600, 0, 533.3333333333334, -1066.6666666666667},    --ThroneoftheFourWinds
 }
 Twm_mapareas["DeathwingBack"] = {
-    [0] = {15466.666666666668, -15466.666666666668, 15466.666666666668, -15466.666666666668},    --DragonSoul
+    [0] = {14933.333333333334, -14933.333333333334, 14933.333333333334, -14933.333333333334},    --DragonSoul
 }
 Twm_mapareas["MoguExteriorRaid"] = {
     [0] = {5333.333333333334, -4266.666666666667, 0, -5866.666666666667},    --TerraceofEndlessSpring
@@ -688,7 +685,7 @@ Twm_mapareas["MogushanPalace"] = {
     [0] = {2133.3333333333335, -533.3333333333334, 5866.666666666667, 3200},    --Mogu'shanVaults
 }
 Twm_mapareas["MantidRaid"] = {
-    [0] = {3200, -1066.6666666666667, 0, -4266.666666666667},    --HeartofFear
+    [0] = {1600, -533.3333333333334, -533.3333333333334, -3200},    --HeartofFear
 }
 Twm_mapareas["ThunderIslandRaid"] = {
     [0] = {8000.000000000001, 3200, 8000.000000000001, 3200},    --ThroneofThunder
@@ -713,6 +710,9 @@ Twm_mapareas["TempestKeepRaid"] = {
 }
 Twm_mapareas["GruulsLair"] = {
     [0] = {17506.363047281902, 16930.228014628094, 17365.18989054362, 17002.18972269694},    --Gruul'sLair
+}
+Twm_mapareas["WintergraspRaid"] = {
+    [0] = {150.8278757731132, -483.1908925374337, 208.09141031901163, -642.0317357381173},    --VaultofArchavon
 }
 Twm_mapareas["BlackwingDescent"] = {
     [0] = {175.39225260416788, -835.7888234456368, 449.1996256510429, -585.5706303914376},    --BlackwingDescent

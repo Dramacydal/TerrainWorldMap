@@ -400,6 +400,33 @@ function TWM_FindZoneAtBigCoord(map, bigx, bigy, tilekey)
     return bestID;
 end
 
+-- The list tables below are keyed by the localized map name, so two maps
+-- sharing a name in a locale would overwrite each other (Mists' old and new
+-- Scholomance are both "Некроситет" in ruRU, also in deDE/frFR/koKR). Returns
+-- the display name of every entry: all entries of a shared name get the
+-- map's enUS name (its ID if that is no different) appended.
+local function TWM_DisplayNames(entries)
+    local names, count = {}, {};
+    for i, e in ipairs(entries) do
+        names[i] = TWM_ResolveLocaleName(e.name);
+        count[names[i]] = (count[names[i]] or 0) + 1;
+    end
+
+    local used = {};
+    for i, e in ipairs(entries) do
+        local base = names[i];
+        if(count[base] > 1) then
+            local en = e.name.enUS;
+            names[i] = base .. " (" .. ((en and en ~= base) and en or e.mapID or e.key) .. ")";
+            if(used[names[i]]) then
+                names[i] = base .. " (" .. (e.mapID or e.key) .. ")";
+            end
+        end
+        used[names[i]] = true;
+    end
+    return names;
+end
+
 -- TWM_ARENAS (dropdown name -> {key}, same shape as TWM_BATTLEGROUNDS) is
 -- built here from Twm_ArenaNames (Data_<Flavor>/mapdata_arenas.lua, when
 -- that flavor has one -- see scripts/gen_arenas.js), resolving each arena's
@@ -410,8 +437,9 @@ end
 -- baked-in table is the only source for one.
 if(Twm_ArenaNames) then
     TWM_ARENAS = {};
-    for _, e in ipairs(Twm_ArenaNames) do
-        TWM_ARENAS[TWM_ResolveLocaleName(e.name)] = {e.key};
+    local names = TWM_DisplayNames(Twm_ArenaNames);
+    for i, e in ipairs(Twm_ArenaNames) do
+        TWM_ARENAS[names[i]] = {e.key};
     end
 end
 
@@ -425,15 +453,17 @@ end
 -- TWM_GetSortedExpansionIDs/TWM_GetExpansionName below).
 if(Twm_DungeonNames) then
     TWM_DUNGEONS = {};
-    for _, e in ipairs(Twm_DungeonNames) do
-        TWM_DUNGEONS[TWM_ResolveLocaleName(e.name)] = {e.key, expansion = e.expansion, mapID = e.mapID};
+    local names = TWM_DisplayNames(Twm_DungeonNames);
+    for i, e in ipairs(Twm_DungeonNames) do
+        TWM_DUNGEONS[names[i]] = {e.key, expansion = e.expansion, mapID = e.mapID};
     end
 end
 
 if(Twm_RaidNames) then
     TWM_RAIDS = {};
-    for _, e in ipairs(Twm_RaidNames) do
-        TWM_RAIDS[TWM_ResolveLocaleName(e.name)] = {e.key, expansion = e.expansion, mapID = e.mapID};
+    local names = TWM_DisplayNames(Twm_RaidNames);
+    for i, e in ipairs(Twm_RaidNames) do
+        TWM_RAIDS[names[i]] = {e.key, expansion = e.expansion, mapID = e.mapID};
     end
 end
 
@@ -470,7 +500,7 @@ end
 
 -- Text color of development maps in the dropdown lists (shown only while
 -- "Show Development Maps" is on).
-local TWM_DEV_MAP_COLOR = "|cff9d9d9d";
+local TWM_DEV_MAP_COLOR = "|cffd9741a";
 
 local function TWM_IsMapHidden(mapID)
     if(not mapID) then return false; end
@@ -482,8 +512,9 @@ end
 
 if(Twm_ScenarioNames) then
     TWM_SCENARIOS = {};
-    for _, e in ipairs(Twm_ScenarioNames) do
-        TWM_SCENARIOS[TWM_ResolveLocaleName(e.name)] = {e.key, mapID = e.mapID};
+    local names = TWM_DisplayNames(Twm_ScenarioNames);
+    for i, e in ipairs(Twm_ScenarioNames) do
+        TWM_SCENARIOS[names[i]] = {e.key, mapID = e.mapID};
     end
 end
 

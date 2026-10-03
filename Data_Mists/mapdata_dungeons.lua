@@ -641,24 +641,6 @@ Twm_DungeonNames = {
         },
     },
     {
-        key = "MaelstromDeathwingFight",
-        mapID = "977",
-        expansion = "3",
-        name = {
-            enUS = "Maelstrom Deathwing Fight",
-            deDE = "Kampf mit Todesschwinge am Mahlstrom",
-            esES = "Lucha de Alamuerte en La Vorágine",
-            esMX = "Lucha de Alamuerte en La Vorágine",
-            frFR = "Combat contre Aile de mort dans le Maelström",
-            itIT = "Maelstrom Deathwing Fight",
-            koKR = "혼돈의 소용돌이 데스윙 전투지",
-            ptBR = "Combate contra o Asa da Morte na Voragem",
-            ruRU = "Водоворот, бой со Смертокрылом",
-            zhCN = "大漩涡死亡之翼战斗",
-            zhTW = "大漩渦死亡之翼決戰",
-        },
-    },
-    {
         key = "Sunwell5ManFix",
         mapID = "585",
         expansion = "1",
@@ -1489,13 +1471,13 @@ Twm_mapareas["Valgarde70"] = {
     [0] = {2133.3333333333335, -2133.3333333333335, 2133.3333333333335, -2133.3333333333335},    --UtgardeKeep
 }
 Twm_mapareas["UtgardePinnacle"] = {
-    [0] = {2133.3333333333335, -2133.3333333333335, 2133.3333333333335, -2133.3333333333335},    --UtgardePinnacle
+    [0] = {1600, -1600, 1600, -1600},    --UtgardePinnacle
 }
 Twm_mapareas["Nexus80"] = {
-    [0] = {3200, -1066.6666666666667, 3200, -1066.6666666666667},    --TheOculus
+    [0] = {2666.666666666667, -533.3333333333334, 2666.666666666667, -533.3333333333334},    --TheOculus
 }
 Twm_mapareas["Sunwell5ManFix"] = {
-    [0] = {2666.666666666667, -2666.666666666667, 2666.666666666667, -2133.3333333333335},    --Magister'sTerrace
+    [0] = {2133.3333333333335, -1600, 2133.3333333333335, -1066.6666666666667},    --Magister'sTerrace
 }
 Twm_mapareas["StratholmeCOT"] = {
     [0] = {2666.666666666667, -533.3333333333334, 2666.666666666667, -533.3333333333334},    --TheCullingofStratholme
@@ -1507,22 +1489,16 @@ Twm_mapareas["DrakTheronKeep"] = {
     [0] = {1066.6666666666667, -1600, 1066.6666666666667, -1600},    --Drak'TharonKeep
 }
 Twm_mapareas["Ulduar80"] = {
-    [0] = {2133.3333333333335, -1600, 2666.666666666667, -1066.6666666666667},    --HallsofLightning
+    [0] = {1600, -1066.6666666666667, 2133.3333333333335, -533.3333333333334},    --HallsofLightning
 }
 Twm_mapareas["Azjol_LowerCity"] = {
     [0] = {1066.6666666666667, -2666.666666666667, 2666.666666666667, -1066.6666666666667},    --Ahn'kahetTheOldKingdom
-}
-Twm_mapareas["AbyssalMaw"] = {
-    [0] = {1600, -1066.6666666666667, 1600, -1066.6666666666667},    --AbyssalMawExterior
 }
 Twm_mapareas["AbyssalMaw_Interior"] = {
     [0] = {1600, 0, 533.3333333333334, -1066.6666666666667},    --ThroneoftheTides
 }
 Twm_mapareas["Uldum"] = {
     [0] = {1600, -1600, 533.3333333333334, -2133.3333333333335},    --HallsofOrigination
-}
-Twm_mapareas["ArgentTournamentDungeon"] = {
-    [0] = {2133.3333333333335, 0, 2133.3333333333335, 0},    --TrialoftheChampion
 }
 Twm_mapareas["SkywallDungeon"] = {
     [0] = {1600, -1066.6666666666667, 533.3333333333334, -2133.3333333333335},    --TheVortexPinnacle
@@ -1557,9 +1533,6 @@ Twm_mapareas["COTWarOfTheAncients"] = {
 Twm_mapareas["TheHourOfTwilight"] = {
     [0] = {2133.3333333333335, -1600, 5333.333333333334, 1066.6666666666667},    --HourofTwilight
 }
-Twm_mapareas["NexusLegendary"] = {
-    [0] = {8000.000000000001, 6400, 4800, 3200},    --NexusLegendary
-}
 Twm_mapareas["ShadowpanHideout"] = {
     [0] = {4266.666666666667, 1600, 4800, 2133.3333333333335},    --ShadoPanMonastery
 }
@@ -1570,22 +1543,13 @@ Twm_mapareas["StormstoutBrewery"] = {
     [0] = {3200, -533.3333333333334, 1066.6666666666667, -2666.666666666667},    --StormstoutBrewery
 }
 Twm_mapareas["TheGreatWall"] = {
-    [0] = {3733.3333333333335, 0, 4266.666666666667, 0},    --GateoftheSettingSun
-}
-Twm_mapareas["MaelstromDeathwingFight"] = {
-    [0] = {2133.3333333333335, -533.3333333333334, 2133.3333333333335, -533.3333333333334},    --MaelstromDeathwingFight
-}
-Twm_mapareas["MoguDungeon"] = {
-    [0] = {-1066.6666666666667, -3733.3333333333335, -3200, -5333.333333333334},    --Mogu'shanPalace
+    [0] = {3733.3333333333335, 533.3333333333334, 2666.666666666667, 0},    --GateoftheSettingSun
 }
 Twm_mapareas["ScarletSanctuaryArmoryAndLibrary"] = {
     [0] = {2133.3333333333335, -533.3333333333334, 1600, 0},    --ScarletHalls
 }
 Twm_mapareas["ScarletMonasteryCathedralGY"] = {
     [0] = {1066.6666666666667, 0, 2133.3333333333335, 533.3333333333334},    --ScarletMonastery
-}
-Twm_mapareas["NewScholomance"] = {
-    [0] = {533.3333333333334, -533.3333333333334, 533.3333333333334, -533.3333333333334},    --Scholomance
 }
 Twm_mapareas["MantidDungeon"] = {
     [0] = {6400, 4266.666666666667, 2666.666666666667, 533.3333333333334},    --SiegeofNiuzaoTemple
@@ -1683,9 +1647,24 @@ Twm_mapareas["DalaranPrison"] = {
 Twm_mapareas["IcecrownCitadel5Man"] = {
     [0] = {2942.740778028536, 1920.6482128867667, 5824.2142422188945, 4838.248386430403},    --TheForgeofSouls
 }
+Twm_mapareas["AbyssalMaw"] = {
+    [0] = {1225.0877555183538, 156.69571079671232, 1423.9033620822117, -132.7122156730995},    --AbyssalMawExterior
+}
 Twm_mapareas["BlackRockSpire_4_0"] = {
     [0] = {1346.3455912272148, 323.49891153971475, 686.1411539713554, -470.3814290364571},    --BlackrockCaverns
 }
+Twm_mapareas["ArgentTournamentDungeon"] = {
+    [0] = {1224.5646692911796, 42.86771647135538, 1209.440638224285, 211.48841349283975},    --TrialoftheChampion
+}
 Twm_mapareas["DeepholmeDungeon"] = {
     [0] = {1638.6770426432304, 612.963457743328, 1648.8978678385429, 727.8808123270683},    --TheStonecore
+}
+Twm_mapareas["NexusLegendary"] = {
+    [0] = {7601.335062662762, 6696.387720743816, 4361.011881510418, 3642.3764750162773},    --NexusLegendary
+}
+Twm_mapareas["MoguDungeon"] = {
+    [0] = {-2220.7018941243477, -2995.2653706868477, -3794.0318501790352, -4818.031850179035},    --Mogu'shanPalace
+}
+Twm_mapareas["NewScholomance"] = {
+    [0] = {265.63018290201944, -133.53225262959677, 411.91578165690225, -124.88684590657431},    --Scholomance
 }

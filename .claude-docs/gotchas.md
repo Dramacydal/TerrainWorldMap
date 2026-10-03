@@ -884,6 +884,13 @@ later duplicate list then cannot take over the names. Check in game right after 
 `UIDROPDOWNMENU_MAXLEVELS` yourself (taint). WoW: Forever uses the newer dropdown implementation (no
 `UIDROPDOWNMENU_MINBUTTONS`/`MAXBUTTONS` globals, no second list): `TWM_PreGrowDropDownButtons` returns early there.
 
+## Two maps with the same name overwrite each other in the dungeon/raid/scenario/arena lists
+`TWM_DUNGEONS`/`TWM_RAIDS`/`TWM_SCENARIOS`/`TWM_ARENAS` are keyed by the localized map name. Mists has both `SchoolofNecromancy`
+(ID 289, enUS "Scholomance OLD") and `NewScholomance` (ID 1007); in ruRU/deDE/frFR/koKR both are named alike, so the later
+one replaced the earlier. `TWM_DisplayNames` (TerrainWorldMap.lua) appends the map's enUS name (its ID when that equals the
+shared name) to EVERY entry of a shared name, so e.g. ruRU shows "Некроситет (Scholomance OLD)" and "Некроситет (Scholomance)".
+Names that are unique in the locale stay untouched.
+
 ## Instance maps listed with no drawable tiles: the WDT/MAID and the listfile describe other builds too
 Symptom (Mists): dropdown entries (Abyssal Maw outer, Deathwing fight, Stormgarde Keep, Mogu Island Loot Room, ...) that
 show nothing at all. Cause: `Twm_WDTValidTiles` was built from the WDT's `rootADT` MAID slot only, but a tile's minimap

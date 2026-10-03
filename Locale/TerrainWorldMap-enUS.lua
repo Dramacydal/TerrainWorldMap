@@ -7,6 +7,8 @@ TWM_VERSION = C_AddOns.GetAddOnMetadata("TerrainWorldMap","Version") or "???";
 -- localize from this point on as needed
 TWM_BUTTON_TOOLTIP1 = "TerrainWorldMap";
 TWM_PLAYERJUMP = "Goto Player";
+TWM_TOOLTIP_PLAYERJUMP = "Centers the map on your character.";
+TWM_TOOLTIP_PLAYERJUMP_FOLLOW = "Shift+Click: toggle follow mode (the map keeps following you; continents only). Dragging the map turns it off.";
 TWM_OPTIONSBUTTON = "Options";
 
 -- Minimap/world-map button tooltips and right-click context menu

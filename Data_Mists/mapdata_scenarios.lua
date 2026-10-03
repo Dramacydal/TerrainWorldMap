@@ -191,24 +191,6 @@ Twm_ScenarioNames = {
         },
     },
     {
-        key = "AncientMoguCyptDestroyedScenario",
-        mapID = "1030",
-        expansion = "4",
-        name = {
-            enUS = "Crypt of Forgotten Kings",
-            deDE = "Gruft der Vergessenen Könige",
-            esES = "Cripta de los Reyes Olvidados",
-            esMX = "Cripta de los Reyes Olvidados",
-            frFR = "Crypte des Rois oubliés",
-            itIT = "Crypt of Forgotten Kings",
-            koKR = "잊혀진 왕의 납골당",
-            ptBR = "Cripta dos Reis Esquecidos",
-            ruRU = "Гробница Забытых Королей",
-            zhCN = "遗忘之王古墓",
-            zhTW = "遺忘諸王墓穴",
-        },
-    },
-    {
         key = "HordeAmbushScenario",
         mapID = "1095",
         expansion = "4",
@@ -353,24 +335,6 @@ Twm_ScenarioNames = {
         },
     },
     {
-        key = "MoguIslandLootRoom",
-        mapID = "1135",
-        expansion = "4",
-        name = {
-            enUS = "Mogu Island Loot Room",
-            deDE = "Die Prall Gefüllte Kammer",
-            esES = "Sala de botín de la isla mogu",
-            esMX = "Sala de botín de la isla mogu",
-            frFR = "Salle du butin de l’île mogu",
-            itIT = "Mogu Island Loot Room",
-            koKR = "모구 섬 전리품 방",
-            ptBR = "Sala do Tesouro da Ilha Mogu",
-            ruRU = "Mogu Island Loot Room",
-            zhCN = "魔古岛藏宝室",
-            zhTW = "魔古島藏寶間",
-        },
-    },
-    {
         key = "HordeHubMoguIslandProgressionScenario",
         mapID = "1126",
         expansion = "4",
@@ -404,24 +368,6 @@ Twm_ScenarioNames = {
             ruRU = "Морская битва - сценарий",
             zhCN = "海战场景",
             zhTW = "海戰事件",
-        },
-    },
-    {
-        key = "ProvingGrounds",
-        mapID = "1148",
-        expansion = "4",
-        name = {
-            enUS = "Proving Grounds",
-            deDE = "Feuerprobe",
-            esES = "Terreno de Pruebas",
-            esMX = "Terreno de Pruebas",
-            frFR = "Ordalie",
-            itIT = "Proving Grounds",
-            koKR = "수련의 장",
-            ptBR = "Campo de Testes",
-            ruRU = "Арена испытаний",
-            zhCN = "试炼场",
-            zhTW = "試煉場",
         },
     },
     {
@@ -461,24 +407,6 @@ Twm_ScenarioNames = {
         },
     },
     {
-        key = "Stormgarde Keep",
-        mapID = "1155",
-        expansion = "4",
-        name = {
-            enUS = "Stromgarde Keep",
-            deDE = "Burg Stromgarde",
-            esES = "Castillo de Stromgarde",
-            esMX = "Castillo de Stromgarde",
-            frFR = "Donjon de Stromgarde",
-            itIT = "Stromgarde Keep",
-            koKR = "스트롬가드 요새",
-            ptBR = "Bastilha de Stromgarde",
-            ruRU = "Крепость Стромгард",
-            zhCN = "激流堡",
-            zhTW = "激流堡",
-        },
-    },
-    {
         key = "ValleyOfPowerScenario",
         mapID = "1035",
         expansion = "4",
@@ -494,24 +422,6 @@ Twm_ScenarioNames = {
             ruRU = "Храм Котмогу",
             zhCN = "寇魔古寺",
             zhTW = "科特魔古神廟",
-        },
-    },
-    {
-        key = "DarkHordeScenario",
-        mapID = "1131",
-        expansion = "4",
-        name = {
-            enUS = "The Secrets of Ragefire",
-            deDE = "Geheimnisse des Flammenschlunds",
-            esES = "Los Secretos de Sima Ígnea",
-            esMX = "Los Secretos de Sima Ígnea",
-            frFR = "Les secrets de Ragefeu",
-            itIT = "The Secrets of Ragefire",
-            koKR = "성난불길의 비밀",
-            ptBR = "Os Segredos das Cavernas Ígneas",
-            ruRU = "Секреты Огненной Пропасти",
-            zhCN = "怒焰之谜",
-            zhTW = "怒焰之秘",
         },
     },
     {
@@ -582,9 +492,6 @@ Twm_mapareas["BrewmasterScenario01"] = {
 Twm_mapareas["PandaFishingVillageScenario"] = {
     [0] = {-533.3333333333334, -4266.666666666667, 4266.666666666667, 1066.6666666666667},    --GreenstoneVillage
 }
-Twm_mapareas["AncientMoguCyptDestroyedScenario"] = {
-    [0] = {3200, 1600, 1600, 0},    --CryptofForgottenKings
-}
 Twm_mapareas["ProvingGroundsScenario"] = {
     [0] = {1066.6666666666667, 0, 4266.666666666667, 3200},    --ArenaofAnnihilation
 }
@@ -639,20 +546,8 @@ Twm_mapareas["FinalGateMoguIslandProgressionScenario"] = {
 Twm_mapareas["ShimmerRidgeScenario"] = {
     [0] = {1066.6666666666667, -1600, -4266.666666666667, -6400},    --BloodintheSnow
 }
-Twm_mapareas["DarkHordeScenario"] = {
-    [0] = {1600, 533.3333333333334, 2133.3333333333335, 1066.6666666666667},    --TheSecretsofRagefire
-}
-Twm_mapareas["MoguIslandLootRoom"] = {
-    [0] = {2133.3333333333335, 0, 1066.6666666666667, -533.3333333333334},    --MoguIslandLootRoom
-}
 Twm_mapareas["HeartOfTheOldGodScenario"] = {
     [0] = {2666.666666666667, -533.3333333333334, 2133.3333333333335, 0},    --HeartoftheOldGodScenario
-}
-Twm_mapareas["ProvingGrounds"] = {
-    [0] = {1066.6666666666667, 0, 4266.666666666667, 3200},    --ProvingGrounds
-}
-Twm_mapareas["Stormgarde Keep"] = {
-    [0] = {-1066.6666666666667, -2666.666666666667, -533.3333333333334, -2133.3333333333335},    --StromgardeKeep
 }
 Twm_mapareas["HalfhillScenario"] = {
     [0] = {2133.3333333333335, -533.3333333333334, 1066.6666666666667, -1066.6666666666667},    --HalfhillScenario

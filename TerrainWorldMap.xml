@@ -211,6 +211,16 @@
 					<OnShow>
 						TWMFramePlayerJumpButton_Update(self);
 					</OnShow>
+					<OnEnter>
+						GameTooltip:SetOwner(self, "ANCHOR_BOTTOM");
+						GameTooltip:SetText(TWM_PLAYERJUMP);
+						GameTooltip:AddLine(TWM_TOOLTIP_PLAYERJUMP, 1, 1, 1, true);
+						GameTooltip:AddLine(TWM_TOOLTIP_PLAYERJUMP_FOLLOW, 1, 0.82, 0, true);
+						GameTooltip:Show();
+					</OnEnter>
+					<OnLeave>
+						GameTooltip:Hide();
+					</OnLeave>
 				</Scripts>
 			</Button>
 			<Button name="TWMFrameOptionsButton" inherits="UIPanelButtonTemplate" text="TWM_OPTIONSBUTTON">

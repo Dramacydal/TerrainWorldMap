@@ -112,15 +112,6 @@ Twm_WDTValidTiles["PandaFishingVillageScenario"] = {
 }
 
 Twm_WDTValidTiles["AncientMoguCyptDestroyedScenario"] = {
-    ["26x29"] = 6208,
-    ["27x29"] = 6208,
-    ["28x29"] = 6208,
-    ["26x30"] = 6208,
-    ["27x30"] = 6208,
-    ["28x30"] = 6208,
-    ["26x31"] = 6208,
-    ["27x31"] = 6208,
-    ["28x31"] = 6208,
 }
 
 Twm_WDTValidTiles["ProvingGroundsScenario"] = {
@@ -838,25 +829,9 @@ Twm_WDTValidTiles["ShimmerRidgeScenario"] = {
 }
 
 Twm_WDTValidTiles["DarkHordeScenario"] = {
-    ["29x28"] = 6731,
-    ["30x28"] = 6731,
-    ["29x29"] = 6731,
-    ["30x29"] = 6731,
 }
 
 Twm_WDTValidTiles["MoguIslandLootRoom"] = {
-    ["28x30"] = true,
-    ["29x30"] = true,
-    ["30x30"] = true,
-    ["31x30"] = true,
-    ["28x31"] = true,
-    ["29x31"] = true,
-    ["30x31"] = true,
-    ["31x31"] = true,
-    ["28x32"] = true,
-    ["29x32"] = true,
-    ["30x32"] = true,
-    ["31x32"] = true,
 }
 
 Twm_WDTValidTiles["HeartOfTheOldGodScenario"] = {
@@ -887,22 +862,9 @@ Twm_WDTValidTiles["HeartOfTheOldGodScenario"] = {
 }
 
 Twm_WDTValidTiles["ProvingGrounds"] = {
-    ["30x24"] = 6852,
-    ["31x24"] = 6852,
-    ["30x25"] = 6852,
-    ["31x25"] = 6852,
 }
 
 Twm_WDTValidTiles["Stormgarde Keep"] = {
-    ["34x33"] = 6760,
-    ["35x33"] = 6760,
-    ["36x33"] = 6760,
-    ["34x34"] = 6760,
-    ["35x34"] = 6760,
-    ["36x34"] = 6760,
-    ["34x35"] = 6760,
-    ["35x35"] = 6760,
-    ["36x35"] = 6760,
 }
 
 Twm_WDTValidTiles["HalfhillScenario"] = {
