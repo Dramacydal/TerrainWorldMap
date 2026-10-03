@@ -68,7 +68,6 @@ TWM_TOOLTIP_OPT_TOGGLEFLIGHTPATHS = "Always draws every known flight route on th
 TWM_TOOLTIP_OPT_FLIGHTPATHTHICKNESS = "Sets how thick flight path lines are drawn, in screen pixels.";
 TWM_TOOLTIP_OPT_FLIGHTPATHINTERPOLATION = "Smooths a route's real curved flight path (Shift held) by adding extra calculated points between its original ones, instead of a visibly jagged polyline. 0 disables it. Only applied to whichever flight master you're currently hovering over, never to \"Toggle Flight Paths\"' full continent view, to keep it from getting laggy.";
 
-TWM_POINTS_SHOWPOINTS_TITLE = "Show Points";
 
 TWM_CATEGORY_CONTINENTS = "Continents";
 TWM_CATEGORY_DUNGEONS = "Dungeons";
@@ -86,11 +85,7 @@ TWM_EXPANSION_1 = "The Burning Crusade";
 TWM_EXPANSION_2 = "Wrath of the Lich King";
 TWM_EXPANSION_3 = "Cataclysm";
 TWM_EXPANSION_4 = "Mists of Pandaria";
-TWM_POINTS_LANDMARKS = "Landmarks";
 TWM_POINTS_GRAVEYARDS = "Graveyards";
-TWM_POINTS_CAPITALS = "Capitals";
-TWM_POINTS_DUNGEONS = "Dungeons";
-TWM_POINTS_FLIGHTMASTERS = "Flight Masters";
 
 TWM_OPTIONS_SHOW_TERRAIN = "Show Terrain";
 TWM_OPTIONS_SHOW_WMO_OVERLAY = "Show WMO Layers";

@@ -67,7 +67,6 @@ TWM_TOOLTIP_OPT_TOGGLEFLIGHTPATHS = "始终在地图上绘制所有已知的飞�
 TWM_TOOLTIP_OPT_FLIGHTPATHTHICKNESS = "设置飞行航线的绘制粗细（以屏幕像素为单位）。";
 TWM_TOOLTIP_OPT_FLIGHTPATHINTERPOLATION = "在按住Shift显示真实弯曲航线时，通过在原始点之间添加额外计算的点来平滑航线，而不是显示明显的折线。0表示禁用。仅对当前鼠标悬停的飞行管理员生效，不会应用于\"显示飞行航线\"的整个大陆视图，以免造成卡顿。";
 
-TWM_POINTS_SHOWPOINTS_TITLE = "显示标记";
 
 TWM_CATEGORY_CONTINENTS = "大陆";
 TWM_CATEGORY_DUNGEONS = "地下城";
@@ -82,11 +81,7 @@ TWM_EXPANSION_1 = "燃烧的远征";
 TWM_EXPANSION_2 = "巫妖王之怒";
 TWM_EXPANSION_3 = "大地的裂变";
 TWM_EXPANSION_4 = "熊猫人之谜";
-TWM_POINTS_LANDMARKS = "地名";
 TWM_POINTS_GRAVEYARDS = "墓地";
-TWM_POINTS_CAPITALS = "首都";
-TWM_POINTS_DUNGEONS = "地下城";
-TWM_POINTS_FLIGHTMASTERS = "飞行管理员";
 
 TWM_OPTIONS_SHOW_TERRAIN = "显示地形";
 TWM_OPTIONS_SHOW_WMO_OVERLAY = "显示WMO图层";

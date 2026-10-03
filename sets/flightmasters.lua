@@ -55,7 +55,7 @@ function set.setuplegend(point, env, dat)
 end
 
 function set.configmenu(menu, name, lm)
-    TWMFOO_AddToggle(menu, lm, name, TWM_POINTS_FLIGHTMASTERS);
+    TWM_AddPointToggle(menu, lm, name, TWM_OPTIONS_SHOW_FLIGHTMASTERS);
 end
 
 TWMPoints_RegisterSet(set);

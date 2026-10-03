@@ -15,6 +15,52 @@
 		</Anchors>
 	</Texture>
 
+	<!-- Icon button of the control strip: 24x24, 1px frame, hover highlight.
+	     The button supplies its NormalTexture/PushedTexture (the pushed one
+	     offset by 1px) and calls TWM_HeaderIconButton_OnLoad from its OnLoad. -->
+	<Button name="TWMHeaderIconButtonTemplate" virtual="true">
+		<Size>
+			<AbsDimension x="24" y="24"/>
+		</Size>
+		<Layers>
+			<Layer level="OVERLAY">
+				<Texture>
+					<Size><AbsDimension x="1" y="1"/></Size>
+					<Anchors>
+						<Anchor point="TOPLEFT"/>
+						<Anchor point="TOPRIGHT"/>
+					</Anchors>
+					<Color r="0.45" g="0.45" b="0.45" a="1"/>
+				</Texture>
+				<Texture>
+					<Size><AbsDimension x="1" y="1"/></Size>
+					<Anchors>
+						<Anchor point="BOTTOMLEFT"/>
+						<Anchor point="BOTTOMRIGHT"/>
+					</Anchors>
+					<Color r="0.45" g="0.45" b="0.45" a="1"/>
+				</Texture>
+				<Texture>
+					<Size><AbsDimension x="1" y="1"/></Size>
+					<Anchors>
+						<Anchor point="TOPLEFT"/>
+						<Anchor point="BOTTOMLEFT"/>
+					</Anchors>
+					<Color r="0.45" g="0.45" b="0.45" a="1"/>
+				</Texture>
+				<Texture>
+					<Size><AbsDimension x="1" y="1"/></Size>
+					<Anchors>
+						<Anchor point="TOPRIGHT"/>
+						<Anchor point="BOTTOMRIGHT"/>
+					</Anchors>
+					<Color r="0.45" g="0.45" b="0.45" a="1"/>
+				</Texture>
+			</Layer>
+		</Layers>
+		<HighlightTexture file="Interface\Buttons\ButtonHilight-Square" alphaMode="ADD"/>
+	</Button>
+
 	<Frame name="TWMFrameTemplate" virtual="true">
 		<Scripts>
 			<OnLoad>
@@ -668,7 +714,7 @@
 				-- parent, see Points.lua) -- a mere frame-level bump here
 				-- would need to out-guess all of those. Bumping strata
 				-- instead guarantees this popup draws above everything in
-				-- "HIGH" regardless of frame level, the same way TWMFOO's
+				-- "HIGH" regardless of frame level, the same way the Options
 				-- context menu (Blizzard_Menu, always
 				-- drawn through its own top-level system) is never obscured.
 				self:SetFrameStrata("DIALOG");

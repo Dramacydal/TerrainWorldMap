@@ -72,7 +72,6 @@ TWM_TOOLTIP_OPT_TOGGLEFLIGHTPATHS = "Zeichnet immer alle bekannten Flugrouten au
 TWM_TOOLTIP_OPT_FLIGHTPATHTHICKNESS = "Legt fest, wie dick die Flugroutenlinien gezeichnet werden, in Bildschirmpixeln.";
 TWM_TOOLTIP_OPT_FLIGHTPATHINTERPOLATION = "Glättet die echte, gekrümmte Flugroute (Umschalt gedrückt) durch zusätzliche berechnete Punkte zwischen den ursprünglichen, statt eines sichtbar eckigen Streckenzugs. 0 deaktiviert dies. Wird nur auf den gerade überfahrenen Flugmeister angewendet, nie auf die Gesamtansicht von \"Flugrouten umschalten\", um Ruckler zu vermeiden.";
 
-TWM_POINTS_SHOWPOINTS_TITLE = "Zeige Punkte";
 
 TWM_CATEGORY_CONTINENTS = "Kontinente";
 TWM_CATEGORY_DUNGEONS = "Dungeons";
@@ -89,12 +88,7 @@ TWM_EXPANSION_2 = "Wrath of the Lich King";
 TWM_EXPANSION_3 = "Cataclysm";
 TWM_EXPANSION_4 = "Mists of Pandaria";
 -- Landmarks would tranlsate to "Landmarken", "wichtige Orte" would be translated to English: "important places"
--- I would prefer "wichtige Orte" over "Landmarken"
-TWM_POINTS_LANDMARKS = "wichtige Orte";
 TWM_POINTS_GRAVEYARDS = "Friedh\195\182fe";
-TWM_POINTS_CAPITALS = "Hauptst\195\164dte";
-TWM_POINTS_DUNGEONS = "Dungeons";
-TWM_POINTS_FLIGHTMASTERS = "Flugmeister";
 
 TWM_OPTIONS_SHOW_TERRAIN = "Zeige Gel\195\164nde";
 TWM_OPTIONS_SHOW_WMO_OVERLAY = "Zeige WMO-Ebenen";

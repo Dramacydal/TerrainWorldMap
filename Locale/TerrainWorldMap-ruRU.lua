@@ -63,7 +63,6 @@ TWM_TOOLTIP_OPT_TOGGLEFLIGHTPATHS = "Всегда отображать все и
 TWM_TOOLTIP_OPT_FLIGHTPATHTHICKNESS = "Задаёт толщину линий маршрутов полётов в экранных пикселях.";
 TWM_TOOLTIP_OPT_FLIGHTPATHINTERPOLATION = "Сглаживает реальный изогнутый маршрут полёта (при зажатом Shift), добавляя между его исходными точками дополнительные вычисленные точки, вместо заметно ломаной линии. 0 отключает сглаживание. Применяется только к тому флайт-мастеру, над которым сейчас находится курсор, и никогда — к полному виду континента при включённом \"Показывать маршруты полётов\", чтобы не вызывать лаги.";
 
-TWM_POINTS_SHOWPOINTS_TITLE = "Показывать метки";
 
 TWM_CATEGORY_CONTINENTS = "Континенты";
 TWM_CATEGORY_DUNGEONS = "Подземелья";
@@ -80,11 +79,7 @@ TWM_EXPANSION_1 = "The Burning Crusade";
 TWM_EXPANSION_2 = "Wrath of the Lich King";
 TWM_EXPANSION_3 = "Cataclysm";
 TWM_EXPANSION_4 = "Mists of Pandaria";
-TWM_POINTS_LANDMARKS = "Достопримечательности";
 TWM_POINTS_GRAVEYARDS = "Кладбища";
-TWM_POINTS_CAPITALS = "Столицы";
-TWM_POINTS_DUNGEONS = "Подземелья";
-TWM_POINTS_FLIGHTMASTERS = "Лётные мастера";
 
 TWM_OPTIONS_SHOW_TERRAIN = "Показывать ландшафт";
 TWM_OPTIONS_SHOW_WMO_OVERLAY = "Показывать слои WMO";

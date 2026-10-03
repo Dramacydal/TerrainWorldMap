@@ -87,7 +87,7 @@ end
 
 -- Width floor: keeps the dropdowns and "Goto Player" on the left of the
 -- control strip clear of the Settings/Lock/Close buttons on the right.
-TWM_FRAME_MIN_WIDTH = 680;
+TWM_FRAME_MIN_WIDTH = 460;
 
 TWM_FRAME_OPTION_DEFAULTS = {
     ["Locked"] = false,
@@ -789,8 +789,8 @@ function TWM_WMOOverlay_Update(frame)
 end
 
 -- Lazily creates the horizontal height-cutoff slider, anchored to the left
--- of TWMFOO (the gear/engineering-icon button, ViewFrame's own BOTTOMRIGHT
--- corner) -- a fixed position, independent of the WMO group checkbox
+-- of the ViewFrame's BOTTOMRIGHT corner, above the resize grip -- a fixed
+-- position, independent of the WMO group checkbox
 -- list's own height. Built purely in Lua (OptionsSliderTemplate reused
 -- from Settings.lua's own convention) since its value range is per-map
 -- (set by TWM_UpdateOverlayButtons).
@@ -818,15 +818,19 @@ function TWM_WMOOverlay_EnsureHeightSlider(frame)
         -- existed because this used to be a vertical slider).
         --
         -- Its baked-in Low/High labels would read as plain min/max numbers
-        -- either side of the thumb -- blanked, same as before, in favor of
-        -- one custom label of our own to the slider's LEFT (below).
+        -- either side of the thumb -- blanked; the name shows as a tooltip.
         _G[name.."Low"]:SetText("");
         _G[name.."High"]:SetText("");
         _G[name.."Text"]:SetText("");
 
-        local label = slider:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall");
-        label:SetPoint("RIGHT", slider, "LEFT", -8, 0);
-        label:SetText(TWM_WMO_HEIGHT_CUTOFF);
+        slider:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_TOP");
+            GameTooltip:SetText(TWM_WMO_HEIGHT_CUTOFF);
+            GameTooltip:Show();
+        end);
+        slider:SetScript("OnLeave", function()
+            GameTooltip:Hide();
+        end);
 
         slider:SetScript("OnValueChanged", function(self, value)
             local _, sliderMax = self:GetMinMaxValues();
@@ -843,7 +847,8 @@ function TWM_WMOOverlay_EnsureHeightSlider(frame)
     end
 
     slider:ClearAllPoints();
-    slider:SetPoint("RIGHT", TWMFOO, "LEFT", -16, 0);
+    -- Right end of the footer strip, clear of the resize grip, centered vertically.
+    slider:SetPoint("RIGHT", _G[lm.."Footer"], "RIGHT", -24, 0);
 
     return slider;
 end
@@ -871,12 +876,11 @@ end
 local TWM_WMO_GROUP_LIST_MAX_HEIGHT = 180;
 local TWM_WMO_GROUP_ROW_HEIGHT = 24;
 local TWM_WMO_GROUP_CONTENT_WIDTH = 220;
--- The list's own anchor (wmoButton) sits at the ViewFrame's TOPRIGHT
--- corner, i.e. the outer window edge, not the settings-panel background's
--- own edge -- shifted left by this amount so the checkbox column and
--- scrollbar stay inside the panel and the scrollbar lines up under the
--- "Show WMO Layers" checkbox above it.
+-- The list hangs from the ViewFrame's TOPRIGHT corner, below the header
+-- strip (TWM_WMO_GROUP_LIST_TOP), shifted left by this amount (plus an 8px
+-- margin) so the checkbox column and scrollbar stay inside the window.
 local TWM_WMO_GROUP_LIST_RIGHT_INSET = 24;
+local TWM_WMO_GROUP_LIST_TOP = 40;
 
 -- Lazily creates the scrollable list's own frames (scroll frame + content +
 -- scrollbar) -- pooled per `frame`, same convention as everything else
@@ -989,7 +993,7 @@ function TWM_EnsureWMOGroupCheckboxes(frame, groups, anchor)
     content:SetHeight(math.max(contentHeight, 1));
 
     scroll:ClearAllPoints();
-    scroll:SetPoint("TOPRIGHT", anchor, "BOTTOMRIGHT", -TWM_WMO_GROUP_LIST_RIGHT_INSET, -4);
+    scroll:SetPoint("TOPRIGHT", _G[lm.."ViewFrame"], "TOPRIGHT", -(8 + TWM_WMO_GROUP_LIST_RIGHT_INSET), -TWM_WMO_GROUP_LIST_TOP);
     scroll:SetHeight(math.min(contentHeight, TWM_WMO_GROUP_LIST_MAX_HEIGHT));
     scroll:SetVerticalScroll(0);
     scroll:Show();
@@ -1012,6 +1016,25 @@ function TWM_EnsureWMOGroupCheckboxes(frame, groups, anchor)
     end
 
     return scroll;
+end
+
+-- Lays the visible footer checkboxes out left to right after the zoom button:
+-- each visible one is anchored to the end of the previous visible one's
+-- label, so a hidden checkbox leaves no gap.
+local TWM_FOOTER_CHECK_GAP = 10;
+
+function TWM_LayoutFooterChecks(frame)
+    local lm = frame:GetName();
+    local anchor, offset = _G[lm.."ZoomButton"], 4;
+
+    for _, name in ipairs({"ShowTerrainButton", "ShowWMOOverlayButton"}) do
+        local button = _G[lm..name];
+        if(button:IsShown()) then
+            button:ClearAllPoints();
+            button:SetPoint("LEFT", anchor, "RIGHT", offset, 0);
+            anchor, offset = _G[button:GetName().."Label"], TWM_FOOTER_CHECK_GAP;
+        end
+    end
 end
 
 -- Shows the "Show Terrain"/"Show WMO Layers" checkbox pair -- always
@@ -1045,6 +1068,7 @@ function TWM_UpdateOverlayButtons(frame)
         terrainButton:Hide();
         wmoButton:Hide();
     end
+    TWM_LayoutFooterChecks(frame);
 
     -- Runtime-only per-group checkbox state, reset here -- see
     -- TWM_IsWMOGroupEnabled's own header for the full "when"/"why".
@@ -1346,6 +1370,9 @@ function TWMFrame_OnLoadExtra()
     -- The control strip and its buttons sit over the map, above everything
     -- the map hosts (see TWM_WMO_FRAME_BAND).
     TWMFrameHeader:SetFrameLevel(TWMFrameViewFrame:GetFrameLevel() + TWM_WMO_FRAME_BAND + 40);
+    TWMFrameFooter:SetFrameLevel(TWMFrameViewFrame:GetFrameLevel() + TWM_WMO_FRAME_BAND + 40);
+    -- The resize grip overlaps the footer's right end: above it and its children.
+    TWMFrameResizeButton:SetFrameLevel(TWMFrameFooter:GetFrameLevel() + 10);
 
     TWMFrame:SetResizable(true);
     TWMFrame:SetResizeBounds(TWM_FRAME_MIN_WIDTH, 300);
@@ -1685,9 +1712,26 @@ local function TWM_FillMapMenu(menu, names, list, expID)
     end
 end
 
+-- Blizzard_Menu opens a submenu 0.33s (hardcoded, private) after the cursor
+-- enters its button. A submenu button opens it itself after this shorter delay;
+-- the delay keeps a diagonal move across sibling rows from opening them.
+local TWM_SUBMENU_OPEN_DELAY = 0.1;
+
+local function TWM_CreateSubmenuButton(menu, title)
+    local button = menu:CreateButton(title);
+    button:SetOnEnter(function(frame, description)
+        C_Timer.After(TWM_SUBMENU_OPEN_DELAY, function()
+            if(frame:IsVisible() and frame:IsMouseOver()) then
+                description:ForceOpenSubmenu();
+            end
+        end);
+    end);
+    return button;
+end
+
 local function TWM_AddMapCategory(root, title, names, list)
     if(#names == 0) then return; end
-    TWM_FillMapMenu(root:CreateButton(title), names, list);
+    TWM_FillMapMenu(TWM_CreateSubmenuButton(root, title), names, list);
 end
 
 -- Dungeons/raids: an expansion level first (Map.db2's ExpansionID, see
@@ -1696,12 +1740,12 @@ local function TWM_AddInstanceCategory(root, title, names, list)
     local expIDs = TWM_GetSortedExpansionIDs(list);
     if(#expIDs == 0) then return; end
 
-    local menu = root:CreateButton(title);
+    local menu = TWM_CreateSubmenuButton(root, title);
     if(#expIDs == 1) then
         TWM_FillMapMenu(menu, names, list, expIDs[1]);
     else
         for _, expID in ipairs(expIDs) do
-            TWM_FillMapMenu(menu:CreateButton(TWM_GetExpansionName(expID)), names, list, expID);
+            TWM_FillMapMenu(TWM_CreateSubmenuButton(menu, TWM_GetExpansionName(expID)), names, list, expID);
         end
     end
 end
@@ -1962,6 +2006,11 @@ end
 
 --
 
+-- Common setup of the control strip's icon buttons (TWMHeaderIconButtonTemplate).
+function TWM_HeaderIconButton_OnLoad(self)
+    self:GetPushedTexture():SetVertexColor(0.6, 0.6, 0.6);
+end
+
 -- The button sits in the header strip, whose parent is the map frame.
 local function TWMFramePlayerJumpButton_GetFrame(btn)
     return btn:GetParent():GetParent();
@@ -2013,16 +2062,12 @@ end
 function TWMFramePlayerJumpButton_Update(btn)
     local f = TWMFramePlayerJumpButton_GetFrame(btn);
     if(f and f.opt) then
-        local t = f.opt.track;
-
-        if(t) then
-            tex = "Interface\\Buttons\\UI-Panel-Button-Down";
+        -- Follow mode on = the button stays pushed.
+        if(f.opt.track) then
+            btn:SetButtonState("PUSHED", true);
         else
-            tex = "Interface\\Buttons\\UI-Panel-Button-Up";
+            btn:SetButtonState("NORMAL");
         end
-        btn.Left:SetTexture(tex);
-        btn.Middle:SetTexture(tex);
-        btn.Right:SetTexture(tex);
     end
 end
 

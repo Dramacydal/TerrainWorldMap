@@ -835,13 +835,13 @@ end
 
 
 ---
---- TWMFOO: pulldown to control what points are shown.  name has some 
----       historical significance
+--- Options menu (the gear button of the control strip): Options, then
+--- one checkbox per point set to control what is shown.
 ---
 
 -- Called by a set's configmenu: one checkbox that shows/hides the set `name`.
 -- PointCfg[name] means "hidden"; the checkbox means "shown".
-function TWMFOO_AddToggle(menu, lm, name, text)
+function TWM_AddPointToggle(menu, lm, name, text)
     menu:CreateCheckbox(text,
         function()
             local cfg = TWMOption.Frames[lm].PointCfg;
@@ -854,7 +854,7 @@ function TWMFOO_AddToggle(menu, lm, name, text)
         end);
 end
 
-function TWMFOO_OnClick(self)
+function TWM_ShowOptionsMenu(self)
     local frame = self;
     while(frame and not frame.SetLocation) do
         frame = frame:GetParent();
@@ -862,9 +862,10 @@ function TWMFOO_OnClick(self)
     local lm = frame:GetName();
 
     MenuUtil.CreateContextMenu(self, function(owner, root)
-        root:CreateTitle(TWM_POINTS_SHOWPOINTS_TITLE);
+        root:CreateButton(TWM_OPTIONSBUTTON, TWMOption_Toggle);
 
         if(not (TWMOption.Frames and TWMOption.Frames[lm])) then return; end
+        root:CreateDivider();
 
         local names = {};
         for h, v in pairs(sets) do

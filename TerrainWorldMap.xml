@@ -37,7 +37,7 @@
 				<Anchors>
 					<Anchor point="TOPLEFT" relativeTo="TWMFrame">
 						<Offset>
-							<AbsDimension x="4" y="-1"/>
+							<AbsDimension x="3.3333" y="-1"/>
 						</Offset>
 					</Anchor>
 					<Anchor point="TOPRIGHT" relativeTo="TWMFrame">
@@ -89,20 +89,41 @@
 						<PushedTexture name="$parentPush"/>
 						<HighlightTexture file="Interface\Buttons\UI-Panel-MinimizeButton-Highlight" alphaMode="ADD"/>
 					</Button>
-					<Button name="TWMFrameOptionsButton" inherits="UIPanelButtonTemplate" text="TWM_OPTIONSBUTTON">
+					<Button name="TWMFrameOptionsButton" inherits="TWMHeaderIconButtonTemplate">
 						<Size>
-							<AbsDimension x="90" y="20"/>
+							<AbsDimension x="20" y="20"/>
 						</Size>
 						<Anchors>
 							<Anchor point="RIGHT" relativeTo="TWMFrameLockButton" relativePoint="LEFT">
 								<Offset>
-									<AbsDimension x="-6" y="0"/>
+									<AbsDimension x="3" y="0"/>
 								</Offset>
 							</Anchor>
 						</Anchors>
+						<NormalTexture file="Interface\Icons\Trade_Engineering">
+							<TexCoords left="0.07" right="0.93" top="0.07" bottom="0.93"/>
+						</NormalTexture>
+						<PushedTexture file="Interface\Icons\Trade_Engineering">
+							<TexCoords left="0.07" right="0.93" top="0.07" bottom="0.93"/>
+							<Anchors>
+								<Anchor point="TOPLEFT">
+									<Offset>
+										<AbsDimension x="1" y="-1"/>
+									</Offset>
+								</Anchor>
+								<Anchor point="BOTTOMRIGHT">
+									<Offset>
+										<AbsDimension x="1" y="-1"/>
+									</Offset>
+								</Anchor>
+							</Anchors>
+						</PushedTexture>
 						<Scripts>
+							<OnLoad>
+								TWM_HeaderIconButton_OnLoad(self);
+							</OnLoad>
 							<OnClick>
-								TWMOption_Toggle();
+								TWM_ShowOptionsMenu(self);
 							</OnClick>
 						</Scripts>
 					</Button>
@@ -131,10 +152,9 @@
 							</Anchor>
 						</Anchors>
 					</DropdownButton>
-					<Button name="TWMFramePlayerJumpButton" text="TWM_PLAYERJUMP" inherits="UIPanelButtonTemplate">
-						<Size>
-							<AbsDimension x="108" y="24"/>
-						</Size>
+					<!-- Icon button; follow mode is shown as the locked pushed state
+					(TWMFramePlayerJumpButton_Update). -->
+					<Button name="TWMFramePlayerJumpButton" inherits="TWMHeaderIconButtonTemplate">
 						<Anchors>
 							<Anchor point="LEFT" relativeTo="TWMFrameDropDown2" relativePoint="RIGHT">
 								<Offset>
@@ -142,8 +162,27 @@
 								</Offset>
 							</Anchor>
 						</Anchors>
+						<NormalTexture file="Interface\Icons\Ability_Spy">
+							<TexCoords left="0.07" right="0.93" top="0.07" bottom="0.93"/>
+						</NormalTexture>
+						<PushedTexture file="Interface\Icons\Ability_Spy">
+							<TexCoords left="0.07" right="0.93" top="0.07" bottom="0.93"/>
+							<Anchors>
+								<Anchor point="TOPLEFT">
+									<Offset>
+										<AbsDimension x="1" y="-1"/>
+									</Offset>
+								</Anchor>
+								<Anchor point="BOTTOMRIGHT">
+									<Offset>
+										<AbsDimension x="1" y="-1"/>
+									</Offset>
+								</Anchor>
+							</Anchors>
+						</PushedTexture>
 						<Scripts>
 							<OnLoad>
+								TWM_HeaderIconButton_OnLoad(self);
 								self:RegisterEvent("VARIABLES_LOADED");
 							</OnLoad>
 							<OnEvent>
@@ -156,9 +195,6 @@
 									TWMFramePlayerJumpButton_Jump(self);
 								end
 							</OnClick>
-							<OnMouseUp>
-								TWMFramePlayerJumpButton_Update(self);
-							</OnMouseUp>
 							<OnShow>
 								TWMFramePlayerJumpButton_Update(self);
 							</OnShow>
@@ -175,6 +211,50 @@
 						</Scripts>
 					</Button>
 				</Frames>
+				<Scripts>
+					<OnLoad>
+						self:RegisterForDrag("LeftButton");
+					</OnLoad>
+					<OnDragStart>
+						local f = self:GetParent();
+						f:GetScript("OnDragStart")(f);
+					</OnDragStart>
+					<OnDragStop>
+						local f = self:GetParent();
+						f:GetScript("OnDragStop")(f);
+					</OnDragStop>
+					<OnMouseWheel>
+						local f = self:GetParent();
+						f:SetZoom(f:GetZoom()+delta*24);
+					</OnMouseWheel>
+				</Scripts>
+			</Frame>
+			<!-- Strip along the bottom of the map, mirror of TWMFrameHeader: holds
+			the zoom button; the WMO height-cutoff slider is anchored to it
+			(TWM_WMOOverlay_EnsureHeightSlider). -->
+			<Frame name="TWMFrameFooter" enableMouse="true">
+				<Size>
+					<AbsDimension x="1" y="26"/>
+				</Size>
+				<Anchors>
+					<Anchor point="BOTTOMLEFT" relativeTo="TWMFrame">
+						<Offset>
+							<AbsDimension x="3.3333" y="1"/>
+						</Offset>
+					</Anchor>
+					<Anchor point="BOTTOMRIGHT" relativeTo="TWMFrame">
+						<Offset>
+							<AbsDimension x="-4" y="1"/>
+						</Offset>
+					</Anchor>
+				</Anchors>
+				<Layers>
+					<Layer level="BACKGROUND">
+						<Texture setAllPoints="true">
+							<Color r="0" g="0" b="0" a="0.55"/>
+						</Texture>
+					</Layer>
+				</Layers>
 				<Scripts>
 					<OnLoad>
 						self:RegisterForDrag("LeftButton");
@@ -243,45 +323,38 @@
 		</Anchors>
 	</Frame>
 
-	<Button name="TWMFOO" parent="TWMFrameViewFrame"> <!-- call me TWMFOO -->
+	<Button name="TWMFrameZoomButton" parent="TWMFrameFooter" inherits="TWMHeaderIconButtonTemplate">
 		<Size>
-			<AbsDimension x="24" y="24"/>
-		</Size>
-		<Anchors>
-			<Anchor point="BOTTOMRIGHT" relativePoint="BOTTOMRIGHT">
-				<Offset>
-					<AbsDimension x="-8" y="16"/>
-				</Offset>
-			</Anchor>
-		</Anchors>
-		<Scripts>
-			<OnLoad>
-				self:SetFrameLevel(self:GetFrameLevel() + 4 + TWM_WMO_FRAME_BAND);
-			</OnLoad>
-			<OnClick>
-				TWMFOO_OnClick(self);
-			</OnClick>
-		</Scripts>
-		<NormalTexture file="Interface\Icons\Trade_Engineering"/>
-		<PushedTexture file="Interface\Icons\Trade_Engineering"/>
-		<DisabledTexture file="Interface\Icons\Trade_Engineering"/>
-		<HighlightTexture file="Interface\Buttons\ButtonHilight-Square" alphaMode="ADD"/>
-	</Button>
-
-	<Button name="TWMFrameZoomButton" parent="TWMFrameViewFrame">
-		<Size>
-			<AbsDimension x="24" y="24"/>
+			<AbsDimension x="20" y="20"/>
 		</Size>
 		<Anchors>
 			<Anchor point="BOTTOMLEFT" relativePoint="BOTTOMLEFT">
 				<Offset>
-					<AbsDimension x="8" y="8"/>
+					<AbsDimension x="2" y="4"/>
 				</Offset>
 			</Anchor>
 		</Anchors>
+		<NormalTexture file="Interface\Icons\INV_Misc_Spyglass_02">
+			<TexCoords left="0.07" right="0.93" top="0.07" bottom="0.93"/>
+		</NormalTexture>
+		<PushedTexture file="Interface\Icons\INV_Misc_Spyglass_02">
+			<TexCoords left="0.07" right="0.93" top="0.07" bottom="0.93"/>
+			<Anchors>
+				<Anchor point="TOPLEFT">
+					<Offset>
+						<AbsDimension x="1" y="-1"/>
+					</Offset>
+				</Anchor>
+				<Anchor point="BOTTOMRIGHT">
+					<Offset>
+						<AbsDimension x="1" y="-1"/>
+					</Offset>
+				</Anchor>
+			</Anchors>
+		</PushedTexture>
 		<Scripts>
 			<OnLoad>
-				self:SetFrameLevel(self:GetFrameLevel() + TWM_WMO_FRAME_BAND);
+				TWM_HeaderIconButton_OnLoad(self);
 			</OnLoad>
 			<OnClick>
 				if(not TWMFrameZoomFrame:IsShown()) then
@@ -291,33 +364,23 @@
 				end
 			</OnClick>
 		</Scripts>
-		<NormalTexture file="Interface\Icons\INV_Misc_Spyglass_02"/>
-		<PushedTexture file="Interface\Icons\INV_Misc_Spyglass_02"/>
-		<DisabledTexture file="Interface\Icons\INV_Misc_Spyglass_02"/>
-		<HighlightTexture file="Interface\Buttons\ButtonHilight-Square" alphaMode="ADD"/>
 	</Button>
 
-	<!-- Only shown, always together with TWMFrameShowWMOOverlayButton below
+	<!-- The Show Terrain / Show WMO Layers checkboxes live in the footer strip,
+	     to the right of the zoom button. Shown, always together
 	     (TerrainWorldMap.lua's TWM_UpdateOverlayButtons), when the current
-	     map has BOTH real ADT terrain AND Twm_WMOTiles data; most maps
-	     have only one or the other, so this pair is the exception, not the
-	     default. Positioned above (see next CheckButton's anchor). Starts
-	     below the control strip (TWMFrameHeader, 32 high) that covers the
-	     top of the map. -->
-	<CheckButton name="TWMFrameShowTerrainButton" parent="TWMFrameViewFrame" inherits="UICheckButtonTemplate" hidden="true">
+	     map has BOTH real ADT terrain AND Twm_WMOTiles data. Their positions
+	     are set in Lua (TWM_LayoutFooterChecks): each visible one is placed
+	     after the previous visible one, so a hidden one leaves no gap. -->
+	<CheckButton name="TWMFrameShowTerrainButton" parent="TWMFrameFooter" inherits="UICheckButtonTemplate" hidden="true">
 		<Size>
 			<AbsDimension x="24" y="24"/>
 		</Size>
 		<Anchors>
-			<Anchor point="TOPRIGHT" relativePoint="TOPRIGHT">
-				<Offset>
-					<AbsDimension x="-8" y="-40"/>
-				</Offset>
-			</Anchor>
+			<Anchor point="LEFT" relativeTo="TWMFrameZoomButton" relativePoint="RIGHT"/>
 		</Anchors>
 		<Scripts>
 			<OnLoad>
-				self:SetFrameLevel(self:GetFrameLevel() + 4 + TWM_WMO_FRAME_BAND);
 				_G[self:GetName().."Label"]:SetText(TWM_OPTIONS_SHOW_TERRAIN);
 			</OnLoad>
 			<OnClick>
@@ -326,40 +389,25 @@
 		</Scripts>
 		<Layers>
 			<Layer level="ARTWORK">
-				<FontString name="$parentLabel" inherits="GameFontHighlightSmall" justifyH="RIGHT">
-					<Size>
-						<AbsDimension x="150" y="24"/>
-					</Size>
+				<FontString name="$parentLabel" inherits="GameFontHighlightSmall" justifyH="LEFT">
 					<Anchors>
-						<Anchor point="RIGHT" relativePoint="LEFT">
-							<Offset>
-								<AbsDimension x="0" y="0"/>
-							</Offset>
-						</Anchor>
+						<Anchor point="LEFT" relativePoint="RIGHT"/>
 					</Anchors>
 				</FontString>
 			</Layer>
 		</Layers>
 	</CheckButton>
 
-	<!-- Only shown, always together with TWMFrameShowTerrainButton above;
-	     see its own comment. Anchored below it, not independently to
-	     the ViewFrame, so the pair always stacks correctly regardless of
-	     either one's own visibility. -->
-	<CheckButton name="TWMFrameShowWMOOverlayButton" parent="TWMFrameViewFrame" inherits="UICheckButtonTemplate" hidden="true">
+	<!-- See TWMFrameShowTerrainButton above. -->
+	<CheckButton name="TWMFrameShowWMOOverlayButton" parent="TWMFrameFooter" inherits="UICheckButtonTemplate" hidden="true">
 		<Size>
 			<AbsDimension x="24" y="24"/>
 		</Size>
 		<Anchors>
-			<Anchor point="TOP" relativeTo="TWMFrameShowTerrainButton" relativePoint="BOTTOM">
-				<Offset>
-					<AbsDimension x="0" y="-4"/>
-				</Offset>
-			</Anchor>
+			<Anchor point="LEFT" relativeTo="TWMFrameZoomButton" relativePoint="RIGHT"/>
 		</Anchors>
 		<Scripts>
 			<OnLoad>
-				self:SetFrameLevel(self:GetFrameLevel() + 4 + TWM_WMO_FRAME_BAND);
 				_G[self:GetName().."Label"]:SetText(TWM_OPTIONS_SHOW_WMO_OVERLAY);
 			</OnLoad>
 			<OnClick>
@@ -368,16 +416,9 @@
 		</Scripts>
 		<Layers>
 			<Layer level="ARTWORK">
-				<FontString name="$parentLabel" inherits="GameFontHighlightSmall" justifyH="RIGHT">
-					<Size>
-						<AbsDimension x="150" y="24"/>
-					</Size>
+				<FontString name="$parentLabel" inherits="GameFontHighlightSmall" justifyH="LEFT">
 					<Anchors>
-						<Anchor point="RIGHT" relativePoint="LEFT">
-							<Offset>
-								<AbsDimension x="0" y="0"/>
-							</Offset>
-						</Anchor>
+						<Anchor point="LEFT" relativePoint="RIGHT"/>
 					</Anchors>
 				</FontString>
 			</Layer>

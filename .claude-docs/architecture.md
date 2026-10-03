@@ -51,7 +51,7 @@ implements some subset of:
 - `set.setuplegend(point, env, dat)` — same as `setuppoint` but also shows
   the text label, for the "Show Points" legend/tooltip.
 - `set.configmenu(name, lm)` — adds this set's on/off checkbox to the
-  in-frame dropdown menu (`TWMFOO` button, bottom-right of the map view).
+  in-frame dropdown menu (gear button in the control strip: its menu is "Options" plus one checkbox per point set, `TWM_ShowOptionsMenu`, Points.lua).
   Every set that defines this gets the toggle "for free" — no need to touch
   `Points.lua` itself.
 - `set.getmobilepoints(name)` / `set.OnUpdate` — only `sets/players.lua`
@@ -94,7 +94,11 @@ Clicking a dungeon/raid entrance marker on a continent opens that instance's map
 backdrop border from `TWMFrame_OnLoadExtra`). Controls (two dropdowns, Goto Player, Settings, Lock, Close) live in
 `TWMFrameHeader`, a 32px strip overlaid on the top of the map (frame level above `TWM_WMO_FRAME_BAND`); it is also the drag
 handle for moving the frame (forwards to `TWMFrame`'s own `OnDragStart/OnDragStop`) and forwards the mouse wheel to zoom. The
-resize grip and the Show Terrain/WMO checkboxes are offset to stay clear of the strip. `TWM_FRAME_MIN_WIDTH` is the width
+`TWMFrameFooter` is the mirror strip along the bottom (same look, drag handle, wheel zoom): it holds the zoom-popup
+button, the Show Terrain / Show WMO Layers checkboxes (placed after the zoom button by `TWM_LayoutFooterChecks`: each
+visible one follows the previous visible one, so a hidden one leaves no gap) and the WMO height-cutoff slider (anchored to
+its right end, left of the resize grip; its name is a hover tooltip). The WMO group list hangs from the ViewFrame's
+top-right below the header. The resize grip is offset to stay clear of the strips. `TWM_FRAME_MIN_WIDTH` is the width
 floor so the strip's left and right clusters never overlap.
 
 **The two header dropdowns** (`TerrainWorldMap.lua`; Blizzard_Menu `DropdownButton`s, see gotchas.md): the left one is a category tree (Continents / Dungeons > expansion /

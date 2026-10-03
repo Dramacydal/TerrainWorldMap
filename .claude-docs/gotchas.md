@@ -848,7 +848,7 @@ past rank ~15 onto one sublevel and the order became arbitrary. `TWM_WMOOverlay_
 by `tile[7]` (= `anchorHeight + min(bbox z)` of the group, wow.export's own `zOrder`, ties keep data order) and puts
 each group's textures into its own child frame of ViewFrame with level `ViewFrame + 1 + rank`.
 Frame levels are global within a strata, so every other ViewFrame child (point markers, flight masters, flight
-path frame, zoom/terrain/WMO buttons, TWMFOO) is lifted by `TWM_WMO_FRAME_BAND` (Points.lua) -- a new ViewFrame child
+path frame, zoom/terrain/WMO buttons) is lifted by `TWM_WMO_FRAME_BAND` (Points.lua) -- a new ViewFrame child
 that must draw above the tiles needs `+ TWM_WMO_FRAME_BAND` in its level too. The debug borders/labels live on a
 dedicated frame at `ViewFrame + TWM_WMO_FRAME_BAND`. Side effect: the ADT-tile debug borders (OVERLAY 7 on ViewFrame
 itself) now draw under the WMO tiles.
@@ -862,11 +862,18 @@ stops and no new `OnEnter` comes while the cursor moves inside the icon. Fix (Po
 Tooltip width: `TWMTooltipTemplate:FixSize` = text offset (8 margin + 24 icon column) + widest text + 8; it was text + 64,
 leaving ~30px empty on the right.
 
+## Submenus open 0.33s after hover: hardcoded in Blizzard_Menu
+`MenuManagerMixin:RestartMouseEventTimer` (`menu.lua`) sets a private `.33` s timer; there is no API to change it. Our category
+buttons (`TWM_CreateSubmenuButton`, TerrainWorldMap.lua) use `SetOnEnter` + `description:ForceOpenSubmenu()` after
+`TWM_SUBMENU_OPEN_DELAY` (0.1 s, only if the cursor is still over the button). Not zero: opening on the instant hover makes
+a diagonal move across sibling rows open each of them in turn.
+
 ## All dropdowns/menus are Blizzard_Menu (`DropdownButton`, `MenuUtil`), not `UIDropDownMenu`
 The two header dropdowns (`TWMFrameDropDown`, `TWMFrameDropDown2`) are `DropdownButton` + `WowStyle1DropdownTemplate`
 (menus built by `TWM_GenerateMapMenu`/`TWM_GenerateZoneMenu` in `TerrainWorldMap.lua`, set up by `TWM_SetupDropdowns`).
-The "Show Points" button (`TWMFOO_OnClick`, Points.lua) opens `MenuUtil.CreateContextMenu` with checkboxes added by each
-set's `configmenu(menu, name, lm)` via `TWMFOO_AddToggle` (checkbox response is Refresh, so the menu stays open). The
+The gear (Options) button (`TWM_ShowOptionsMenu`, Points.lua) opens `MenuUtil.CreateContextMenu`: an "Options" item (opens
+the settings panel), a divider, then checkboxes added by each set's `configmenu(menu, name, lm)` via `TWM_AddPointToggle`
+(sorted by set name; checkbox response is Refresh, so the menu stays open). The old "Show Points" button is gone. The
 Settings tile filter is a `DropdownButton` with radios. No `UIDropDownMenu` code is left; the next two sections are
 historical. Notes for the header dropdowns: the button text is always set explicitly
 (`TWM_SetDropdownText` -> `OverrideText`, which ignores radio selection); `OverrideText` is skipped when the text is
