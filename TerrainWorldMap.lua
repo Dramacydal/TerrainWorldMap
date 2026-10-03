@@ -1259,7 +1259,10 @@ end
 
 function TWM_OpenInstanceMap(frame, mapID)
     local key = TWM_GetOpenableInstanceMap(mapID);
-    if(key) then frame:SelectMap(key); end
+    if(key) then
+        if(frame.opt.track) then TWMFrame_StopTracking(frame); end
+        frame:SelectMap(key);
+    end
 end
 
 -- Replaces the old GetPlayerMapPosition(u); returns nil if the unit isn't on
@@ -1718,8 +1721,16 @@ local function TWM_SetDropdownText(dropdown, text)
     end
 end
 
+-- Choosing a map or zone by hand ends player tracking, or the view would
+-- be pulled back to the player.
+local function TWM_StopTrackingForPick(frame)
+    if(frame.opt.track) then TWMFrame_StopTracking(frame); end
+end
+
 local function TWM_PickMap(mapname)
-    _G["TWMFrame"]:SelectMap(mapname);
+    local frame = _G["TWMFrame"];
+    TWM_StopTrackingForPick(frame);
+    frame:SelectMap(mapname);
 end
 
 local function TWM_IsCurrentMap(mapname)
@@ -1969,6 +1980,7 @@ end
 
 local function TWM_PickZone(zoneID)
     local frame = _G["TWMFrame"];
+    TWM_StopTrackingForPick(frame);
     frame:CenterOnZone(zoneID);
 
     -- SetLocation() re-derives the zone from the new view's center
