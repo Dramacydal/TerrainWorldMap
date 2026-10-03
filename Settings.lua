@@ -166,9 +166,7 @@ BrowserPanel.name = TWM_OPTIONS_TAB_BROWSER;
 -- and Blizzard's canvas-category Settings panels (unlike the declarative
 -- Settings-list ones) don't scroll on their own -- wrapped in a real
 -- ScrollFrame + UIPanelScrollBarTemplate scrollbar so it no longer spills
--- past the window's own bottom edge. Same recipe as
--- TerrainWorldMap.lua's WMO group checkbox list (TWM_EnsureWMOGroupScrollFrame):
--- the scrollbar's own up/down arrow buttons render OUTSIDE its declared
+-- past the window's own bottom edge. The scrollbar's own up/down arrow buttons render OUTSIDE its declared
 -- rect, so TWM_BROWSER_SCROLLBAR_ARROW_HEIGHT reserves room for both above
 -- and below it.
 local TWM_BROWSER_SCROLLBAR_ARROW_HEIGHT = 16;

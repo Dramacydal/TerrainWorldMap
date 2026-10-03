@@ -296,15 +296,15 @@ zoom/terrain/WMO buttons. The debug borders/labels (`/twm debug`) sit on a
 dedicated frame just above the groups. See gotchas.md, "WMO overlay stacking".
 
 **Controls.** The "Show Terrain"/"Show WMO Layers" checkbox pair
-(`TWMFrameShowTerrainButton`/`TWMFrameShowWMOOverlayButton`, top-right of the
-view) appears only for a map that has BOTH ADT terrain and `Twm_WMOTiles`
+(`TWMFrameShowTerrainButton`/`TWMFrameShowWMOOverlayButton`, in the footer strip) appears only for a map that has BOTH ADT terrain and `Twm_WMOTiles`
 (`TWM_UpdateOverlayButtons`); a map with only one of them always draws it. When
 the tiles span more than one height a horizontal height-cutoff `Slider` is
 shown (lazily built, `TWM_WMOOverlay_EnsureHeightSlider`); `frame.wmoOverlayHeightCutoff`
 (runtime-only) hides any tile whose `z` is above it. With the "WMO Tile
-Management" option (Settings, Browser tab) on, a checkbox per group lets the
-user hide single groups (`TWM_EnsureWMOGroupCheckboxes`); the choice is
-runtime-only and resets on every map change and when the frame is reopened.
+Management" option (Settings, Browser tab) on, a scrolling dropdown at the view's top-right lets the
+user hide single groups (`TWM_EnsureWMOGroupDropdown`, Blizzard_Menu checkboxes): a "Show all" item first
+(derived: checked while every group is enabled; click enables all, or disables all when checked), then one checkbox per
+group. The choice is runtime-only (`frame.wmoGroupEnabled`) and resets on every map change and when the frame is reopened.
 
 **Coordinates** (full derivation and the reusable lessons in gotchas.md,
 "WMO-tile world position"): `local.X = box.min[0] + blockX*128` against the

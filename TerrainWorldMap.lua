@@ -679,7 +679,7 @@ function TWM_WMOOverlay_Update(frame)
 
     -- Twm_WMOTiles[map] is an array of {group_id, group_name, tiles}
     -- (WMO tile group management -- TWM_IsWMOGroupEnabled/
-    -- TWM_EnsureWMOGroupCheckboxes). Every ENABLED group is ranked by its
+    -- TWM_EnsureWMOGroupDropdown). Every ENABLED group is ranked by its
     -- own height (all tiles of a group share the same tile[7]); equal
     -- heights keep their data order, so the ranking is stable. Ranking has
     -- to happen AFTER this filter, not be baked in at generation time, since
@@ -862,160 +862,76 @@ function TWM_IsWMOGroupEnabled(frame, groupId)
     return not (frame.wmoGroupEnabled and frame.wmoGroupEnabled[groupId] == false);
 end
 
-function TWMFrameWMOGroupButton_OnClick(self)
-    local frame = self.twmFrame;
-    frame.wmoGroupEnabled[self.groupId] = self:GetChecked() and true or false;
-    TWM_WMOOverlay_Update(frame);
+-- WMO group menu: a dropdown (Blizzard_Menu) with a "Show all" checkbox and
+-- one checkbox per group of the current map ("<group_id>: <group_name>").
+-- "Show all" is derived, not stored: checked while every group is enabled.
+-- Clicking it enables all groups, or disables all when it is checked.
+local TWM_WMO_GROUP_MENU_MAX_HEIGHT = 400;
+local TWM_WMO_GROUP_DROPDOWN_TOP = 34;
+local TWM_WMO_GROUP_DROPDOWN_RIGHT = 2;
+
+local function TWM_AllWMOGroupsEnabled(frame, groups)
+    for _, group in ipairs(groups) do
+        if(not TWM_IsWMOGroupEnabled(frame, group.group_id)) then return false; end
+    end
+    return true;
 end
 
--- Fixed viewport height for the WMO group checkbox list (below) -- a map
--- with many WMO placements can have dozens of groups; capping this keeps
--- the height-cutoff slider anchored elsewhere from ever depending on the
--- list's own length. No backdrop/border on the scroll frame or its
--- content -- reads as a plain checkbox list, not a bordered panel.
-local TWM_WMO_GROUP_LIST_MAX_HEIGHT = 180;
-local TWM_WMO_GROUP_ROW_HEIGHT = 24;
-local TWM_WMO_GROUP_CONTENT_WIDTH = 220;
--- The list hangs from the ViewFrame's TOPRIGHT corner, below the header
--- strip (TWM_WMO_GROUP_LIST_TOP), shifted left by this amount (plus an 8px
--- margin) so the checkbox column and scrollbar stay inside the window.
-local TWM_WMO_GROUP_LIST_RIGHT_INSET = 24;
-local TWM_WMO_GROUP_LIST_TOP = 40;
+local function TWM_GenerateWMOGroupMenu(dropdown, root)
+    local frame, groups = dropdown.twmFrame, dropdown.groups or {};
+    root:SetScrollMode(TWM_WMO_GROUP_MENU_MAX_HEIGHT);
 
--- Lazily creates the scrollable list's own frames (scroll frame + content +
--- scrollbar) -- pooled per `frame`, same convention as everything else
--- here. Parented to `frame` (TWMFrame), not the ViewFrame, strata "DIALOG"
--- -- ViewFrame's own SetClipsChildren(true) would otherwise clip it. The
--- ScrollFrame's own clipping (built into the frame type) is what hides
--- scrolled-out rows.
---
--- Scrollbar is `UIPanelScrollBarTemplate` (a real vertical scrollbar, not
--- `OptionsSliderTemplate` reused vertically -- that one's groove art is a
--- fixed-size, CENTER-anchored texture that never stretches to fit a tall
--- narrow bar). Its own up/down arrow buttons are anchored OUTSIDE the
--- slider's declared rect (up button's BOTTOM == slider's TOP, down
--- button's TOP == slider's BOTTOM) -- they extend the control above/below
--- whatever height the slider is given, not consume space within it.
--- TWM_WMO_GROUP_SCROLLBAR_ARROW_HEIGHT reserves room for both, so the
--- whole control (arrows + track) fits inside TWM_WMO_GROUP_LIST_MAX_HEIGHT
--- instead of the up-arrow overlapping the row above.
-local TWM_WMO_GROUP_SCROLLBAR_ARROW_HEIGHT = 16;
+    root:CreateCheckbox(TWM_OPTIONS_WMO_SHOW_ALL,
+        function() return TWM_AllWMOGroupsEnabled(frame, groups); end,
+        function()
+            local enable = not TWM_AllWMOGroupsEnabled(frame, groups);
+            for _, group in ipairs(groups) do
+                frame.wmoGroupEnabled[group.group_id] = enable;
+            end
+            TWM_WMOOverlay_Update(frame);
+        end);
+    root:CreateDivider();
 
-function TWM_EnsureWMOGroupScrollFrame(frame)
-    if(frame.wmoGroupScroll) then return frame.wmoGroupScroll, frame.wmoGroupScrollContent, frame.wmoGroupScrollBar; end
+    for _, group in ipairs(groups) do
+        root:CreateCheckbox(group.group_id..": "..group.group_name,
+            function() return TWM_IsWMOGroupEnabled(frame, group.group_id); end,
+            function()
+                frame.wmoGroupEnabled[group.group_id] = not TWM_IsWMOGroupEnabled(frame, group.group_id);
+                TWM_WMOOverlay_Update(frame);
+            end);
+    end
+end
+
+function TWM_HideWMOGroupDropdown(frame)
+    if(frame.wmoGroupDropdown) then frame.wmoGroupDropdown:Hide(); end
+end
+
+-- Creates (once) and shows the group dropdown for `groups` (the current
+-- map's, group_id-ascending from gen_wmo_tiles.js, so no runtime sort). It
+-- hangs from the ViewFrame's top-right below the header strip; parented to
+-- `frame`, not the ViewFrame, which clips its children. The menu is
+-- regenerated on every open, so the checkboxes always show the live state.
+function TWM_EnsureWMOGroupDropdown(frame, groups)
     local lm = frame:GetName();
-
-    local scroll = CreateFrame("ScrollFrame", lm.."WMOGroupScrollFrame", frame);
-    scroll:SetFrameStrata("DIALOG");
-    scroll:SetWidth(TWM_WMO_GROUP_CONTENT_WIDTH);
-
-    local content = CreateFrame("Frame", lm.."WMOGroupScrollContent", scroll);
-    content:SetWidth(TWM_WMO_GROUP_CONTENT_WIDTH);
-    content:SetHeight(1);
-    content:SetPoint("TOPLEFT");
-    scroll:SetScrollChild(content);
-
-    local scrollbar = CreateFrame("Slider", lm.."WMOGroupScrollBar", frame, "UIPanelScrollBarTemplate");
-    scrollbar:SetFrameStrata("DIALOG");
-    scrollbar:SetValueStep(TWM_WMO_GROUP_ROW_HEIGHT);
-    scrollbar:SetScript("OnValueChanged", function(self, value)
-        scroll:SetVerticalScroll(value);
-    end);
-    scroll:EnableMouseWheel(true);
-    scroll:SetScript("OnMouseWheel", function(self, delta)
-        local lo, hi = scrollbar:GetMinMaxValues();
-        scrollbar:SetValue(math.max(lo, math.min(hi, scrollbar:GetValue() - delta * TWM_WMO_GROUP_ROW_HEIGHT)));
-    end);
-
-    frame.wmoGroupScroll = scroll;
-    frame.wmoGroupScrollContent = content;
-    frame.wmoGroupScrollBar = scrollbar;
-    return scroll, content, scrollbar;
-end
-
--- Hides the group checkbox list entirely -- every pooled checkbox, plus
--- the scroll frame and its scrollbar (which, unlike the checkboxes, aren't
--- created at all until the first time the list has something to show, so
--- both are guarded with their own nil-checks).
-function TWM_HideWMOGroupCheckboxes(frame)
-    if(frame.wmoGroupButtons) then
-        for _, cb in ipairs(frame.wmoGroupButtons) do cb:Hide(); end
-    end
-    if(frame.wmoGroupScroll) then frame.wmoGroupScroll:Hide(); end
-    if(frame.wmoGroupScrollBar) then frame.wmoGroupScrollBar:Hide(); end
-end
-
--- One checkbox per WMO group ("<group_id>: <group_name>"), inside the
--- scrollable, height-capped list above -- pooled the same way
--- TWM_WMOOverlay_EnsureGroupFrame/EnsureTexture pool the tile textures. `groups` is already
--- group_id-ascending (gen_wmo_tiles.js's own sort), so no runtime sort
--- needed here. Returns the scroll frame (fixed height regardless of group
--- count) for the height slider to anchor below.
---
--- Checkboxes/labels are children of the scroll CONTENT frame, not `frame`
--- directly -- positioned within content's own declared width (checkbox at
--- its own right edge, label to its left, same convention as "Show
--- Terrain"/"Show WMO Layers") so the ScrollFrame's own clip (to CONTENT's
--- bounds, not `frame`'s) doesn't cut either of them off.
-function TWM_EnsureWMOGroupCheckboxes(frame, groups, anchor)
-    local lm = frame:GetName();
-    local scroll, content, scrollbar = TWM_EnsureWMOGroupScrollFrame(frame);
-
-    frame.wmoGroupButtons = frame.wmoGroupButtons or {};
-    for i = #frame.wmoGroupButtons + 1, #groups do
-        local cb = CreateFrame("CheckButton", lm.."WMOGroupButton"..i, content, "UICheckButtonTemplate");
-        cb:SetFrameStrata("DIALOG");
-        cb:SetSize(20, 20);
-        local label = cb:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall");
-        label:SetJustifyH("RIGHT");
-        label:SetWidth(TWM_WMO_GROUP_CONTENT_WIDTH - 30);
-        label:SetPoint("RIGHT", cb, "LEFT", -4, 1);
-        cb.label = label;
-        cb.twmFrame = frame;
-        cb:SetScript("OnClick", TWMFrameWMOGroupButton_OnClick);
-        frame.wmoGroupButtons[i] = cb;
+    local dropdown = frame.wmoGroupDropdown;
+    if(not dropdown) then
+        dropdown = CreateFrame("DropdownButton", lm.."WMOGroupDropDown", frame, "WowStyle1DropdownTemplate");
+        dropdown:SetFrameStrata("DIALOG");
+        dropdown:SetSize(200, 24);
+        dropdown.twmFrame = frame;
+        -- SetupMenu generates the menu at once (the dropdown is shown).
+        dropdown.groups = groups;
+        dropdown:SetupMenu(TWM_GenerateWMOGroupMenu);
+        -- Fixed caption; the selection text of the checkboxes is not shown.
+        dropdown:OverrideText(TWM_OPTIONS_WMO_TILE_MANAGEMENT);
+        frame.wmoGroupDropdown = dropdown;
     end
 
-    for i, group in ipairs(groups) do
-        local cb = frame.wmoGroupButtons[i];
-        cb.groupId = group.group_id;
-        cb.label:SetText(group.group_id..": "..group.group_name);
-        cb:SetChecked(TWM_IsWMOGroupEnabled(frame, group.group_id));
-        cb:ClearAllPoints();
-        cb:SetPoint("TOPRIGHT", content, "TOPRIGHT", -4, -(i - 1) * TWM_WMO_GROUP_ROW_HEIGHT);
-        cb:Show();
-    end
-    for i = #groups + 1, #frame.wmoGroupButtons do
-        frame.wmoGroupButtons[i]:Hide();
-    end
-
-    local contentHeight = #groups * TWM_WMO_GROUP_ROW_HEIGHT;
-    content:SetHeight(math.max(contentHeight, 1));
-
-    scroll:ClearAllPoints();
-    scroll:SetPoint("TOPRIGHT", _G[lm.."ViewFrame"], "TOPRIGHT", -(8 + TWM_WMO_GROUP_LIST_RIGHT_INSET), -TWM_WMO_GROUP_LIST_TOP);
-    scroll:SetHeight(math.min(contentHeight, TWM_WMO_GROUP_LIST_MAX_HEIGHT));
-    scroll:SetVerticalScroll(0);
-    scroll:Show();
-
-    -- Scrollbar only appears once the real content actually overflows the
-    -- capped viewport -- not Blizzard's usual "always visible, just
-    -- disabled" look.
-    local overflow = contentHeight - TWM_WMO_GROUP_LIST_MAX_HEIGHT;
-    if(overflow > 0) then
-        scrollbar:ClearAllPoints();
-        -- Offset down by one arrow-button height -- see
-        -- TWM_EnsureWMOGroupScrollFrame's own header for why.
-        scrollbar:SetPoint("TOPLEFT", scroll, "TOPRIGHT", 4, -TWM_WMO_GROUP_SCROLLBAR_ARROW_HEIGHT);
-        scrollbar:SetHeight(TWM_WMO_GROUP_LIST_MAX_HEIGHT - 2 * TWM_WMO_GROUP_SCROLLBAR_ARROW_HEIGHT);
-        scrollbar:SetMinMaxValues(0, overflow);
-        scrollbar:SetValue(0);
-        scrollbar:Show();
-    else
-        scrollbar:Hide();
-    end
-
-    return scroll;
+    dropdown.groups = groups;
+    dropdown:ClearAllPoints();
+    dropdown:SetPoint("TOPRIGHT", _G[lm.."ViewFrame"], "TOPRIGHT", -TWM_WMO_GROUP_DROPDOWN_RIGHT, -TWM_WMO_GROUP_DROPDOWN_TOP);
+    dropdown:Show();
+    dropdown:GenerateMenu();
 end
 
 -- Lays the visible footer checkboxes out left to right after the zoom button:
@@ -1092,9 +1008,9 @@ function TWM_UpdateOverlayButtons(frame)
         end
 
         if(TWMOption.WMOTileManagement) then
-            TWM_EnsureWMOGroupCheckboxes(frame, groups, wmoButton);
+            TWM_EnsureWMOGroupDropdown(frame, groups);
         else
-            TWM_HideWMOGroupCheckboxes(frame);
+            TWM_HideWMOGroupDropdown(frame);
         end
 
         local slider = TWM_WMOOverlay_EnsureHeightSlider(frame);
@@ -1118,7 +1034,7 @@ function TWM_UpdateOverlayButtons(frame)
             slider:Hide();
         end
     else
-        TWM_HideWMOGroupCheckboxes(frame);
+        TWM_HideWMOGroupDropdown(frame);
         local slider = _G[lm.."WMOOverlayHeightSlider"];
         if(slider) then slider:Hide(); end
     end

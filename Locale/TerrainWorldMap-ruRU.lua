@@ -84,6 +84,7 @@ TWM_POINTS_GRAVEYARDS = "Кладбища";
 TWM_OPTIONS_SHOW_TERRAIN = "Показывать ландшафт";
 TWM_OPTIONS_SHOW_WMO_OVERLAY = "Показывать слои WMO";
 TWM_OPTIONS_WMO_TILE_MANAGEMENT = "Управление тайлами WMO";
+TWM_OPTIONS_WMO_SHOW_ALL = "Показать все";
 TWM_OPTIONS_SHOW_DEVELOPMENT_MAPS = "Показывать карты в разработке";
 TWM_WMO_HEIGHT_CUTOFF = "Порог высоты";
 TWM_OPTIONS_SHOW_LANDMARKS = "Показывать достопримечательности";
