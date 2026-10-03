@@ -522,6 +522,23 @@ really one entrance (cosmetic only, not wrong data).
 node gen_poi_instances.js --work-dir C:\wow-data --flavor wow_classic_era --teleport-csv C:\wow-data\areatrigger_teleport.csv --mapareas-file Data_Vanilla/mapdata_continents.lua --out Data_Vanilla/mapdata_poi_instances.lua
 ```
 
+### Flavor without a teleport table: `copy_poi_instances.js`
+
+Forever has no `areatrigger_teleport.csv` (its 5-man entrances are GameObject
+portals, not triggers), so its `mapdata_poi_instances.lua` is copied from
+Vanilla's after both flavors' `mapdata_dungeons.lua`/`mapdata_raids.lua`
+have been regenerated:
+
+```bash
+node copy_poi_instances.js --from Data_Vanilla --to Data_Forever --out Data_Forever/mapdata_poi_instances.lua
+```
+
+Entries are copied unchanged when their target exists in the target flavor
+(same MapID for a dungeon/raid, same name for a continent) and, for an entry
+inside an instance map, that map exists there too (same directory and MapID).
+Instances that exist only in the target flavor (Forever-only dungeons) get no
+entrance marker.
+
 ## Step 7 — `gen_poi_flightmasters.js`: flight master markers + routes (`Twm_flightmasters`, `Twm_taxipaths`, `Twm_taxipathnodes`)
 
 ```bash
