@@ -881,7 +881,19 @@ does not help (tried). Fix: `TWM_PreGrowDropDownButtons` (VARIABLES_LOADED) rais
 `UIDropDownMenu_AddButton` (levels 1-2) and creates buttons 9..MAXBUTTONS inside the XML `DropDownList3` itself; the
 later duplicate list then cannot take over the names. Check in game right after login: `/run print(UIDROPDOWNMENU_MAXBUTTONS)`
 (not 8) and, with a long level-3 list open, `DropDownList3Button9:GetParent()==DropDownList3`. Do not write
-`UIDROPDOWNMENU_MAXLEVELS` yourself (taint).
+`UIDROPDOWNMENU_MAXLEVELS` yourself (taint). WoW: Forever uses the newer dropdown implementation (no
+`UIDROPDOWNMENU_MINBUTTONS`/`MAXBUTTONS` globals, no second list): `TWM_PreGrowDropDownButtons` returns early there.
+
+## Instance maps listed with no drawable tiles: the WDT/MAID and the listfile describe other builds too
+Symptom (Mists): dropdown entries (Abyssal Maw outer, Deathwing fight, Stormgarde Keep, Mogu Island Loot Room, ...) that
+show nothing at all. Cause: `Twm_WDTValidTiles` was built from the WDT's `rootADT` MAID slot only, but a tile's minimap
+texture (`minimapTexture` slot, FileDataID) can be named in the WDT and in the community listfile without this client
+shipping the file (verified: CASC extraction by name and by FileDataID returns nothing for those maps).
+Fix: `parse_wdt.js` (`findTilesWithArt`, kinds dungeons/raids/scenarios only) keeps a tile only if its minimap BLP is
+really extractable from the client (by the MAID `minimapTexture` FileDataID, by path when the WDT has no MAID);
+`gen_instance_maps.js` does not list a map with neither ADT nor WMO tiles (when a `--wmo-tiles-file` is given). Continents,
+battlegrounds and arenas keep WDT-only validity. A map that must be hidden although it has tiles goes into
+`mapdata_development.lua` (`Twm_DevelopmentMaps`), not into a skip list.
 
 ## Icons / tiles shimmer or change width by 1px while the map moves: align everything to physical pixels
 Symptom: POI icons (thin glyphs like "!" most of all) get 1px wider/narrower and jitter against the terrain, both when

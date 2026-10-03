@@ -1461,12 +1461,6 @@ Twm_mapareas["DeadminesInstance"] = {
 Twm_mapareas["RazorfenKraulInstance"] = {
     [0] = {2666.666666666667, 1066.6666666666667, 2666.666666666667, 1600},    --RazorfenKraul
 }
-Twm_mapareas["RazorfenDowns"] = {
-    [0] = {2666.666666666667, -533.3333333333334, 3200, 1066.6666666666667},    --RazorfenDowns
-}
-Twm_mapareas["MonasteryInstances"] = {
-    [0] = {2133.3333333333335, -1066.6666666666667, 2666.666666666667, -533.3333333333334},    --ScarletMonasteryofOld
-}
 Twm_mapareas["TanarisInstance"] = {
     [0] = {1600, 0, 2666.666666666667, -1066.6666666666667},    --Zul'Farrak
 }
@@ -1512,23 +1506,11 @@ Twm_mapareas["Ulduar70"] = {
 Twm_mapareas["DrakTheronKeep"] = {
     [0] = {1066.6666666666667, -1600, 1066.6666666666667, -1600},    --Drak'TharonKeep
 }
-Twm_mapareas["Azjol_Uppercity"] = {
-    [0] = {1600, -533.3333333333334, 1600, -533.3333333333334},    --AzjolNerub
-}
 Twm_mapareas["Ulduar80"] = {
     [0] = {2133.3333333333335, -1600, 2666.666666666667, -1066.6666666666667},    --HallsofLightning
 }
-Twm_mapareas["GunDrak"] = {
-    [0] = {2133.3333333333335, -533.3333333333334, 3200, 533.3333333333334},    --Gundrak
-}
-Twm_mapareas["DalaranPrison"] = {
-    [0] = {2133.3333333333335, -533.3333333333334, 3200, 533.3333333333334},    --VioletHold
-}
 Twm_mapareas["Azjol_LowerCity"] = {
     [0] = {1066.6666666666667, -2666.666666666667, 2666.666666666667, -1066.6666666666667},    --Ahn'kahetTheOldKingdom
-}
-Twm_mapareas["IcecrownCitadel5Man"] = {
-    [0] = {3200, 1600, 5866.666666666667, 4800},    --TheForgeofSouls
 }
 Twm_mapareas["AbyssalMaw"] = {
     [0] = {1600, -1066.6666666666667, 1600, -1066.6666666666667},    --AbyssalMawExterior
@@ -1538,9 +1520,6 @@ Twm_mapareas["AbyssalMaw_Interior"] = {
 }
 Twm_mapareas["Uldum"] = {
     [0] = {1600, -1600, 533.3333333333334, -2133.3333333333335},    --HallsofOrigination
-}
-Twm_mapareas["BlackRockSpire_4_0"] = {
-    [0] = {1600, 0, 1066.6666666666667, -533.3333333333334},    --BlackrockCaverns
 }
 Twm_mapareas["ArgentTournamentDungeon"] = {
     [0] = {2133.3333333333335, 0, 2133.3333333333335, 0},    --TrialoftheChampion
@@ -1559,9 +1538,6 @@ Twm_mapareas["GrimBatolDungeon"] = {
 }
 Twm_mapareas["Firelands2"] = {
     [0] = {1066.6666666666667, -1066.6666666666667, 1066.6666666666667, -1066.6666666666667},    --FirelandsTerrain2
-}
-Twm_mapareas["DeepholmeDungeon"] = {
-    [0] = {2133.3333333333335, 0, 2133.3333333333335, 0},    --TheStonecore
 }
 Twm_mapareas["AhnQirajTerrace"] = {
     [0] = {2133.3333333333335, 1066.6666666666667, -8533.333333333334, -9600},    --Ahn'QirajTerrace
@@ -1635,6 +1611,12 @@ Twm_mapareas["GnomeragonInstance"] = {
 Twm_mapareas["SunkenTemple"] = {
     [0] = {17390.762858072918, 16901.056402842205, 16821.500513712566, 16326.146891276043},    --SunkenTemple
 }
+Twm_mapareas["RazorfenDowns"] = {
+    [0] = {1157.7258631388358, 485.5735575358085, 2634.242609659832, 2121.1408106486015},    --RazorfenDowns
+}
+Twm_mapareas["MonasteryInstances"] = {
+    [0] = {1538.5705362955741, -483.5473492940255, 2030.1756083170585, 79.47466723124307},    --ScarletMonasteryofOld
+}
 Twm_mapareas["BlackRockSpire"] = {
     [0] = {17192.587176005047, 16438.351450602215, 17401.064463297527, 16800.820475260418},    --BlackrockSpire
 }
@@ -1688,4 +1670,22 @@ Twm_mapareas["AuchindounDraenei"] = {
 }
 Twm_mapareas["Nexus70"] = {
     [0] = {17303.32041422526, 16398.37301127116, 17864.929850260418, 17146.294443766277},    --TheNexus
+}
+Twm_mapareas["Azjol_Uppercity"] = {
+    [0] = {892.9766337076835, -45.07816060383993, 745.1504313151054, 211.32363764445108},    --AzjolNerub
+}
+Twm_mapareas["GunDrak"] = {
+    [0] = {1000.5984598795585, 456.09017435709757, 2035.5438181559257, 1430.324167887371},    --Gundrak
+}
+Twm_mapareas["DalaranPrison"] = {
+    [0] = {902.0446802775077, 646.0446802775077, 1990.1697031656913, 1734.1697031656913},    --VioletHold
+}
+Twm_mapareas["IcecrownCitadel5Man"] = {
+    [0] = {2942.740778028536, 1920.6482128867667, 5824.2142422188945, 4838.248386430403},    --TheForgeofSouls
+}
+Twm_mapareas["BlackRockSpire_4_0"] = {
+    [0] = {1346.3455912272148, 323.49891153971475, 686.1411539713554, -470.3814290364571},    --BlackrockCaverns
+}
+Twm_mapareas["DeepholmeDungeon"] = {
+    [0] = {1638.6770426432304, 612.963457743328, 1648.8978678385429, 727.8808123270683},    --TheStonecore
 }

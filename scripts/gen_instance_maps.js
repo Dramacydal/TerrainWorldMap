@@ -421,6 +421,14 @@ async function main() {
 		found.push({ ...a, box: bounds, tileCount: bounds.count });
 	}
 	for (const a of noBounds) {
+		// Neither ADT tiles (--tiles-file) nor WMO tiles (--wmo-tiles-file) --
+		// nothing would be drawn, so the map is not listed at all. Only when a
+		// --wmo-tiles-file was given: without one the absence of a WMO entry
+		// proves nothing.
+		if (wmoTilesLua) {
+			console.error(`  (skipping ${a.key} "${a.names.enUS}" -- no ADT tiles and no WMO tiles, nothing to show)`);
+			continue;
+		}
 		const m = modfByKey[a.key];
 		const box = m && boxFromWdtGlobalPlacement(flavorDirPath, a.key, idToPath);
 		if (!box) {

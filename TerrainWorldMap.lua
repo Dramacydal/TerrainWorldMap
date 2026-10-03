@@ -459,13 +459,22 @@ end
 -- Twm_DevelopmentMaps (mapdata_development.lua, all flavors) = {"<Map.csv ID>", ...}:
 -- maps still in development, listed only while TWMOption.ShowDevelopmentMaps is on.
 local TWM_DevelopmentMapSet;
-local function TWM_IsMapHidden(mapID)
+local function TWM_IsDevelopmentMap(mapID)
     if(not mapID) then return false; end
     if(not TWM_DevelopmentMapSet) then
         TWM_DevelopmentMapSet = {};
         for _, id in ipairs(Twm_DevelopmentMaps or {}) do TWM_DevelopmentMapSet[id] = true; end
     end
-    if(TWM_DevelopmentMapSet[mapID] and not (TWMOption and TWMOption.ShowDevelopmentMaps)) then
+    return TWM_DevelopmentMapSet[mapID] == true;
+end
+
+-- Text color of development maps in the dropdown lists (shown only while
+-- "Show Development Maps" is on).
+local TWM_DEV_MAP_COLOR = "|cff9d9d9d";
+
+local function TWM_IsMapHidden(mapID)
+    if(not mapID) then return false; end
+    if(TWM_IsDevelopmentMap(mapID) and not (TWMOption and TWMOption.ShowDevelopmentMaps)) then
         return true;
     end
     return TWM_IsMapHiddenBySeason(mapID);
@@ -1480,6 +1489,12 @@ end
 -- build (public AddButton path, covers levels 1-2) and create the matching
 -- buttons 9..N inside the XML DropDownList3 ourselves, before any menu opens.
 local function TWM_PreGrowDropDownButtons(dropdown)
+    -- Classic-style UIDropDownMenu only; the newer implementation (WoW:
+    -- Forever) has neither the globals nor the two-list problem.
+    if(type(UIDROPDOWNMENU_MINBUTTONS) ~= "number" or type(UIDROPDOWNMENU_MAXBUTTONS) ~= "number") then
+        return;
+    end
+
     local n = 16;
     for _, areas in pairs(Twm_mapareas or {}) do
         local c = 0;
@@ -1643,7 +1658,7 @@ function TWM_GetMapGroup(mapname)
                 for _, name in ipairs(c.names()) do
                     local ne = list[name];
                     if(not exp or ne.expansion == exp) then
-                        tinsert(group, {name = name, key = ne[1]});
+                        tinsert(group, {name = name, key = ne[1], mapID = ne.mapID});
                     end
                 end
                 if(exp and #TWM_GetSortedExpansionIDs(list) > 1) then
@@ -1667,6 +1682,7 @@ local function TWM_AddInstanceButtons(names, list, expID, onClick, level)
                 func = onClick,
                 arg1 = list[h][1],
                 checked = (list[h][1] == currentMap),
+                colorCode = TWM_IsDevelopmentMap(list[h].mapID) and TWM_DEV_MAP_COLOR or nil,
             }, level);
         end
     end
@@ -1783,6 +1799,7 @@ function TWMFrameDropDown_Initialize()
                     text = h;
                     func = TWMFrameDropDownButton_Scenario_OnClick;
                     checked = (TWM_SCENARIOS[h][1] == currentMap);
+                    colorCode = TWM_IsDevelopmentMap(TWM_SCENARIOS[h].mapID) and TWM_DEV_MAP_COLOR or nil;
             };
             UIDropDownMenu_AddButton(info, level);
         end
@@ -2049,6 +2066,7 @@ function TWMFrameDropDown2_Initialize()
                 text = g.name;
                 value = frame;
                 func = TWMFrameDropDownButton2_OnClick;
+                colorCode = TWM_IsDevelopmentMap(g.mapID) and TWM_DEV_MAP_COLOR or nil;
             });
         end
         return;

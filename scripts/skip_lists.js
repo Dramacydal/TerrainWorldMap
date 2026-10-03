@@ -99,6 +99,17 @@ const skipAdtTiles = {
 		'189', // Scarlet Monastery
 	],
 	wow_classic: [
+		'129', // Razorfen Downs
+		'189', // Scarlet Monastery of Old
+		'601', // Azjol-Nerub
+		'608', // Violet Hold
+		'604', // Gundrak
+		'632', // The Forge of Souls
+		'725', // The Stonecore
+		'645', // Blackrock Caverns
+		'757', // Baradin Hold
+		'671', // The Bastion of Twilight
+		'669', // Blackwing Descent
 	],
 	wow_classic_beta: [
 		'129', // Razorfen Downs
@@ -122,12 +133,20 @@ const skipWmoTiles = {
 		'560', // The Escape From Durnholde
 	],
 	wow_classic: [
+		'209', // Zul'Farrak
+		'269', // Opening of the Dark Portal
+		'309', // Ancient Zul'Gurub
+		'509', // Ruins of Ahn'Qiraj
+		'543', // Hellfire Citadel: Ramparts
+		'560', // The Escape From Durnholde
+		'859', // Zul'Gurub
 	],
 	wow_classic_beta: [
-		'2999', // Ruins of Lordaeron (dungeon, Directory "2999")
 		'209', // Zul'Farrak
+		'269', // Caverns of Time
 		'309', // Zul'Gurub,
 		'509', // Ruins of Ahn'Qiraj
+		'2999', // Ruins of Lordaeron (dungeon, Directory "2999")
 	],
 };
 
@@ -143,6 +162,7 @@ const skipTileFileDataId = {
 		'528239', '528240', '528241', '528242', '528243', // RazorfenDowns group 1, blockX=1 column
 	],
 	wow_classic: [
+		'2257516', '2257481', '2257487', '2257463', '2257458', '2257455', '2257467', // Wailing Caverns (kl_wailing)
 	],
 	wow_classic_beta: [
 	],
@@ -175,8 +195,20 @@ const checkedWmoAreasByMap = {
 		],
 	},
 	wow_classic: {
+		'289': [ // Scholomance
+			[-192.4, -108.2, 292.9, 362.9],
+		],
+		'575': [ // Utgarde Pinnacle
+			[-783.5, 88.2, -102.8, 805.7],
+		],
+		'574': [ // Utgarde Keep
+			[-348.3, -169.5, 436.8, 570.1],
+		],
 	},
 	wow_classic_beta: {
+		'289': [ // Scholomance
+			[-192.4, -108.2, 292.9, 362.9],
+		],
 	},
 };
 

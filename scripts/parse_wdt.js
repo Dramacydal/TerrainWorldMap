@@ -8,7 +8,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { flavorDir, listfilePath, ensureDb2Csv, ensureExtracted, envOr, resolveMapKeys } = require('./extract');
+const { flavorDir, listfilePath, ensureDb2Csv, ensureExtracted, ensureExtractedPaths, ensureExtractedFileDataIds, envOr, resolveMapKeys } = require('./extract');
 const { skipAdtTiles, skipTileFileDataId, isSkipped } = require('./skip_lists');
 
 const MAP_SIZE = 64;
@@ -140,6 +140,75 @@ function getValidTiles(filePath, field = 'rootADT') {
 
 	console.error(`  valid (${field}-backed) tiles: ${validTiles.length} / ${MAP_SIZE_SQ}`);
 	return validTiles;
+}
+
+// Kinds whose maps get the "minimap texture really exists" check below
+// (findTilesWithArt); continents/battlegrounds/arenas keep WDT-only validity.
+const ART_CHECKED_KINDS = ['dungeons', 'raids', 'scenarios'];
+
+// key ("COLxROW", same as getValidTiles) -> minimapTexture FileDataID for
+// every tile that has one; null when the WDT has no MAID chunk at all
+// (pre-split clients), where a tile's art can only be told apart by path.
+function getTileMinimapIds(filePath) {
+	const wdt = parseWDT(fs.readFileSync(filePath));
+	if (!wdt.entries) return null;
+	const ids = new Map();
+	for (let x = 0; x < MAP_SIZE; x++) {
+		for (let y = 0; y < MAP_SIZE; y++) {
+			const entry = wdt.entries[(y * MAP_SIZE) + x];
+			if (entry && entry.minimapTexture)
+				ids.set(String(y).padStart(2, '0') + 'x' + String(x).padStart(2, '0'), entry.minimapTexture);
+		}
+	}
+	return ids;
+}
+
+// Instance maps only (dungeons/raids/scenarios): a WDT lists a tile as real
+// (rootADT) even when this client ships no minimap texture for it at all
+// (WDT/MAID and the community listfile describe other builds too), and then
+// there is nothing to draw -- a map whose every tile is like that must not
+// count as having terrain. Returns Map<mapName, Set<tileKey>> of the tiles
+// whose minimap BLP is really extractable from this client: by the WDT's own
+// minimapTexture FileDataID when it has a MAID chunk, by path otherwise.
+// One batched extraction for all maps (see ensureExtractedPaths' header).
+function findTilesWithArt({ maps, flavorDirPath, listfileMap, extractOpts }) {
+	const wanted = []; // {map, key, rel}
+	const idFiles = []; // {id, rel} for the FileDataID extraction
+	const pathRels = [];
+	let idToPath = null;
+	for (const map of maps) {
+		const lower = map.toLowerCase();
+		const wdtPath = path.join(flavorDirPath, 'world', 'maps', lower, `${lower}.wdt`);
+		if (!fs.existsSync(wdtPath)) continue;
+		const keys = getValidTiles(wdtPath);
+		const ids = getTileMinimapIds(wdtPath);
+		for (const key of keys) {
+			const [col, row] = key.split('x');
+			if (ids) {
+				const id = ids.get(key);
+				if (!id) continue;
+				if (!idToPath) {
+					idToPath = new Map();
+					for (const [p, i] of listfileMap) idToPath.set(i, p);
+				}
+				const rel = idToPath.get(id) || `unknown/FILEDATA_${id}`;
+				wanted.push({ map, key, rel });
+				idFiles.push({ id, rel });
+			} else {
+				const rel = `world/minimaps/${lower}/map${col}_${row}.blp`;
+				wanted.push({ map, key, rel });
+				pathRels.push(rel);
+			}
+		}
+	}
+	if (idFiles.length > 0) ensureExtractedFileDataIds({ ...extractOpts, files: idFiles });
+	if (pathRels.length > 0) ensureExtractedPaths({ ...extractOpts, paths: pathRels });
+
+	const byMap = new Map();
+	for (const map of maps) byMap.set(map, new Set());
+	for (const { map, key, rel } of wanted)
+		if (fs.existsSync(path.join(flavorDirPath, rel))) byMap.get(map).add(key);
+	return byMap;
 }
 
 // Reference tiles for regression-checking the axis mapping (Azeroth's are
@@ -309,7 +378,7 @@ const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 function parseArgs(argv) {
 	const opts = {
 		workDir: null, flavor: null, clientDir: null, online: false, clientLocale: 'enUS',
-		out: null, noliquid: false, areaTableDir: null, bakeTileFileIDs: false,
+		out: null, noliquid: false, areaTableDir: null, bakeTileFileIDs: false, checkTileArt: false,
 		force: false, proxy: null, maps: null, candidatesKind: null,
 	};
 
@@ -324,6 +393,7 @@ function parseArgs(argv) {
 		else if (a === '--noliquid') opts.noliquid = true;
 		else if (a === '--areatable-dir') opts.areaTableDir = argv[++i];
 		else if (a === '--bake-tile-fileids') opts.bakeTileFileIDs = true;
+		else if (a === '--check-tile-art') opts.checkTileArt = true;
 		else if (a === '--force') opts.force = true;
 		else if (a === '--proxy') opts.proxy = argv[++i];
 		else if (a === '--maps') opts.maps = argv[++i];
@@ -335,7 +405,8 @@ function parseArgs(argv) {
 }
 
 function printUsage() {
-	console.error('Usage: node parse_wdt.js --work-dir <dir> --flavor <product> (--client-dir <path> | --online) --out <out-file.lua> (--candidates <continents|battlegrounds|arenas|dungeons|raids|scenarios> | --maps <Name1,Name2,...>) [--noliquid] [--areatable-dir <dir>] [--bake-tile-fileids] [--force] [--proxy <url>]');
+	console.error('Usage: node parse_wdt.js --work-dir <dir> --flavor <product> (--client-dir <path> | --online) --out <out-file.lua> (--candidates <continents|battlegrounds|arenas|dungeons|raids|scenarios> | --maps <Name1,Name2,...>) [--noliquid] [--areatable-dir <dir>] [--bake-tile-fileids] [--check-tile-art] [--force] [--proxy <url>]');
+	console.error('  --check-tile-art (dungeons/raids/scenarios only, off by default) drops every ADT tile whose minimap BLP this client does not ship (extracts them to check).');
 	console.error('  --candidates reads <work-dir>/<flavor>/candidates/<kind>.json (scripts/gen_candidates.js, run that first);');
 	console.error('  --maps is an explicit comma-separated override (case-sensitive Directory names, used as-is for the');
 	console.error('  Twm_mapareas/Twm_WDTValidTiles key) for ad-hoc/manual use. Exactly one of the two is required.');
@@ -439,7 +510,8 @@ function main() {
 	// texture has to be resolved to a FileDataID either way to check it
 	// against that list, even on a flavor that never bakes Twm_TileFileID
 	// into its own output.
-	const listfileMap = (opts.bakeTileFileIDs || skipTileIdSet.size > 0) ? loadListfile(listfilePath(opts.workDir)) : null;
+	const checkArt = opts.checkTileArt && ART_CHECKED_KINDS.includes(opts.candidatesKind);
+	const listfileMap = (opts.bakeTileFileIDs || skipTileIdSet.size > 0 || checkArt) ? loadListfile(listfilePath(opts.workDir)) : null;
 
 	// skip_lists.js is keyed by Map.csv `ID`, not Directory name -- only load
 	// Map.csv (an extra download/parse this script otherwise never needs) when
@@ -460,6 +532,8 @@ function main() {
 		for (const r of parseCsvFile(findCsv(flavorDirPath, 'Map.')))
 			directoryToID[r.Directory] = r.ID;
 	}
+
+	const artByMap = checkArt ? findTilesWithArt({ maps: continents, flavorDirPath, listfileMap, extractOpts }) : null;
 
 	for (const contName of continents) {
 		const lower = contName.toLowerCase();
@@ -487,6 +561,13 @@ function main() {
 		if (isSkipped(skipAdtTiles, opts.flavor, mapID)) {
 			console.error(`  forcing zero valid ADT tiles (skip_lists.js's skipAdtTiles)`);
 			validTiles = [];
+		}
+		if (artByMap && validTiles.length > 0) {
+			const art = artByMap.get(contName);
+			const before = validTiles.length;
+			validTiles = validTiles.filter(key => art.has(key));
+			if (validTiles.length !== before)
+				console.error(`  excluded ${before - validTiles.length} ADT tile(s) whose minimap texture this client does not ship`);
 		}
 
 		const areaIDByKey = findAdtAreaIDs(adtDir, parentOf);

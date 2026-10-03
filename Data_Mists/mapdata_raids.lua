@@ -669,12 +669,6 @@ Twm_mapareas["IcecrownCitadel"] = {
 Twm_mapareas["ArgentTournamentRaid"] = {
     [0] = {2133.3333333333335, -533.3333333333334, 2666.666666666667, 0},    --TrialoftheCrusader
 }
-Twm_mapareas["BlackwingDescent"] = {
-    [0] = {533.3333333333334, -1066.6666666666667, 533.3333333333334, -1066.6666666666667},    --BlackwingDescent
-}
-Twm_mapareas["GrimBatolRaid"] = {
-    [0] = {533.3333333333334, -1600, 533.3333333333334, -1600},    --TheBastionofTwilight
-}
 Twm_mapareas["Firelands1"] = {
     [0] = {1066.6666666666667, -1066.6666666666667, 2133.3333333333335, -1066.6666666666667},    --Firelands
 }
@@ -683,9 +677,6 @@ Twm_mapareas["ChamberofAspectsRed"] = {
 }
 Twm_mapareas["SkywallRaid"] = {
     [0] = {1600, 0, 533.3333333333334, -1066.6666666666667},    --ThroneoftheFourWinds
-}
-Twm_mapareas["BaradinHold"] = {
-    [0] = {2133.3333333333335, 533.3333333333334, 1066.6666666666667, -533.3333333333334},    --BaradinHold
 }
 Twm_mapareas["DeathwingBack"] = {
     [0] = {15466.666666666668, -15466.666666666668, 15466.666666666668, -15466.666666666668},    --DragonSoul
@@ -722,4 +713,13 @@ Twm_mapareas["TempestKeepRaid"] = {
 }
 Twm_mapareas["GruulsLair"] = {
     [0] = {17506.363047281902, 16930.228014628094, 17365.18989054362, 17002.18972269694},    --Gruul'sLair
+}
+Twm_mapareas["BlackwingDescent"] = {
+    [0] = {175.39225260416788, -835.7888234456368, 449.1996256510429, -585.5706303914376},    --BlackwingDescent
+}
+Twm_mapareas["GrimBatolRaid"] = {
+    [0] = {-324.5760091145821, -1264.1352437337227, 290.8219401041679, -1373.711003621418},    --TheBastionofTwilight
+}
+Twm_mapareas["BaradinHold"] = {
+    [0] = {1638.8864847819023, 951.9272104899101, 556.0796305338554, 84.25239435831827},    --BaradinHold
 }
