@@ -866,9 +866,23 @@ end
 -- one checkbox per group of the current map ("<group_id>: <group_name>").
 -- "Show all" is derived, not stored: checked while every group is enabled.
 -- Clicking it enables all groups, or disables all when it is checked.
-local TWM_WMO_GROUP_MENU_MAX_HEIGHT = 400;
 local TWM_WMO_GROUP_DROPDOWN_TOP = 34;
 local TWM_WMO_GROUP_DROPDOWN_RIGHT = 2;
+
+-- Blizzard_Menu opens a submenu 0.33s (hardcoded, private) after the cursor
+-- enters its element. An element opens its submenu itself after this shorter
+-- delay; the delay keeps a diagonal move across sibling rows from opening them.
+local TWM_SUBMENU_OPEN_DELAY = 0.1;
+
+local function TWM_OpenSubmenuOnHover(element)
+    element:SetOnEnter(function(frame, description)
+        C_Timer.After(TWM_SUBMENU_OPEN_DELAY, function()
+            if(frame:IsVisible() and frame:IsMouseOver()) then
+                description:ForceOpenSubmenu();
+            end
+        end);
+    end);
+end
 
 local function TWM_AllWMOGroupsEnabled(frame, groups)
     for _, group in ipairs(groups) do
@@ -877,28 +891,123 @@ local function TWM_AllWMOGroupsEnabled(frame, groups)
     return true;
 end
 
+local function TWM_SetWMOGroupsEnabled(frame, groups, enable)
+    for _, group in ipairs(groups) do
+        frame.wmoGroupEnabled[group.group_id] = enable;
+    end
+    TWM_WMOOverlay_Update(frame);
+end
+
+-- Checkbox that toggles all of `groups` together; checked while all are on.
+local function TWM_AddWMOGroupsCheckbox(menu, frame, groups, text)
+    return menu:CreateCheckbox(text,
+        function() return TWM_AllWMOGroupsEnabled(frame, groups); end,
+        function() TWM_SetWMOGroupsEnabled(frame, groups, not TWM_AllWMOGroupsEnabled(frame, groups)); end);
+end
+
+local TWM_WMO_GROUP_MENU_MAX_HEIGHT = 400;
+
+-- A click reinitializes the whole menu hierarchy, and a scrollable menu's
+-- ScrollBox then collapses every submenu below it: Blizzard_Menu registers
+-- an OnScroll callback (owner = its private menu object) on every layout
+-- (menu.lua, PerformLayout). While our menu is open its root ScrollBox drops
+-- that callback and ignores later registrations of it; owners that are
+-- frames (the scroll bar etc.) are left alone. Undone when the menu closes,
+-- as the frame is pooled.
+local function TWM_IsMenuObjectOwner(owner)
+    return type(owner) == "table" and owner[0] == nil;
+end
+
+local function TWM_BlockScrollCollapse(menu)
+    local scrollBox = menu and menu.ScrollBox;
+    if(not scrollBox or scrollBox.twmOrigRegisterCallback) then return; end
+
+    for _, byEvent in pairs(scrollBox:GetCallbackTables()) do
+        local owners = byEvent["OnScroll"];
+        if(owners) then
+            for owner in pairs(owners) do
+                if(TWM_IsMenuObjectOwner(owner)) then owners[owner] = nil; end
+            end
+        end
+    end
+
+    local original = scrollBox.RegisterCallback;
+    scrollBox.twmOrigRegisterCallback = original;
+    scrollBox.RegisterCallback = function(self, event, func, owner, ...)
+        if(event == "OnScroll" and TWM_IsMenuObjectOwner(owner)) then return owner; end
+        return original(self, event, func, owner, ...);
+    end;
+end
+
+-- The root menu's scroll position is remembered (per map) and restored the
+-- next time the menu opens; the dropdown owns the callback, so it is not
+-- mistaken for Blizzard's own.
+local function TWM_TrackMenuScroll(dropdown, menu)
+    local scrollBox = menu and menu.ScrollBox;
+    if(not scrollBox) then return; end
+
+    local map = dropdown.twmFrame.opt.Map;
+    local saved = dropdown.savedScroll;
+    if(saved and saved.map == map and saved.percentage > 0) then
+        -- Extents are only computed on the ScrollBox's next update; do it now.
+        scrollBox:FullUpdate(true);
+        scrollBox:SetScrollPercentage(saved.percentage, true);
+    end
+
+    -- OnScroll also fires on every layout, including the teardown when the
+    -- menu closes (extent 0 / nothing to scroll); only a real scrollable
+    -- state (visible extent strictly between 0 and 1) is remembered.
+    scrollBox:RegisterCallback("OnScroll", function(owner, percentage, visibleExtent)
+        if(visibleExtent and visibleExtent > 0 and visibleExtent < 1) then
+            dropdown.savedScroll = {map = map, percentage = percentage};
+        end
+    end, dropdown);
+end
+
+local function TWM_RestoreScrollCollapse(menu, dropdown)
+    local scrollBox = menu and menu.ScrollBox;
+    if(not scrollBox) then return; end
+    scrollBox:UnregisterCallback("OnScroll", dropdown);
+    if(scrollBox.twmOrigRegisterCallback) then
+        scrollBox.RegisterCallback = scrollBox.twmOrigRegisterCallback;
+        scrollBox.twmOrigRegisterCallback = nil;
+    end
+end
+
+-- "Show all", then groups of the same name (group_ids differ) collected under
+-- one checkbox that is also a submenu: the checkbox toggles all of them, the
+-- submenu has one checkbox per group ("<group_id>: <internal name>", from
+-- group_internal_name). A name with a single group is a plain
+-- checkbox "<group_id>: <name>".
 local function TWM_GenerateWMOGroupMenu(dropdown, root)
     local frame, groups = dropdown.twmFrame, dropdown.groups or {};
     root:SetScrollMode(TWM_WMO_GROUP_MENU_MAX_HEIGHT);
 
-    root:CreateCheckbox(TWM_OPTIONS_WMO_SHOW_ALL,
-        function() return TWM_AllWMOGroupsEnabled(frame, groups); end,
-        function()
-            local enable = not TWM_AllWMOGroupsEnabled(frame, groups);
-            for _, group in ipairs(groups) do
-                frame.wmoGroupEnabled[group.group_id] = enable;
-            end
-            TWM_WMOOverlay_Update(frame);
-        end);
+    TWM_AddWMOGroupsCheckbox(root, frame, groups, TWM_OPTIONS_WMO_SHOW_ALL);
     root:CreateDivider();
 
+    local byName, names = {}, {};
     for _, group in ipairs(groups) do
-        root:CreateCheckbox(group.group_id..": "..group.group_name,
-            function() return TWM_IsWMOGroupEnabled(frame, group.group_id); end,
-            function()
-                frame.wmoGroupEnabled[group.group_id] = not TWM_IsWMOGroupEnabled(frame, group.group_id);
-                TWM_WMOOverlay_Update(frame);
-            end);
+        if(not byName[group.group_name]) then
+            byName[group.group_name] = {};
+            tinsert(names, group.group_name);
+        end
+        tinsert(byName[group.group_name], group);
+    end
+
+    for _, name in ipairs(names) do
+        local list = byName[name];
+        if(#list == 1) then
+            TWM_AddWMOGroupsCheckbox(root, frame, list, list[1].group_id..": "..name);
+        else
+            local parent = TWM_AddWMOGroupsCheckbox(root, frame, list, name.." ("..#list..")");
+            parent:SetScrollMode(TWM_WMO_GROUP_MENU_MAX_HEIGHT);
+            TWM_OpenSubmenuOnHover(parent);
+            for _, group in ipairs(list) do
+                TWM_AddWMOGroupsCheckbox(parent, frame, {group},
+                    group.group_id..": "..(group.group_internal_name or group.group_name));
+            end
+        end
     end
 end
 
@@ -922,6 +1031,14 @@ function TWM_EnsureWMOGroupDropdown(frame, groups)
         -- SetupMenu generates the menu at once (the dropdown is shown).
         dropdown.groups = groups;
         dropdown:SetupMenu(TWM_GenerateWMOGroupMenu);
+        -- Callbacks get (owner, dropdown, ...) -- see CallbackRegistryMixin:TriggerEvent.
+        dropdown:RegisterCallback("OnMenuOpen", function(owner, d)
+            pcall(TWM_BlockScrollCollapse, d.menu);
+            pcall(TWM_TrackMenuScroll, d, d.menu);
+        end, dropdown);
+        dropdown:RegisterCallback("OnMenuClose", function(owner, d, menu)
+            pcall(TWM_RestoreScrollCollapse, menu, d);
+        end, dropdown);
         -- Fixed caption; the selection text of the checkboxes is not shown.
         dropdown:OverrideText(TWM_OPTIONS_WMO_TILE_MANAGEMENT);
         frame.wmoGroupDropdown = dropdown;
@@ -1628,20 +1745,9 @@ local function TWM_FillMapMenu(menu, names, list, expID)
     end
 end
 
--- Blizzard_Menu opens a submenu 0.33s (hardcoded, private) after the cursor
--- enters its button. A submenu button opens it itself after this shorter delay;
--- the delay keeps a diagonal move across sibling rows from opening them.
-local TWM_SUBMENU_OPEN_DELAY = 0.1;
-
 local function TWM_CreateSubmenuButton(menu, title)
     local button = menu:CreateButton(title);
-    button:SetOnEnter(function(frame, description)
-        C_Timer.After(TWM_SUBMENU_OPEN_DELAY, function()
-            if(frame:IsVisible() and frame:IsMouseOver()) then
-                description:ForceOpenSubmenu();
-            end
-        end);
-    end);
+    TWM_OpenSubmenuOnHover(button);
     return button;
 end
 

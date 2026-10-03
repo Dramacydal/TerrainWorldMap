@@ -303,8 +303,10 @@ shown (lazily built, `TWM_WMOOverlay_EnsureHeightSlider`); `frame.wmoOverlayHeig
 (runtime-only) hides any tile whose `z` is above it. With the "WMO Tile
 Management" option (Settings, Browser tab) on, a scrolling dropdown at the view's top-right lets the
 user hide single groups (`TWM_EnsureWMOGroupDropdown`, Blizzard_Menu checkboxes): a "Show all" item first
-(derived: checked while every group is enabled; click enables all, or disables all when checked), then one checkbox per
-group. The choice is runtime-only (`frame.wmoGroupEnabled`) and resets on every map change and when the frame is reopened.
+(derived: checked while every group is enabled; click enables all, or disables all when checked), then the groups:
+a name shared by several groups is ONE checkbox that is also a submenu (it toggles all of them; checked while all are on;
+the submenu has a checkbox per group, labeled by group_id), a name with one group is a plain checkbox. Blizzard_Menu
+supports a checkbox with children (it gets the submenu arrow). The choice is runtime-only (`frame.wmoGroupEnabled`) and resets on every map change and when the frame is reopened.
 
 **Coordinates** (full derivation and the reusable lessons in gotchas.md,
 "WMO-tile world position"): `local.X = box.min[0] + blockX*128` against the

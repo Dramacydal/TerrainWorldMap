@@ -862,6 +862,19 @@ stops and no new `OnEnter` comes while the cursor moves inside the icon. Fix (Po
 Tooltip width: `TWMTooltipTemplate:FixSize` = text offset (8 margin + 24 icon column) + widest text + 8; it was text + 64,
 leaving ~30px empty on the right.
 
+## A click inside a submenu collapses it when the root menu is scrollable
+Blizzard_Menu's response to a checkbox (Refresh) reinitializes the enclosing hierarchy; the scrollable root menu's
+ScrollBox `OnScroll` callback (`menu.lua`, `CollapseMenusUntilLevel(self:GetLevel())`) then closes every submenu below
+it. Seen in the WMO group menu (checkbox-with-submenu items under a scrolling root). Only that menu is patched
+(`TWM_BlockScrollCollapse`, run from the dropdown's `OnMenuOpen`): the root's ScrollBox drops the `OnScroll` callback whose
+owner is Blizzard's private menu object (a table without `[0]`, i.e. not a frame) and an instance-level `RegisterCallback`
+override ignores re-registering it on later layouts; callbacks owned by frames are kept. `OnMenuClose` puts the original
+method back (the frame is pooled). Callbacks of CallbackRegistry get `(owner, ...)`, so a handler registered with the
+dropdown as owner receives `(dropdown, dropdown, menu)`. The same hook remembers the root's scroll position per map
+(`TWM_TrackMenuScroll`: an `OnScroll` callback owned by the dropdown, restored with `SetScrollPercentage` on the next open,
+unregistered on close). Rejected: re-opening the submenu after the click (flickers), a
+one-column grid instead of scrolling (multi-column menus).
+
 ## Submenus open 0.33s after hover: hardcoded in Blizzard_Menu
 `MenuManagerMixin:RestartMouseEventTimer` (`menu.lua`) sets a private `.33` s timer; there is no API to change it. Our category
 buttons (`TWM_CreateSubmenuButton`, TerrainWorldMap.lua) use `SetOnEnter` + `description:ForceOpenSubmenu()` after

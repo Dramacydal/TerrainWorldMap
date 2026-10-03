@@ -67,10 +67,11 @@
 // scrambling names and tiles together. wmoId (WMOMinimapTexture.csv's own
 // WMOID, already resolved per placement below) is unique per real placed
 // building, so prefixing it makes group_id unique per real physical group
-// on the whole map. group_name is the string in the root WMO file's MOGN at
-// the nameOffset in the group file's own MOGP header (readWmoNameBlob below),
-// falling back to a plain "Group <GroupNum>" for a group with no real name
-// (nameOffset -1).
+// on the whole map. group_name is the group's in-game area name
+// (WMOAreaTable, joined on WMOID + the MOGP header's WMOGroupID) when it has
+// one, else the string in the root WMO file's MOGN at the nameOffset in the
+// group file's own MOGP header (readWmoNameBlob below), else a plain
+// "Group <GroupNum>" (nameOffset -1).
 //
 // yawDeg is written out as -MODF.rotation[1] -- the SAME value already used
 // (as radians) to rotate local coordinates in the position formula below,
@@ -345,6 +346,8 @@ function groupBoundingBox(groupFilePath) {
 		if (magic === ID_MOGP) {
 			return {
 				nameOffset: buf.readInt32LE(dataStart),
+			// WMOAreaTable.WMOGroupID (MOGP header, offset 56).
+			wmoGroupID: buf.readUInt32LE(dataStart + 56),
 				min:[buf.readFloatLE(dataStart + 12), buf.readFloatLE(dataStart + 16), buf.readFloatLE(dataStart + 20)],
 				max: [buf.readFloatLE(dataStart + 24), buf.readFloatLE(dataStart + 28), buf.readFloatLE(dataStart + 32)],
 			};
@@ -594,6 +597,15 @@ async function main() {
 	ensureDb2Csv({ ...extractOpts, table: 'WMOMinimapTexture', proxy: opts.proxy });
 	const { findCsv } = require('./csv');
 	const tilesByWmoId = loadWmoMinimapTexture(findCsv(flavorDirPath, 'WMOMinimapTexture.'));
+
+	// WMOAreaTable.csv: the in-game area name of a group, keyed by
+	// "<WMOID>|<WMOGroupID>" (WMOGroupID is stored in the group file's MOGP
+	// header). Empty for most groups; preferred over the internal group name.
+	ensureDb2Csv({ ...extractOpts, table: 'WMOAreaTable', proxy: opts.proxy });
+	const areaNameByGroup = new Map();
+	for (const r of require('./csv').parseCsvFile(findCsv(flavorDirPath, 'WMOAreaTable.'))) {
+		if (r.AreaName_lang) areaNameByGroup.set(`${r.WMOID}|${r.WMOGroupID}`, r.AreaName_lang);
+	}
 
 	// Pass 2: resolve every wanted tile's own FileDataID to its listfile
 	// name, if it has one -- only to know where CASCConsole puts the file
@@ -903,8 +915,9 @@ async function main() {
 				// addon stacks groups in ascending order of it.
 				const groupHeightKey = Math.min(box.min[2], box.max[2]);
 				const nameBlob = groupNamesByNameId[p.nameId];
-				const realName = (nameBlob && box.nameOffset >= 0 && box.nameOffset < nameBlob.length)
+				const internalName = (nameBlob && box.nameOffset >= 0 && box.nameOffset < nameBlob.length)
 					? readCString(nameBlob, box.nameOffset) : '';
+				const realName = areaNameByGroup.get(`${wmoId}|${box.wmoGroupID}`) || internalName;
 				mapTiles.push({
 					fileID: t.fileID,
 					// groupNum alone (the WMO's own local group index) is NOT
@@ -923,6 +936,7 @@ async function main() {
 					groupNum: t.groupNum,
 					groupId: `${wmoId}-${t.groupNum}`,
 					groupName: realName || `Group ${t.groupNum}`,
+					internalName,
 					cx: (c1[0] + c2[0] + c3[0] + c4[0]) / 4,
 					cy: (c1[1] + c2[1] + c3[1] + c4[1]) / 4,
 					width: Math.hypot(c4[0] - c1[0], c4[1] - c1[1]),
@@ -961,7 +975,7 @@ async function main() {
 		// so the addon's own group checkbox list needs no runtime sort.
 		const byGroup = new Map();
 		for (const t of mapTiles) {
-			if (!byGroup.has(t.groupId)) byGroup.set(t.groupId, { groupName: t.groupName, wmoId: t.wmoId, groupNum: t.groupNum, tiles: [] });
+			if (!byGroup.has(t.groupId)) byGroup.set(t.groupId, { groupName: t.groupName, internalName: t.internalName, wmoId: t.wmoId, groupNum: t.groupNum, tiles: [] });
 			byGroup.get(t.groupId).tiles.push(t);
 		}
 		const groupIds = [...byGroup.keys()].sort((a, b) => {
@@ -976,6 +990,11 @@ async function main() {
 			fullOutput += `    {\n`;
 			fullOutput += `        group_id = "${groupId}",\n`;
 			fullOutput += `        group_name = "${groupName}",\n`;
+			// The group's own (internal) name, only when it differs from group_name.
+			if (group.internalName && group.internalName !== group.groupName) {
+				const internalName = group.internalName.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+				fullOutput += `        group_internal_name = "${internalName}",\n`;
+			}
 			fullOutput += `        tiles = {\n`;
 			for (const t of group.tiles) {
 				const corners = t.corners.map(c => `${c[0]}, ${c[1]}`).join(', ');
