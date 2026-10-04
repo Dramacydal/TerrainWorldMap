@@ -28,9 +28,6 @@ TWM_WORLDMAP_OVERLAY_OFF = "TerrainWorldMap: world map overlay OFF";
 TWM_DEBUG_TILES_ON = "TerrainWorldMap: tile debug labels ON";
 TWM_DEBUG_TILES_OFF = "TerrainWorldMap: tile debug labels OFF";
 
-TWM_OPTIONS_TITLE = "TerrainWorldMap Options";
-TWM_OPTIONS_WORLDMAP_TITLE = "World Map Options";
-TWM_OPTIONS_BROWSER_TITLE = "Browser Options";
 TWM_OPTIONS_TAB_WORLDMAP = "World Map";
 TWM_OPTIONS_TAB_BROWSER = "Browser";
 TWM_OPTIONS_ENABLEBUTTON = "Enable Minimap Button";

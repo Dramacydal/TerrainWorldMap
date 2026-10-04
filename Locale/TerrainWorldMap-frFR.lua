@@ -24,9 +24,6 @@ TWM_WORLDMAP_OVERLAY_OFF = "TerrainWorldMap : superposition sur la carte du mond
 TWM_DEBUG_TILES_ON = "TerrainWorldMap : étiquettes de débogage des tuiles ACTIVÉES";
 TWM_DEBUG_TILES_OFF = "TerrainWorldMap : étiquettes de débogage des tuiles DÉSACTIVÉES";
 
-TWM_OPTIONS_TITLE = "Options de TerrainWorldMap";
-TWM_OPTIONS_WORLDMAP_TITLE = "Options de la carte du monde";
-TWM_OPTIONS_BROWSER_TITLE = "Options de la fenêtre autonome";
 TWM_OPTIONS_TAB_WORLDMAP = "Carte du monde";
 TWM_OPTIONS_TAB_BROWSER = "Fenêtre autonome";
 TWM_OPTIONS_ENABLEBUTTON = "Activer le bouton sur la minicarte";

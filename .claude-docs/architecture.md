@@ -67,8 +67,17 @@ same table entry and call `TWMPoints_ForceUpdate(TWMFrame)`.
 `sets/dungeons.lua` as a template, register it in `sets/index.xml`, add a
 `TWM_POINTS_<NAME>`/`TWM_OPTIONS_SHOW_<NAME>` locale string per
 `Locale/TerrainWorldMap-*.lua`, and (if it should also live in
-`Settings.lua`'s Browser tab, not just the in-frame dropdown) add a
-`CreateCheckbox` block there bound to `PointCfg["<name>"]`.
+`Settings.lua`'s Browser tab, not just the in-frame dropdown) add an
+`AddMarkerCheckbox("<name>", ...)` call there (bound to `PointCfg["<name>"]`).
+
+All three settings tabs (main, World Map, Browser) are native vertical-layout
+Settings categories built by `CreateTab` in `Settings.lua` (Blizzard lays them
+out and scrolls them). Each option is a proxy setting (`AddCheckbox`/`AddSlider`/
+`AddDropdown`, getter/setter over `TWMOption`); the Browser tab has four groups
+(Window, Map Markers, Flight Paths, Extras). The panel's global "Defaults"
+button, which offers to reset all game settings, is hidden for these tabs
+(`hooksecurefunc` on `SettingsPanel.DisplayCategory`); the Browser tab has its
+own reset button.
 
 **Follow mode** (Goto Player toggled on, view on a continent; `TWMFrameTemplate:FollowTick`
 in `TerrainWorldMap.lua`): every 1/30s the view is re-centered on the unit.

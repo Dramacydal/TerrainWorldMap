@@ -77,6 +77,7 @@ end
 -- Default (and Settings.lua slider's neutral value) -- outline is always
 -- 2px more than the line itself, at any thickness the slider picks.
 local DEFAULT_LINE_THICKNESS_PX = 2;
+TWM_FLIGHTPATH_DEFAULT_THICKNESS = DEFAULT_LINE_THICKNESS_PX;
 
 function TWM_GetFlightPathThickness()
     return TWMOption.FlightPathThickness or DEFAULT_LINE_THICKNESS_PX;
@@ -124,6 +125,7 @@ end
 -- existed. Only ever applied to the hover-preview branch of
 -- TWM_FlightPaths_OnPointsUpdate, never "always show" -- see DrawRoute.
 local DEFAULT_FLIGHTPATH_INTERPOLATION = 5;
+TWM_FLIGHTPATH_DEFAULT_INTERPOLATION = DEFAULT_FLIGHTPATH_INTERPOLATION;
 
 function TWM_GetFlightPathInterpolation()
     return TWMOption.FlightPathInterpolation or DEFAULT_FLIGHTPATH_INTERPOLATION;

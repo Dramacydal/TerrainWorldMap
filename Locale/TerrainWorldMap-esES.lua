@@ -28,9 +28,6 @@ TWM_WORLDMAP_OVERLAY_OFF = "TerrainWorldMap: superposición del mapa del mundo D
 TWM_DEBUG_TILES_ON = "TerrainWorldMap: etiquetas de depuración de teselas ACTIVADAS";
 TWM_DEBUG_TILES_OFF = "TerrainWorldMap: etiquetas de depuración de teselas DESACTIVADAS";
 
-TWM_OPTIONS_TITLE = "Opciones de TerrainWorldMap";
-TWM_OPTIONS_WORLDMAP_TITLE = "Opciones del mapa del mundo";
-TWM_OPTIONS_BROWSER_TITLE = "Opciones de la ventana independiente";
 TWM_OPTIONS_TAB_WORLDMAP = "Mapa del mundo";
 TWM_OPTIONS_TAB_BROWSER = "Ventana independiente";
 TWM_OPTIONS_ENABLEBUTTON = "Activar el botón del minimapa";

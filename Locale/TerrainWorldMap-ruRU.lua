@@ -23,9 +23,6 @@ TWM_WORLDMAP_OVERLAY_OFF = "TerrainWorldMap: наложение на карту 
 TWM_DEBUG_TILES_ON = "TerrainWorldMap: отладочные метки тайлов ВКЛ";
 TWM_DEBUG_TILES_OFF = "TerrainWorldMap: отладочные метки тайлов ВЫКЛ";
 
-TWM_OPTIONS_TITLE = "Настройки TerrainWorldMap";
-TWM_OPTIONS_WORLDMAP_TITLE = "Настройки карты мира";
-TWM_OPTIONS_BROWSER_TITLE = "Настройки браузера";
 TWM_OPTIONS_TAB_WORLDMAP = "Карта мира";
 TWM_OPTIONS_TAB_BROWSER = "Браузер";
 TWM_OPTIONS_ENABLEBUTTON = "Включить кнопку на миникарте";

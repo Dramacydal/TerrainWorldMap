@@ -32,9 +32,6 @@ TWM_WORLDMAP_OVERLAY_OFF = "TerrainWorldMap: Weltkarten-Overlay AUS";
 TWM_DEBUG_TILES_ON = "TerrainWorldMap: Kachel-Debug-Beschriftungen AN";
 TWM_DEBUG_TILES_OFF = "TerrainWorldMap: Kachel-Debug-Beschriftungen AUS";
 
-TWM_OPTIONS_TITLE = "TerrainWorldMap-Optionen";
-TWM_OPTIONS_WORLDMAP_TITLE = "Weltkarten-Optionen";
-TWM_OPTIONS_BROWSER_TITLE = "Browser-Optionen";
 TWM_OPTIONS_TAB_WORLDMAP = "Weltkarte";
 TWM_OPTIONS_TAB_BROWSER = "Browser";
 TWM_OPTIONS_ENABLEBUTTON = "Aktiviere Minimap-Icon";

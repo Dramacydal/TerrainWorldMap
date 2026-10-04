@@ -178,14 +178,12 @@ themselves.
 
 ## `Slider:SetValueStep` doesn't stop mouse-dragging from giving fractional values
 
-`Settings.lua`'s `CreateSlider` calls `slider:SetValueStep(step)`, which
-looks like it should be enough to keep e.g. the Flight Path Curve Smoothing
-slider (step 1) landing on whole numbers. It isn't: `SetValueStep` only
-snaps keyboard arrow-key nudges. Dragging the thumb with the mouse ignores
-it entirely and reports whatever exact pixel-derived fraction the mouse
-position maps to, unless `slider:SetObeyStepOnDrag(true)` is also set. Now
-set once in `CreateSlider` itself so every slider in this addon gets it,
-not just the one where it happened to be noticed.
+A plain `OptionsSliderTemplate` slider with `slider:SetValueStep(step)` still
+reports fractional values when dragged with the mouse: `SetValueStep` only
+snaps keyboard arrow-key nudges, `slider:SetObeyStepOnDrag(true)` is also
+needed. (The Browser tab's sliders are Blizzard's own settings sliders now,
+which don't have this problem, but hand a float like `0.30000000000000004`
+to the setter -- `AddSlider` in `Settings.lua` rounds it to the step.)
 
 ## `Frame:SetClipsChildren(true)` clips children to the frame's rect for free
 
