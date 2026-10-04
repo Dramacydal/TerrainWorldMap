@@ -37,6 +37,7 @@ const { parseCsvFile: parseCsv, findCsv } = require('./csv');
 const { INSTANCE_TYPE_INSTANCE, INSTANCE_TYPE_RAID, INSTANCE_TYPE_SCENARIO } = require('./dbc_enums');
 const { flavorDir, listfilePath, ensureDb2Csv, ensureExtracted, ensureExtractedPaths, envOr, readCandidates } = require('./extract');
 const { skipMaps, isSkipped } = require('./skip_lists');
+const { tileBoundsFor, wmoTileBoundsFor } = require('./tile_bounds');
 
 const MINI2BIG = 1600 / 3; // 533.3333..., matches TerrainWorldMap.lua's MINI2BIGX/Y
 const MAP_ORIGIN = 32 * MINI2BIG;
@@ -179,67 +180,6 @@ function findCandidates(mapRows, instanceType, flavor) {
 		.filter(r => !/unused/i.test(r.MapName_lang))
 		.filter(r => !isSkipped(skipMaps, flavor, r.ID))
 		.map(r => ({ key: r.Directory, mapID: r.ID, expansion: r.ExpansionID, names: { enUS: r.MapName_lang } }));
-}
-
-// {x1,x2,y1,y2} union of every tile's own real 4 corners (the trailing 8
-// fields of gen_wmo_tiles.js's 15-field tuple, already-computed Big
-// coordinates -- see that script's header) for Twm_WMOTiles["<name>"] in an
-// already-generated mapdata_wmo_tiles_<kind>.lua. Preferred over
-// boxFromWdtGlobalPlacement whenever available: that function re-derives a
-// box from the WMO's own MOHD bounding box via a SEPARATE, independently-
-// reasoned placement formula (deliberately skipping gen_wmo_tiles.js's own
-// 90-degree local-space rotation, on the theory that it's purely a texture-
-// baking artifact) -- exactly the kind of two-formulas-for-one-value split
-// this codebase has been bitten by before (see .claude-docs/gotchas.md's
-// "WMO-tile world position" entry, whose own lessons section warns about
-// this generally). Reading the real corners already used to RENDER the
-// tiles instead guarantees the box always matches what's actually on
-// screen, by construction, regardless of which formula is or isn't right.
-function wmoTileBoundsFor(wmoTilesLua, name) {
-	const marker = `Twm_WMOTiles["${name}"] = {`;
-	const start = wmoTilesLua.indexOf(marker);
-	if (start === -1) return null;
-	const end = wmoTilesLua.indexOf('\n}', start);
-	const block = wmoTilesLua.slice(start, end === -1 ? undefined : end);
-
-	let x1 = -Infinity, x2 = Infinity, y1 = -Infinity, y2 = Infinity;
-	let count = 0;
-	const re = /\{(-?[0-9.eE+-]+(?:,\s*-?[0-9.eE+-]+){14})\}/g;
-	let m;
-	while ((m = re.exec(block))) {
-		const nums = m[1].split(',').map(s => parseFloat(s));
-		const [c1x, c1y, c2x, c2y, c3x, c3y, c4x, c4y] = nums.slice(7, 15);
-		x1 = Math.max(x1, c1x, c2x, c3x, c4x);
-		x2 = Math.min(x2, c1x, c2x, c3x, c4x);
-		y1 = Math.max(y1, c1y, c2y, c3y, c4y);
-		y2 = Math.min(y2, c1y, c2y, c3y, c4y);
-		count++;
-	}
-	if (count === 0) return null;
-	return { x1, x2, y1, y2, count };
-}
-
-// {col, row} min/max across every key in Twm_WDTValidTiles["<name>"] of an
-// already-generated mapdata_tiles_<kind>.lua -- same "COLxROW" keys parse_wdt.js
-// itself writes. Verbatim from gen_arenas.js.
-function tileBoundsFor(tilesLua, name) {
-	const marker = `Twm_WDTValidTiles["${name}"] = {`;
-	const start = tilesLua.indexOf(marker);
-	if (start === -1) return null;
-	const end = tilesLua.indexOf('\n}', start);
-	const block = tilesLua.slice(start, end === -1 ? undefined : end);
-
-	let colMin = Infinity, colMax = -Infinity, rowMin = Infinity, rowMax = -Infinity;
-	const re = /\["(\d+)x(\d+)"\]/g;
-	let m, count = 0;
-	while ((m = re.exec(block))) {
-		const col = parseInt(m[1], 10), row = parseInt(m[2], 10);
-		colMin = Math.min(colMin, col); colMax = Math.max(colMax, col);
-		rowMin = Math.min(rowMin, row); rowMax = Math.max(rowMax, row);
-		count++;
-	}
-	if (count === 0) return null;
-	return { colMin, colMax, rowMin, rowMax, count };
 }
 
 function parseArgs(argv) {

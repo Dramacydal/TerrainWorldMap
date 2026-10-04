@@ -11,7 +11,7 @@
 -- well below every POI/pin (MapCanvasPinFrameLevelsManagerMixin starts pins
 -- at frame level 2000), so it renders strictly between the two.
 --
--- Toggle with "/twm map on" / "/twm map off".
+-- Toggle with "/twm overlay on" / "/twm overlay off".
 
 local overlay;
 local backdrop;

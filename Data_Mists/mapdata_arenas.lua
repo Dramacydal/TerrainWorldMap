@@ -139,7 +139,7 @@ Twm_mapareas["PVPLordaeron"] = {
     [0] = {3200, 533.3333333333334, 2666.666666666667, 0},    --RuinsofLordaeron
 }
 Twm_mapareas["DalaranArena"] = {
-    [0] = {1600, 0, 2133.3333333333335, 533.3333333333334},    --DalaranSewers
+    [0] = {862.6005121866874, 585.025339762371, 1384.572687784832, 1128.572687784832},    --DalaranSewers
 }
 Twm_mapareas["OrgrimmarArena"] = {
     [0] = {533.3333333333334, -1066.6666666666667, 1600, 0},    --TheRingofValor

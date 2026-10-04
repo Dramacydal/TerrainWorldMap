@@ -34,6 +34,7 @@ const { parseCsvFile: parseCsv, findCsv } = require('./csv');
 const { INSTANCE_TYPE_ARENA } = require('./dbc_enums');
 const { flavorDir, ensureDb2Csv, envOr, readCandidates } = require('./extract');
 const { skipMaps, isSkipped } = require('./skip_lists');
+const { tileBoundsFor, wmoTileBoundsFor } = require('./tile_bounds');
 
 const MINI2BIG = 1600 / 3; // 533.3333..., matches TerrainWorldMap.lua's MINI2BIGX/Y
 function miniToBig(v) { return (v - 32) * -MINI2BIG; }
@@ -57,36 +58,14 @@ function findArenas(mapRows, flavor) {
 		.map(r => ({ key: r.Directory, mapID: r.ID, names: { enUS: r.MapName_lang } }));
 }
 
-// {col, row} min/max across every key in Twm_WDTValidTiles["<name>"] of an
-// already-generated mapdata_tiles_<kind>.lua -- same "COLxROW" keys parse_wdt.js
-// itself writes.
-function tileBoundsFor(tilesLua, name) {
-	const marker = `Twm_WDTValidTiles["${name}"] = {`;
-	const start = tilesLua.indexOf(marker);
-	if (start === -1) return null;
-	const end = tilesLua.indexOf('\n}', start);
-	const block = tilesLua.slice(start, end === -1 ? undefined : end);
-
-	let colMin = Infinity, colMax = -Infinity, rowMin = Infinity, rowMax = -Infinity;
-	const re = /\["(\d+)x(\d+)"\]/g;
-	let m, count = 0;
-	while ((m = re.exec(block))) {
-		const col = parseInt(m[1], 10), row = parseInt(m[2], 10);
-		colMin = Math.min(colMin, col); colMax = Math.max(colMax, col);
-		rowMin = Math.min(rowMin, row); rowMax = Math.max(rowMax, row);
-		count++;
-	}
-	if (count === 0) return null;
-	return { colMin, colMax, rowMin, rowMax, count };
-}
-
 function parseArgs(argv) {
-	const opts = { workDir: null, flavor: null, tilesFile: null, out: null, force: false, proxy: null };
+	const opts = { workDir: null, flavor: null, tilesFile: null, wmoTilesFile: null, out: null, force: false, proxy: null };
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i];
 		if (a === '--work-dir') opts.workDir = argv[++i];
 		else if (a === '--flavor') opts.flavor = argv[++i];
 		else if (a === '--tiles-file') opts.tilesFile = argv[++i];
+		else if (a === '--wmo-tiles-file') opts.wmoTilesFile = argv[++i];
 		else if (a === '--out') opts.out = argv[++i];
 		else if (a === '--force') opts.force = true;
 		else if (a === '--proxy') opts.proxy = argv[++i];
@@ -96,7 +75,8 @@ function parseArgs(argv) {
 }
 
 function printUsage() {
-	console.error('Usage: node gen_arenas.js --work-dir <dir> --flavor <product> --tiles-file <mapdata_tiles_arenas.lua, from parse_wdt.js --candidates arenas> --out <out-file.lua> [--force] [--proxy <url>]');
+	console.error('Usage: node gen_arenas.js --work-dir <dir> --flavor <product> --tiles-file <mapdata_tiles_arenas.lua, from parse_wdt.js --candidates arenas> [--wmo-tiles-file <mapdata_wmo_tiles_arenas.lua, from gen_wmo_tiles.js --candidates arenas>] --out <out-file.lua> [--force] [--proxy <url>]');
+	console.error('  An arena with no valid ADT tile (skip_lists.js\'s skipAdtTiles) gets its box from --wmo-tiles-file\'s tile corners instead.');
 	console.error('  Requires scripts/gen_candidates.js to have been run first (reads candidates/arenas.json for its own candidate list).');
 	console.error('  Map.<locale>.csv is self-downloaded for each of ' + LOCALES.join('/') + '.');
 }
@@ -129,6 +109,7 @@ function main() {
 
 	const mapRows = parseCsv(findCsv(flavorDirPath, 'Map.'));
 	const tilesLua = fs.readFileSync(opts.tilesFile, 'utf8');
+	const wmoTilesLua = opts.wmoTilesFile ? fs.readFileSync(opts.wmoTilesFile, 'utf8') : null;
 
 	// Candidate discovery/filtering (structural Map.csv filter + skipMaps)
 	// happens exactly once, in gen_candidates.js's own findArenas call --
@@ -169,15 +150,22 @@ function main() {
 	const arenas = [];
 	for (const a of candidates) {
 		const bounds = tileBoundsFor(tilesLua, a.key);
-		if (!bounds) {
-			console.error(`  (skipping ${a.key} "${a.names.enUS}" -- no Twm_WDTValidTiles entry in --tiles-file; regenerate it with ${a.key} included first)`);
+		if (bounds) {
+			const box = {
+				x1: miniToBig(bounds.colMin), x2: miniToBig(bounds.colMax + 1),
+				y1: miniToBig(bounds.rowMin), y2: miniToBig(bounds.rowMax + 1),
+			};
+			arenas.push({ ...a, box, tileCount: bounds.count });
 			continue;
 		}
-		const box = {
-			x1: miniToBig(bounds.colMin), x2: miniToBig(bounds.colMax + 1),
-			y1: miniToBig(bounds.rowMin), y2: miniToBig(bounds.rowMax + 1),
-		};
-		arenas.push({ ...a, box, tileCount: bounds.count });
+		// No valid ADT tile (e.g. skipAdtTiles): the extent of its WMO tiles.
+		const wmoBounds = wmoTilesLua && wmoTileBoundsFor(wmoTilesLua, a.key);
+		if (wmoBounds) {
+			const { x1, x2, y1, y2, count } = wmoBounds;
+			arenas.push({ ...a, box: { x1, x2, y1, y2 }, tileCount: count });
+			continue;
+		}
+		console.error(`  (skipping ${a.key} "${a.names.enUS}" -- no Twm_WDTValidTiles entry in --tiles-file and no WMO tiles in --wmo-tiles-file; regenerate them with ${a.key} included first)`);
 	}
 	console.error(`${arenas.length} arenas with usable tile data.`);
 

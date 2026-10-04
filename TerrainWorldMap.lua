@@ -1605,6 +1605,63 @@ local function TWM_SetPlateButtonTextures(button, normal, pushed, disabled)
     button:GetHighlightTexture():SetTexture(TWM_PLATE_HIGHLIGHT);
 end
 
+-- Slash commands: /twm [show | hide | center | follow on|off | reset [all] | options | overlay on|off | debug].
+-- Without an argument the window is toggled.
+local TWM_SLASH_HELP = {
+    "/twm - toggle the window",
+    "/twm show, /twm hide - show or hide the window",
+    "/twm center - show the window and center it on your character",
+    "/twm follow on|off - follow your character on the map",
+    "/twm reset - reset the window position and size; /twm reset all - also all settings",
+    "/twm options - open the settings",
+    "/twm overlay on|off - terrain overlay on the World Map",
+    "/twm debug - toggle the tile debug labels",
+};
+
+local TWM_SLASH_COMMANDS = {
+    [""] = function() TWMFrame:Toggle(); end,
+    show = function() TWMFrame:Show(); end,
+    hide = function() TWMFrame:Hide(); end,
+    options = function() TWMOption_Toggle(); end,
+    debug = function() TWM_ToggleTileDebug(); end,
+    center = function()
+        local wasHidden = not TWMFrame:IsShown();
+        TWMFrame:Show();
+        local jump = function() TWMFramePlayerJumpButton_Jump(TWMFramePlayerJumpButton); end;
+        -- A window just shown has no resolved layout yet.
+        if(wasHidden) then C_Timer.After(0, jump); else jump(); end
+    end,
+    follow = function(argument)
+        if(argument ~= "on" and argument ~= "off") then return false; end
+        if(argument == "on") then
+            TWMFrame.opt.track = "player";
+            TWMFramePlayerJumpButton_Seek(TWMFrame, "player");
+            TWMFramePlayerJumpButton_Update(TWMFramePlayerJumpButton);
+        else
+            TWMFrame_StopTracking(TWMFrame);
+        end
+    end,
+    reset = function(argument)
+        if(argument ~= "" and argument ~= "all") then return false; end
+        TWM_ResetFramePosition();
+        if(argument == "all") then TWM_ResetSettings(); end
+    end,
+    overlay = function(argument)
+        if(argument ~= "on" and argument ~= "off") then return false; end
+        TWM_SetWorldMapOverlay(argument == "on");
+    end,
+};
+
+function TWM_HandleSlashCommand(msg)
+    local command, argument = strsplit(" ", strtrim(msg or ""):lower(), 2);
+    local handler = TWM_SLASH_COMMANDS[command];
+    if(not handler or handler(strtrim(argument or "")) == false) then
+        for _, line in ipairs(TWM_SLASH_HELP) do
+            print("|cff40ff40TerrainWorldMap|r " .. line);
+        end
+    end
+end
+
 function TWMFrame_OnLoadExtra()
     -- Interface\Buttons\UI-Panel-MinimizeButton-{Up,Down,Disabled}
     TWM_SetPlateButtonTextures(TWMFrameCloseButton, 130832, 130830, 130829);
@@ -1613,17 +1670,7 @@ function TWMFrame_OnLoadExtra()
     TWMFrame.TWM_PD_ResetList = "TWM_PD_ResetList";
     
     SLASH_TWM1 = "/twm";
-    SlashCmdList["TWM"] = function(msg)
-        if(msg == "debug") then
-            TWM_ToggleTileDebug();
-        elseif(msg == "map on") then
-            TWM_SetWorldMapOverlay(true);
-        elseif(msg == "map off") then
-            TWM_SetWorldMapOverlay(false);
-        else
-            TWMFrame:Toggle();
-        end
-    end
+    SlashCmdList["TWM"] = TWM_HandleSlashCommand;
 
     TWMFrame.hoverTooltip = "TWMTooltip";
 

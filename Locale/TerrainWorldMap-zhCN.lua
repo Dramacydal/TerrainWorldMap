@@ -27,6 +27,7 @@ TWM_WORLDMAP_OVERLAY_OFF = "地形世界地图：世界地图叠加层 关闭";
 TWM_DEBUG_TILES_ON = "地形世界地图：贴图调试标签 开启";
 TWM_DEBUG_TILES_OFF = "地形世界地图：贴图调试标签 关闭";
 
+TWM_OPTIONS_VERSION = "版本 %s";
 TWM_OPTIONS_TAB_WORLDMAP = "世界地图";
 TWM_OPTIONS_TAB_BROWSER = "浏览器";
 TWM_OPTIONS_ENABLEBUTTON = "开启按钮";

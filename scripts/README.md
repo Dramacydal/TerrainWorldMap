@@ -706,8 +706,14 @@ node gen_battlegrounds.js --work-dir C:\wow-data --flavor wow_anniversary --out 
 ## Step 9 — `gen_arenas.js`: arena maps (`Twm_ArenaNames`, `Twm_mapareas`)
 
 ```bash
-node gen_arenas.js --work-dir <dir> --flavor <product> --tiles-file <mapdata_tiles_arenas.lua, from parse_wdt.js --candidates arenas> --out <out-file.lua> [--force] [--proxy <url>]
+node gen_arenas.js --work-dir <dir> --flavor <product> --tiles-file <mapdata_tiles_arenas.lua, from parse_wdt.js --candidates arenas> [--wmo-tiles-file <mapdata_wmo_tiles_arenas.lua, from gen_wmo_tiles.js --candidates arenas>] --out <out-file.lua> [--force] [--proxy <url>]
 ```
+
+`--wmo-tiles-file` is the box source for an arena with no valid ADT tile
+(listed in `skip_lists.js`'s `skipAdtTiles`, e.g. Mists' Dalaran Sewers): the
+extent of its WMO tiles' corners, via `tile_bounds.js` (shared with
+`gen_instance_maps.js`). Run `gen_wmo_tiles.js` for the arenas first. Without
+it such an arena is skipped (no dropdown entry).
 
 Same structural Map.csv filter as `gen_battlegrounds.js` (`ParentMapID=-1`,
 `MapType=1`), just `InstanceType=4` (`MAP_ARENA`) instead of `3`. Arenas

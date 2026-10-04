@@ -18,6 +18,9 @@ TerrainWorldMap ChangeLog
 - Added: players on the map show their class icon and class-colored name in
   the tooltip.
 - Added: French (frFR) and Spanish (esES, esMX) localizations.
+- Added: slash commands /twm show, /twm hide, /twm center, /twm follow
+  on|off, /twm reset (window position and size; "all" -- settings too) and
+  /twm options. /twm map on|off is now /twm overlay on|off.
 - Added: Battleground support -- Alterac Valley, Warsong Gulch, Arathi
   Basin and Eye of the Storm on every flavor that has them, plus Wintergrasp
   and Battle for Tol Barad on Mists and Darkspear Islands on WoW: Forever.
@@ -26,8 +29,15 @@ TerrainWorldMap ChangeLog
   overlay on the native World Map as continents get.
 - Added: named landmarks (towers, bunkers, graveyards, mines, bases) on
   battleground maps.
+- Added: option to fade out the standalone map window's controls (header,
+  footer, buttons) while the mouse is away from the window; on by default.
 - Changed: standalone map window redesigned.
+- Changed: the standalone map window can be made much smaller -- when it
+  gets narrow, the map dropdowns shrink and the second one moves to a second
+  row.
 - Fixed: lag and ever-growing memory use while dragging or zooming the map.
+- Fixed: map marker tooltips sometimes didn't appear, and they no longer
+  have extra empty space on the right -- they are sized to their text.
 - Fixed: the standalone map window's pan/zoom position no longer resets
   every time it's reopened -- only when you actually switch to a different
   map.

@@ -66,15 +66,6 @@ Twm_WDTValidTiles["PVPLordaeron"] = {
 }
 
 Twm_WDTValidTiles["DalaranArena"] = {
-    ["29x28"] = true,
-    ["30x28"] = true,
-    ["31x28"] = true,
-    ["29x29"] = true,
-    ["30x29"] = 4378,
-    ["31x29"] = true,
-    ["29x30"] = true,
-    ["30x30"] = true,
-    ["31x30"] = true,
 }
 
 Twm_WDTValidTiles["OrgrimmarArena"] = {

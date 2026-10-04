@@ -52,7 +52,12 @@ nothing to your addon folder's size or your loading screens.
 - Minimap button — left-click to toggle the window, right-click for a menu.
 - World Map button — left-click to toggle the terrain overlay, right-click
   for a menu.
-- `/twm` — toggle the map window.
+- `/twm` — toggle the map window; `/twm show`, `/twm hide` — show or hide it.
+- `/twm center` — show the window and center it on your character.
+- `/twm follow on|off` — turn following your character on or off.
+- `/twm reset` — reset the window position and size; `/twm reset all` — also all settings.
+- `/twm options` — open the settings.
+- `/twm overlay on|off` — terrain overlay on the World Map; `/twm debug` — tile debug labels.
 
 ## Contributing
 

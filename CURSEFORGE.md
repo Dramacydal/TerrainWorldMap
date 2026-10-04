@@ -26,7 +26,9 @@ Currently supports **Classic Era (Vanilla)**, **Classic Anniversary (TBC)**, **M
 - Can be used with your favorite World Map addon, ones supporting zoom (like LeatrixMaps) are recommended.
 - World Map button — left-click to toggle the terrain overlay, right-click for a menu.
 - Minimap button — left-click to toggle the window, right-click for a menu.
-- `/twm` — toggle the standalone map window.
+- `/twm` — toggle the standalone map window; `/twm show` / `/twm hide` show or hide it.
+- `/twm center` — show the window and center it on your character; `/twm follow on|off` — follow your character.
+- `/twm reset` — reset the window position and size, `/twm reset all` — also all settings; `/twm options` — open the settings.
 
 ## Supported clients
 

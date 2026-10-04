@@ -105,11 +105,12 @@ const skipAdtTiles = {
 		'608', // Violet Hold
 		'604', // Gundrak
 		'632', // The Forge of Souls
-		'725', // The Stonecore
+		'617', // Dalaran Sewers (arena)
 		'645', // Blackrock Caverns
-		'757', // Baradin Hold
-		'671', // The Bastion of Twilight
 		'669', // Blackwing Descent
+		'671', // The Bastion of Twilight
+		'725', // The Stonecore
+		'757', // Baradin Hold
 	],
 	wow_classic_beta: [
 		'129', // Razorfen Downs

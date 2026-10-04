@@ -78,6 +78,8 @@ end
 
 local mainTab = CreateTab(TWM_TITLE);
 
+AddHeader(mainTab, string.format(TWM_OPTIONS_VERSION, TWM_VERSION));
+
 AddCheckbox(mainTab, "ShowButton", TWM_OPTIONS_ENABLEBUTTON, TWM_TOOLTIP_OPT_ENABLEBUTTON, true,
     GlobalOptionGetter("ShowButton", true),
     function(value)
@@ -257,13 +259,17 @@ AddCheckbox(browserTab, "ShowDevelopmentMaps", TWM_OPTIONS_SHOW_DEVELOPMENT_MAPS
         end
     end);
 
+local function ResetTab(tab)
+    for _, setting in ipairs(tab.settings) do
+        setting:SetValueToDefault();
+    end
+end
+
 browserTab.layout:AddInitializer(CreateSettingsButtonInitializer(
     TWM_OPTIONS_RESETPOSITION, TWM_OPTIONS_RESETPOSITION,
     function()
         TWM_ResetFramePosition();
-        for _, setting in ipairs(browserTab.settings) do
-            setting:SetValueToDefault();
-        end
+        ResetTab(browserTab);
     end,
     TWM_TOOLTIP_OPT_RESETPOSITION, true));
 
@@ -274,6 +280,13 @@ if(SettingsPanel and SettingsPanel.DisplayCategory) then
     hooksecurefunc(SettingsPanel, "DisplayCategory", function(panel, displayed)
         panel:GetSettingsList().Header.DefaultsButton:SetShown(not tabs[displayed]);
     end);
+end
+
+-- Every setting of every tab back to its default (/twm reset all).
+function TWM_ResetSettings()
+    for _, tab in pairs(tabs) do
+        ResetTab(tab);
+    end
 end
 
 function TWMOption_Toggle()
