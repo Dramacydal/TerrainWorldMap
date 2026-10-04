@@ -131,7 +131,7 @@ end
 
 -- Width floor: keeps the dropdowns and "Goto Player" on the left of the
 -- control strip clear of the Settings/Lock/Close buttons on the right.
-TWM_FRAME_MIN_WIDTH = 460;
+TWM_FRAME_MIN_WIDTH = 480;
 
 TWM_FRAME_OPTION_DEFAULTS = {
     ["Locked"] = false,
@@ -2031,6 +2031,12 @@ function TWMFrameTemplate:UpdateLock()
         TWM_SetPlateButtonTextures(button,
             self.opt.Locked and TWM_LOCK_TEXTURE_LOCKED_UP or TWM_LOCK_TEXTURE_UNLOCKED_UP,
             TWM_LOCK_TEXTURE_UNLOCKED_DOWN);
+    end
+
+    -- A locked window can be neither moved nor resized.
+    local grip = _G[self:GetName().."ResizeButton"];
+    if(grip) then
+        grip:SetShown(not self.opt.Locked);
     end
 end
 

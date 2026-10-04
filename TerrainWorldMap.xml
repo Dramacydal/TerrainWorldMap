@@ -52,6 +52,20 @@
 							<Color r="0" g="0" b="0" a="0.55"/>
 						</Texture>
 					</Layer>
+					<Layer level="ARTWORK">
+						<Texture name="$parentIcon" file="Interface\AddOns\TerrainWorldMap\images\Button">
+							<Size>
+								<AbsDimension x="29" y="29"/>
+							</Size>
+							<Anchors>
+								<Anchor point="LEFT">
+									<Offset>
+										<AbsDimension x="3" y="0"/>
+									</Offset>
+								</Anchor>
+							</Anchors>
+						</Texture>
+					</Layer>
 				</Layers>
 				<Frames>
 					<Button name="TWMFrameCloseButton" inherits="TWMHeaderPlateButtonTemplate">
@@ -126,7 +140,7 @@
 							<AbsDimension x="170" y="24"/>
 						</Size>
 						<Anchors>
-							<Anchor point="LEFT">
+							<Anchor point="LEFT" relativeTo="TWMFrameHeaderIcon" relativePoint="RIGHT">
 								<Offset>
 									<AbsDimension x="4" y="0"/>
 								</Offset>

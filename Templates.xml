@@ -17,7 +17,7 @@
 
 	<!-- Square game-art button of the control strip (close, lock): 32x32, the
 	     art sits in the middle of the texture with a transparent margin. The
-	     button's textures are set from Lua (FileDataIDs, see TWM_SetButtonTextures). -->
+	     button's textures are set from Lua (FileDataIDs, see TWM_SetPlateButtonTextures). -->
 	<Button name="TWMHeaderPlateButtonTemplate" virtual="true">
 		<Size>
 			<AbsDimension x="32" y="32"/>
