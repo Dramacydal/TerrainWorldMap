@@ -9,10 +9,13 @@ Currently supports **Classic Era (Vanilla)**, **Classic Anniversary (TBC)**, **M
 ## Features
 
 - **Real terrain overlay on the World Map** — for continents and battlegrounds alike.
+- **Standalone browser window** — a movable, resizable, zoomable minimap-style view. The map fills the window under a semi-transparent header (map selectors, Goto Player, options) and footer (zoom, terrain and WMO toggles), with a category-organized map selector (Continents/Battlegrounds/Dungeons/Raids/Scenarios/Arenas), adjustable transparency and icon size. Shift+Click on Goto Player turns on follow mode (continents only).
 - **Battlegrounds** — Alterac Valley, Warsong Gulch, Arathi Basin, Eye of the Storm (plus Wintergrasp and Battle for Tol Barad on Mists, Darkspear Islands on WoW: Forever), each with real terrain, named landmarks.
-- **Standalone browser window** — a movable, resizable, zoomable minimap-style view, with a category-organized map selector (Continents/Battlegrounds), adjustable transparency and icon size.
+- **Instance maps in the standalone window** — dungeons, raids, scenarios and arenas, with their real layouts (WMO tiles). Show Terrain / Show WMO Layers toggles, a height cutoff slider and a WMO Tile Management menu control what is drawn.
+- **Dungeon and raid portals** — in the standalone window, click an entrance marker to open that dungeon's map. Inside, exit markers lead back outdoors and links to other instances (e.g. Blackrock Depths to Molten Core) are marked as well.
+- **Inaccessible maps** (optional) — a "Show Inaccessible Maps" option lists maps that exist in the client data but players can't reach (unfinished, cut or replaced ones).
 - **Underwater terrain toggle** (Mists of Pandaria) — shows the underwater terrain where possible, by default. Useful for Vashj'ir, but some zones at Pandaria's coastline also have this data (that seems to be erroneous).
-- **Player, party and raid tracking** on the map.
+- **Player, party and raid tracking** on the map, with class-colored names and class icons in the tooltips.
 - **Map markers**, each independently toggleable: Landmarks (points of interest), Graveyards, Capitals, Dungeons & Raids, and Flight Masters (color-coded by faction) — all shown with mouseover tooltips, and all displayed in whatever language you're playing in.
 - **Flight path lines** between flight masters — hover over one to see its own routes, or show every known route on the continent at once; hold Shift to see the real curved flight path instead of a straight line (showing every route at once can be laggy on continents with a lot of routes, especially with Shift held). An adjustable smoothing slider can further curve a hovered flight master's own routes.
 - **Minimap button and World Map button**, each with a right-click menu for quick access to settings and toggles.
@@ -30,7 +33,7 @@ Currently supports **Classic Era (Vanilla)**, **Classic Anniversary (TBC)**, **M
 - **Classic Era** (Vanilla)
 - **Anniversary** (TBC)
 - **Mists of Pandaria Classic**
-- **WoW: Forever** (Classic+, beta — Dungeon & Raid entrance markers aren't available yet for this one)
+- **WoW: Forever** (Classic+, beta — entrance markers cover the classic dungeons and raids; the Forever-only dungeons have none yet)
 
 ## Credits
 

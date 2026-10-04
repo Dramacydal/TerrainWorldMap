@@ -54,7 +54,7 @@
 					</Layer>
 				</Layers>
 				<Frames>
-					<Button name="TWMFrameCloseButton" inherits="UIPanelCloseButton">
+					<Button name="TWMFrameCloseButton" inherits="TWMHeaderPlateButtonTemplate">
 						<Anchors>
 							<Anchor point="RIGHT">
 								<Offset>
@@ -62,17 +62,13 @@
 								</Offset>
 							</Anchor>
 						</Anchors>
-						<!-- The template's own handler hides the parent, which is now the header strip. -->
 						<Scripts>
 							<OnClick>
 								TWMFrame:Hide();
 							</OnClick>
 						</Scripts>
 					</Button>
-					<Button name="TWMFrameLockButton">
-						<Size>
-							<AbsDimension x="32" y="32"/>
-						</Size>
+					<Button name="TWMFrameLockButton" inherits="TWMHeaderPlateButtonTemplate">
 						<Anchors>
 							<Anchor point="RIGHT" relativeTo="TWMFrameCloseButton" relativePoint="LEFT">
 								<Offset>
@@ -85,9 +81,6 @@
 								TWMFrame:ToggleLock();
 							</OnClick>
 						</Scripts>
-						<NormalTexture name="$parentNorm"/>
-						<PushedTexture name="$parentPush"/>
-						<HighlightTexture file="Interface\Buttons\UI-Panel-MinimizeButton-Highlight" alphaMode="ADD"/>
 					</Button>
 					<Button name="TWMFrameOptionsButton" inherits="TWMHeaderIconButtonTemplate">
 						<Size>
@@ -96,7 +89,7 @@
 						<Anchors>
 							<Anchor point="RIGHT" relativeTo="TWMFrameLockButton" relativePoint="LEFT">
 								<Offset>
-									<AbsDimension x="3" y="0"/>
+									<AbsDimension x="5" y="0"/>
 								</Offset>
 							</Anchor>
 						</Anchors>

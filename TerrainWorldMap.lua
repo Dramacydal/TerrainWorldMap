@@ -1507,7 +1507,22 @@ function TWMFrameTemplate:OnLoad()
     self.update_time = 0;
 end
 
+-- Textures of a TWMHeaderPlateButtonTemplate button, by FileDataID (nil keeps the current one);
+-- the hover glow is shared. Used instead of Blizzard's UIPanelCloseButton, which differs between
+-- clients (atlas art on Forever).
+local TWM_PLATE_HIGHLIGHT = 130831; -- Interface\Buttons\UI-Panel-MinimizeButton-Highlight
+
+local function TWM_SetPlateButtonTextures(button, normal, pushed, disabled)
+    if(normal) then button:GetNormalTexture():SetTexture(normal); end
+    if(pushed) then button:GetPushedTexture():SetTexture(pushed); end
+    if(disabled) then button:GetDisabledTexture():SetTexture(disabled); end
+    button:GetHighlightTexture():SetTexture(TWM_PLATE_HIGHLIGHT);
+end
+
 function TWMFrame_OnLoadExtra()
+    -- Interface\Buttons\UI-Panel-MinimizeButton-{Up,Down,Disabled}
+    TWM_SetPlateButtonTextures(TWMFrameCloseButton, 130832, 130830, 130829);
+
     TWMFrame.TWM_PD_allocText = "TWM_PD_allocText";
     TWMFrame.TWM_PD_ResetList = "TWM_PD_ResetList";
     
@@ -2004,19 +2019,18 @@ function TWMFrameTemplate:ToggleLock()
     self:UpdateLock();
 end
 
-function TWMFrameTemplate:UpdateLock()
-    local fm = self:GetName();
-    local norm = _G[fm.."LockButtonNorm"];
-    local push = _G[fm.."LockButtonPush"];
+-- FileDataIDs of Interface\Buttons\LockButton-{Locked-Up,Unlocked-Up,Unlocked-Down}.
+local TWM_LOCK_TEXTURE_LOCKED_UP = 525906;
+local TWM_LOCK_TEXTURE_UNLOCKED_UP = 525908;
+local TWM_LOCK_TEXTURE_UNLOCKED_DOWN = 525907;
 
-    if(norm and push) then
-        if(self.opt.Locked) then
-            norm:SetTexture("Interface\\AddOns\\TerrainWorldMap\\images\\LockButton-Locked-Up");
-            push:SetTexture("Interface\\AddOns\\TerrainWorldMap\\images\\LockButton-Locked-Down");
-        else
-            norm:SetTexture("Interface\\AddOns\\TerrainWorldMap\\images\\LockButton-Unlocked-Up");
-            push:SetTexture("Interface\\AddOns\\TerrainWorldMap\\images\\LockButton-Unlocked-Down");
-        end
+function TWMFrameTemplate:UpdateLock()
+    local button = _G[self:GetName().."LockButton"];
+
+    if(button) then
+        TWM_SetPlateButtonTextures(button,
+            self.opt.Locked and TWM_LOCK_TEXTURE_LOCKED_UP or TWM_LOCK_TEXTURE_UNLOCKED_UP,
+            TWM_LOCK_TEXTURE_UNLOCKED_DOWN);
     end
 end
 

@@ -15,6 +15,19 @@
 		</Anchors>
 	</Texture>
 
+	<!-- Square game-art button of the control strip (close, lock): 32x32, the
+	     art sits in the middle of the texture with a transparent margin. The
+	     button's textures are set from Lua (FileDataIDs, see TWM_SetButtonTextures). -->
+	<Button name="TWMHeaderPlateButtonTemplate" virtual="true">
+		<Size>
+			<AbsDimension x="32" y="32"/>
+		</Size>
+		<NormalTexture name="$parentNorm"/>
+		<PushedTexture name="$parentPush"/>
+		<DisabledTexture name="$parentDisabled"/>
+		<HighlightTexture alphaMode="ADD"/>
+	</Button>
+
 	<!-- Icon button of the control strip: 24x24, 1px frame, hover highlight.
 	     The button supplies its NormalTexture/PushedTexture (the pushed one
 	     offset by 1px) and calls TWM_HeaderIconButton_OnLoad from its OnLoad. -->

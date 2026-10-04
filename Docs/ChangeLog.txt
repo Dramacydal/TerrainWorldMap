@@ -1,8 +1,23 @@
 
 TerrainWorldMap ChangeLog
 ================
-2.0.0 (September 27, 2026)
+2.0.0 (October 3, 2026)
 ----------------------------
+- Added: Dungeon, Raid, Scenario (Mists of Pandaria) and Arena maps in the
+  map selector. Dungeons and raids are grouped by expansion.
+- Added: "Show Terrain" and "Show WMO Layers" toggles, a "Height Cutoff"
+  slider and a "WMO Tile Management" menu to show or hide individual WMO
+  tile groups.
+- Added: "Show Inaccessible Maps" option -- maps that exist in the client
+  data but players can't reach (unfinished, cut or replaced ones).
+- Added: clicking a dungeon or raid marker opens that map. Inside dungeon
+  and raid maps, exit markers lead back.
+- Added: follow mode in the standalone map window (Shift+Click "Goto
+  Player"; continents only).
+- Added: "Goto Player" now opens the dungeon or raid map you are in.
+- Added: players on the map show their class icon and class-colored name in
+  the tooltip.
+- Added: French (frFR) and Spanish (esES, esMX) localizations.
 - Added: Battleground support -- Alterac Valley, Warsong Gulch, Arathi
   Basin and Eye of the Storm on every flavor that has them, plus Wintergrasp
   and Battle for Tol Barad on Mists and Darkspear Islands on WoW: Forever.
@@ -11,6 +26,8 @@ TerrainWorldMap ChangeLog
   overlay on the native World Map as continents get.
 - Added: named landmarks (towers, bunkers, graveyards, mines, bases) on
   battleground maps.
+- Changed: standalone map window redesigned.
+- Fixed: lag and ever-growing memory use while dragging or zooming the map.
 - Fixed: the standalone map window's pan/zoom position no longer resets
   every time it's reopened -- only when you actually switch to a different
   map.
