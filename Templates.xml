@@ -80,6 +80,7 @@
 			    TWMFrame_Bootstrap(self);
 			</OnLoad>
 			<OnShow>
+				self.controlsIdle = 0;
 				if(TWMOption and TWMOption.Frames) then
 					local o = TWMOption.Frames[self:GetName()];
 					if(o.track) then

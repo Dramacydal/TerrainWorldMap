@@ -1641,6 +1641,10 @@ function TWMFrameTemplate:OnEvent(event, ...)
             TWMOption.TileFilter = "NEAREST";
         end
 
+        if(TWMOption.AutoHideControls == nil) then
+            TWMOption.AutoHideControls = true;
+        end
+
         -- Stale saved data from before BigTWMFrame was removed.
         if(TWMOption.Frames) then
             TWMOption.Frames["BigTWMFrame"] = nil;
@@ -3100,7 +3104,52 @@ function TWMFrameTemplate:FollowTick(unit, dt)
     return true;
 end
 
+-- With TWMOption.AutoHideControls the window's controls (header, footer, resize
+-- grip, WMO tile dropdown) fade out once the mouse has been away for a moment.
+local TWM_CONTROLS_HIDE_DELAY = 0.5;
+local TWM_CONTROLS_FADE_TIME = 0.25;
+
+local function TWM_ControlsWanted(self)
+    if(self:IsMouseOver() or self.isMoving) then return true; end
+    -- A button held while the controls are visible (slider, resize, drag) keeps them.
+    if((self.controlsAlpha or 1) > 0 and IsMouseButtonDown()) then return true; end
+    for _, dropdown in ipairs({_G[self:GetName().."DropDown"], _G[self:GetName().."DropDown2"], self.wmoGroupDropdown}) do
+        if(dropdown and dropdown:IsMenuOpen()) then return true; end
+    end
+    return false;
+end
+
+function TWMFrameTemplate:UpdateControlsFade(elapsed)
+    local autoHide = TWMOption and TWMOption.AutoHideControls;
+    local alpha = self.controlsAlpha or 1;
+    if(not autoHide and alpha == 1) then return; end
+
+    if(not autoHide or TWM_ControlsWanted(self)) then
+        self.controlsIdle = 0;
+    else
+        self.controlsIdle = (self.controlsIdle or 0) + elapsed;
+    end
+
+    local target = (autoHide and self.controlsIdle >= TWM_CONTROLS_HIDE_DELAY) and 0 or 1;
+    local step = elapsed / TWM_CONTROLS_FADE_TIME;
+    if(alpha < target) then
+        alpha = math.min(target, alpha + step);
+    else
+        alpha = math.max(target, alpha - step);
+    end
+    self.controlsAlpha = alpha;
+
+    local name = self:GetName();
+    -- Not children of the strips: created on the window itself.
+    local sliderName = name.."WMOOverlayHeightSlider";
+    for _, control in ipairs({_G[name.."Header"], _G[name.."Footer"], _G[name.."ResizeButton"], _G[sliderName] or false, self.wmoGroupDropdown or false}) do
+        if(control) then control:SetAlpha(alpha); end
+    end
+end
+
 function TWMFrameTemplate:OnUpdate(elapsed)
+    self:UpdateControlsFade(elapsed);
+
     self.update_time = self.update_time + elapsed;
 
     local followed = false;

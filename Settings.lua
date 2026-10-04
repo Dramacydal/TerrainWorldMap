@@ -321,9 +321,16 @@ showDevelopmentMapsButton:SetScript("OnClick", function(self)
 end);
 SetTooltip(showDevelopmentMapsButton, TWM_OPTIONS_SHOW_DEVELOPMENT_MAPS, TWM_TOOLTIP_OPT_SHOWDEVELOPMENTMAPS);
 
+local autoHideControlsButton = CreateCheckbox(browserContent, "TWMOptionAutoHideControls", TWM_OPTIONS_AUTOHIDE_CONTROLS);
+autoHideControlsButton:SetPoint("TOPLEFT", showDevelopmentMapsButton, "BOTTOMLEFT", 0, -12);
+autoHideControlsButton:SetScript("OnClick", function(self)
+    TWMOption.AutoHideControls = self:GetChecked() and true or false;
+end);
+SetTooltip(autoHideControlsButton, TWM_OPTIONS_AUTOHIDE_CONTROLS, TWM_TOOLTIP_OPT_AUTOHIDECONTROLS);
+
 local resetPositionButton = CreateFrame("Button", "TWMOptionResetPosition", browserContent, "UIPanelButtonTemplate");
 resetPositionButton:SetSize(160, 22);
-resetPositionButton:SetPoint("TOPLEFT", showDevelopmentMapsButton, "BOTTOMLEFT", 0, -24);
+resetPositionButton:SetPoint("TOPLEFT", autoHideControlsButton, "BOTTOMLEFT", 0, -24);
 resetPositionButton:SetText(TWM_OPTIONS_RESETPOSITION);
 resetPositionButton:SetScript("OnClick", function()
     TWM_ResetFramePosition();
@@ -341,6 +348,7 @@ resetPositionButton:SetScript("OnClick", function()
     TWMOption.ShowFlightPaths = false;
     TWMOption.WMOTileManagement = false;
     TWMOption.ShowDevelopmentMaps = false;
+    TWMOption.AutoHideControls = true;
     if(TWM_SetFlightPathThickness) then TWM_SetFlightPathThickness(nil); end
     if(TWM_SetFlightPathInterpolation) then TWM_SetFlightPathInterpolation(nil); end
 
@@ -372,6 +380,7 @@ function BrowserPanel.OnRefresh()
     showFlightPathsButton:SetChecked(TWMOption.ShowFlightPaths);
     wmoTileManagementButton:SetChecked(TWMOption.WMOTileManagement);
     showDevelopmentMapsButton:SetChecked(TWMOption.ShowDevelopmentMaps);
+    autoHideControlsButton:SetChecked(TWMOption.AutoHideControls);
     if(TWM_GetFlightPathThickness) then
         local v = TWM_GetFlightPathThickness();
         flightPathThicknessSlider:SetValue(v);
