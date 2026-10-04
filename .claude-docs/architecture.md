@@ -124,8 +124,15 @@ handle for moving the frame (forwards to `TWMFrame`'s own `OnDragStart/OnDragSto
 button, the Show Terrain / Show WMO Layers checkboxes (placed after the zoom button by `TWM_LayoutFooterChecks`: each
 visible one follows the previous visible one, so a hidden one leaves no gap) and the WMO height-cutoff slider (anchored to
 its right end, left of the resize grip; its name is a hover tooltip). The WMO group list hangs from the ViewFrame's
-top-right below the header. The resize grip is offset to stay clear of the strips. `TWM_FRAME_MIN_WIDTH` is the width
-floor so the strip's left and right clusters never overlap.
+top-right below the header. The resize grip is offset to stay clear of the strips.
+
+**Narrow window** (`TWM_LayoutHeader`, run on every size change): the header is one row (35px, `TWMFrameHeaderRow` centers the
+icon, first dropdown and right-hand buttons on it) while everything fits. Narrower: both dropdowns shrink to
+`TWM_HEADER_DROPDOWN_MIN_WIDTH`; narrower still: the second dropdown (and Goto Player, anchored to it) moves to a second
+row (header height 61) and both dropdowns get their full width back, shrinking again as the window narrows. The left/right extents of the first row are measured from the real frames. The resize
+bounds follow what is visible (`TWM_UpdateMinSize`: header minimum, plus the footer's checkboxes/slider widths, floored by
+`TWM_FRAME_MIN_WIDTH`/`TWM_FRAME_MIN_HEIGHT`), so nothing overlaps; the window is widened if a map change makes the
+footer need more room.
 
 **The two header dropdowns** (`TerrainWorldMap.lua`; Blizzard_Menu `DropdownButton`s, see gotchas.md): the left one is a category tree (Continents / Dungeons > expansion /
 Raids / Scenarios / Battlegrounds / Arenas). For a continent the right one lists its zones (`zonepulldowns`) and shows the

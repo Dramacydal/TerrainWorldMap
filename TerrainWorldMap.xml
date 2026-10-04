@@ -58,9 +58,9 @@
 								<AbsDimension x="29" y="29"/>
 							</Size>
 							<Anchors>
-								<Anchor point="LEFT">
+								<Anchor point="TOPLEFT">
 									<Offset>
-										<AbsDimension x="3" y="0"/>
+										<AbsDimension x="3" y="-3"/>
 									</Offset>
 								</Anchor>
 							</Anchors>
@@ -68,9 +68,21 @@
 					</Layer>
 				</Layers>
 				<Frames>
+					<!-- First row of the strip (35px): the icon, the first dropdown and the
+					buttons on the right are centered on it. The strip grows by a second
+					row when the window is narrow (TWM_LayoutHeader). -->
+					<Frame name="$parentRow">
+						<Size>
+							<AbsDimension x="1" y="35"/>
+						</Size>
+						<Anchors>
+							<Anchor point="TOPLEFT"/>
+							<Anchor point="TOPRIGHT"/>
+						</Anchors>
+					</Frame>
 					<Button name="TWMFrameCloseButton" inherits="TWMHeaderPlateButtonTemplate">
 						<Anchors>
-							<Anchor point="RIGHT">
+							<Anchor point="RIGHT" relativeTo="TWMFrameHeaderRow">
 								<Offset>
 									<AbsDimension x="2" y="0"/>
 								</Offset>

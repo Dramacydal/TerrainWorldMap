@@ -129,9 +129,9 @@ function TWM_ClearFrameTileTextures()
     end
 end
 
--- Width floor: keeps the dropdowns and "Goto Player" on the left of the
--- control strip clear of the Settings/Lock/Close buttons on the right.
-TWM_FRAME_MIN_WIDTH = 480;
+-- Absolute width floor; the real minimum follows what the header and footer
+-- show (TWM_UpdateMinSize).
+TWM_FRAME_MIN_WIDTH = 220;
 
 TWM_FRAME_OPTION_DEFAULTS = {
     ["Locked"] = false,
@@ -976,7 +976,7 @@ end
 -- one checkbox per group of the current map ("<group_id>: <group_name>").
 -- "Show all" is derived, not stored: checked while every group is enabled.
 -- Clicking it enables all groups, or disables all when it is checked.
-local TWM_WMO_GROUP_DROPDOWN_TOP = 34;
+local TWM_WMO_GROUP_DROPDOWN_GAP = 2; -- below the header strip
 local TWM_WMO_GROUP_DROPDOWN_RIGHT = 2;
 
 -- Blizzard_Menu opens a submenu 0.33s (hardcoded, private) after the cursor
@@ -1157,7 +1157,7 @@ function TWM_EnsureWMOGroupDropdown(frame, groups)
 
     dropdown.groups = groups;
     dropdown:ClearAllPoints();
-    dropdown:SetPoint("TOPRIGHT", _G[lm.."ViewFrame"], "TOPRIGHT", -TWM_WMO_GROUP_DROPDOWN_RIGHT, -TWM_WMO_GROUP_DROPDOWN_TOP);
+    dropdown:SetPoint("TOPRIGHT", _G[lm.."Header"], "BOTTOMRIGHT", -TWM_WMO_GROUP_DROPDOWN_RIGHT, -TWM_WMO_GROUP_DROPDOWN_GAP);
     dropdown:Show();
 end
 
@@ -1177,6 +1177,91 @@ function TWM_LayoutFooterChecks(frame)
             button:SetPoint("LEFT", anchor, "RIGHT", offset, 0);
             anchor, offset = _G[button:GetName().."Label"], TWM_FOOTER_CHECK_GAP;
         end
+    end
+end
+
+-- Header strip layout. Wide: one row (icon, two map dropdowns, "Goto Player",
+-- buttons on the right). Narrower: the dropdowns shrink to a minimum width; then
+-- the second dropdown and "Goto Player" move to a second row and the dropdowns
+-- get their full width back, to shrink again as the window narrows further.
+local TWM_HEADER_SIDE_INSETS = 7.3333; -- strip's left + right inset in the window (TerrainWorldMap.xml)
+local TWM_HEADER_ROW_HEIGHT = 35;      -- first row (TWMFrameHeaderRow)
+local TWM_HEADER_SECOND_ROW_HEIGHT = 26;
+local TWM_HEADER_DROPDOWN_WIDTH = 170;
+local TWM_HEADER_DROPDOWN_MIN_WIDTH = 110;
+local TWM_HEADER_GAP = 4;
+-- Used until the real left/right extents of the first row can be measured.
+local TWM_HEADER_LEFT_FALLBACK, TWM_HEADER_RIGHT_FALLBACK = 36, 70;
+
+local function TWM_MeasureHeader(frame)
+    local lm = frame:GetName();
+    local header = _G[lm.."Header"];
+    local left = _G[lm.."DropDown"]:GetLeft();
+    local right = _G[lm.."OptionsButton"]:GetLeft();
+    if(left and right and header:GetLeft() and header:GetRight()) then
+        frame.headerLeftReserve = left - header:GetLeft();
+        frame.headerRightReserve = header:GetRight() - right + TWM_HEADER_GAP;
+    end
+    return frame.headerLeftReserve or TWM_HEADER_LEFT_FALLBACK, frame.headerRightReserve or TWM_HEADER_RIGHT_FALLBACK;
+end
+
+function TWM_LayoutHeader(frame)
+    local lm = frame:GetName();
+    local header, dropdown1, dropdown2 = _G[lm.."Header"], _G[lm.."DropDown"], _G[lm.."DropDown2"];
+    local jump = _G[lm.."PlayerJumpButton"];
+    local left, right = TWM_MeasureHeader(frame);
+    local width = frame:GetWidth() - TWM_HEADER_SIDE_INSETS;
+
+    -- Width each dropdown gets in one row, then in the first row alone.
+    local oneRowWidth = (width - left - right - jump:GetWidth() - 2 * TWM_HEADER_GAP) / 2;
+    local twoRows = oneRowWidth < TWM_HEADER_DROPDOWN_MIN_WIDTH;
+    local dropdownWidth = math.max(TWM_HEADER_DROPDOWN_MIN_WIDTH, math.min(TWM_HEADER_DROPDOWN_WIDTH,
+        twoRows and (width - left - right) or oneRowWidth));
+
+    dropdown1:SetWidth(dropdownWidth);
+    dropdown2:SetWidth(dropdownWidth);
+    if(frame.headerTwoRows ~= twoRows) then
+        frame.headerTwoRows = twoRows;
+        dropdown2:ClearAllPoints();
+        if(twoRows) then
+            dropdown2:SetPoint("TOPLEFT", dropdown1, "BOTTOMLEFT", 0, -2);
+        else
+            dropdown2:SetPoint("LEFT", dropdown1, "RIGHT", TWM_HEADER_GAP, 0);
+        end
+        header:SetHeight(TWM_HEADER_ROW_HEIGHT + (twoRows and TWM_HEADER_SECOND_ROW_HEIGHT or 0));
+    end
+end
+
+-- The smallest window width that keeps the header and the footer's visible
+-- controls from overlapping; the resize bounds follow what is shown.
+TWM_FRAME_MIN_HEIGHT = 180;
+
+local function TWM_FooterMinWidth(frame)
+    local lm = frame:GetName();
+    local need = 2 + _G[lm.."ZoomButton"]:GetWidth();
+    local offset = 4;
+    for _, name in ipairs({"ShowTerrainButton", "ShowWMOOverlayButton"}) do
+        local button = _G[lm..name];
+        if(button:IsShown()) then
+            need = need + offset + button:GetWidth() + _G[button:GetName().."Label"]:GetStringWidth();
+            offset = TWM_FOOTER_CHECK_GAP;
+        end
+    end
+    local slider = _G[lm.."WMOOverlayHeightSlider"];
+    if(slider and slider:IsShown()) then
+        -- The slider sits at the strip's right end, clear of the resize grip.
+        need = need + TWM_FOOTER_CHECK_GAP + slider:GetWidth() + 24;
+    end
+    return need + TWM_HEADER_SIDE_INSETS;
+end
+
+function TWM_UpdateMinSize(frame)
+    local left, right = TWM_MeasureHeader(frame);
+    local headerMin = left + TWM_HEADER_DROPDOWN_MIN_WIDTH + right + TWM_HEADER_SIDE_INSETS;
+    local minWidth = math.ceil(math.max(headerMin, TWM_FooterMinWidth(frame), TWM_FRAME_MIN_WIDTH));
+    frame:SetResizeBounds(minWidth, TWM_FRAME_MIN_HEIGHT);
+    if(frame:GetWidth() < minWidth) then
+        frame:SetWidth(minWidth);
     end
 end
 
@@ -1265,6 +1350,7 @@ function TWM_UpdateOverlayButtons(frame)
         local slider = _G[lm.."WMOOverlayHeightSlider"];
         if(slider) then slider:Hide(); end
     end
+    TWM_UpdateMinSize(frame);
 end
 
 function TWMFrameShowWMOOverlayButton_OnClick(self)
@@ -1559,7 +1645,7 @@ function TWMFrame_OnLoadExtra()
     TWMFrameResizeButton:SetFrameLevel(TWMFrameFooter:GetFrameLevel() + 10);
 
     TWMFrame:SetResizable(true);
-    TWMFrame:SetResizeBounds(TWM_FRAME_MIN_WIDTH, 300);
+    TWMFrame:SetResizeBounds(TWM_FRAME_MIN_WIDTH, TWM_FRAME_MIN_HEIGHT);
 
     -- See TWM_ResetFramePosition: a size change applied while the frame
     -- is hidden doesn't actually reach the (anchor-derived) ViewFrame until
@@ -1574,6 +1660,7 @@ function TWMFrame_OnLoadExtra()
         -- call), so closing the frame and reopening it back to the SAME
         -- map still comes back with every group checked, per spec (see
         -- TWM_IsWMOGroupEnabled).
+        TWM_LayoutHeader(self);
         TWM_UpdateOverlayButtons(self);
     end);
 end
@@ -1599,6 +1686,7 @@ end
 local TWM_POINTS_RESIZE_REFRESH_STEP = 40;
 function TWMFrame_OnResizeStop(self, isFinal)
     if(not self.opt or self.inResizeRefresh) then return; end
+    TWM_LayoutHeader(self);
     self.inResizeRefresh = true;
     self.opt.Width, self.opt.Height = self:GetSize();
 
