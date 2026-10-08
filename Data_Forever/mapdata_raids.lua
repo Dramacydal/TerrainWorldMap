@@ -23,6 +23,8 @@
 -- Twm_flightmasters' name tables -- see this file's own header comment.
 -- `mapID` is Map.csv's own ID (a string) -- used by per-flavor visibility
 -- lists such as Twm_SeasonOnlyMaps (Data_Vanilla/mapdata_seasons.lua).
+-- `alias` ({ <locale> = {names} }, optional) are other names the map is known
+-- by (dungeon finder, top-level area names) -- only for comparing, never shown.
 -- `expansion` is Map.csv's own ExpansionID (a string, like every other ID
 -- in this codebase) -- drives the expansion-selection dropdown level
 -- TerrainWorldMap.lua inserts between this category and the actual list.
@@ -44,6 +46,19 @@ Twm_RaidNames = {
             ruRU = "Храм Ан'Киража",
             zhCN = "安其拉神殿",
             zhTW = "安其拉神廟",
+        },
+        alias = {
+            enUS = {"Ahn'Qiraj", "Temple of Ahn'Qiraj"},
+            deDE = {"Ahn'Qiraj"},
+            esES = {"Ahn'Qiraj"},
+            esMX = {"Ahn'Qiraj"},
+            frFR = {"Ahn'Qiraj", "Temple d’Ahn’Qiraj"},
+            itIT = {"Ahn'Qiraj", "Temple of Ahn'Qiraj"},
+            koKR = {"안퀴라즈"},
+            ptBR = {"Ahn'Qiraj"},
+            ruRU = {"Ан'Кираж"},
+            zhCN = {"安其拉"},
+            zhTW = {"安其拉"},
         },
     },
     {
@@ -80,6 +95,19 @@ Twm_RaidNames = {
             ruRU = "Изумрудный Сон",
             zhCN = "翡翠梦境",
             zhTW = "翡翠夢境",
+        },
+        alias = {
+            enUS = {"The Verdant Fields", "Emerald Forest"},
+            deDE = {"Die saftgrünen Felder", "Smaragdwald"},
+            esES = {"Los Verdegales", "Bosque Esmeralda"},
+            esMX = {"Los Verdegales", "Bosque Esmeralda"},
+            frFR = {"Les Champs verdoyants", "Forêt d'émeraude"},
+            itIT = {"Campi Verdeggianti", "Foresta di Smeraldo"},
+            koKR = {"신록의 들판", "에메랄드 숲"},
+            ptBR = {"Campos Verdejantes", "Floresta Esmeralda"},
+            ruRU = {"Зеленеющие поля", "Изумрудный лес"},
+            zhCN = {"青草平原", "翠叶森林"},
+            zhTW = {"青草平原", "翠葉森林"},
         },
     },
     {
@@ -135,6 +163,19 @@ Twm_RaidNames = {
             zhCN = "梦魇林地",
             zhTW = "夢魘林地",
         },
+        alias = {
+            enUS = {"Azshara", "Mount Hyjal", "Desolace", "Feralas", "Eastern Plaguelands", "The Hinterlands", "Elwynn Forest", "Duskwood", "Westfall", "Ashenvale"},
+            deDE = {"Azshara", "Hyjal", "Desolace", "Feralas", "Östliche Pestländer", "Hinterland", "Wald von Elwynn", "Dämmerwald", "Westfall", "Ashenvale"},
+            esES = {"Azshara", "Monte Hyjal", "Desolace", "Feralas", "Tierras de la Peste del Este", "Tierras del Interior", "Bosque de Elwynn", "Bosque del Ocaso", "Páramos de Poniente", "Vallefresno"},
+            esMX = {"Azshara", "Monte Hyjal", "Desolace", "Feralas", "Tierras de la Peste del Este", "Tierras del Interior", "Bosque de Elwynn", "Bosque del Ocaso", "Páramos de Poniente", "Vallefresno"},
+            frFR = {"Azshara", "Mont Hyjal", "Desolace", "Feralas", "Maleterres de l'est", "Les Hinterlands", "Forêt d’Elwynn", "Bois de la Pénombre", "Marche de l’Ouest", "Ashenvale"},
+            itIT = {"Azshara", "Mount Hyjal", "Desolanda", "Feralas", "Terre Infette Orientali", "Entroterre", "Foresta di Elwynn", "Boscovespro", "Marche Occidentali", "Valtetra"},
+            koKR = {"아즈샤라", "하이잘 산", "잊혀진 땅", "페랄라스", "동부 역병지대", "동부 내륙지", "엘윈 숲", "그늘숲", "서부 몰락지대", "잿빛 골짜기"},
+            ptBR = {"Azshara", "Monte Hyjal", "Desolação", "Feralas", "Terras Pestilentas Orientais", "Terras Agrestes", "Floresta de Elwynn", "Floresta do Crepúsculo", "Cerro Oeste", "Vale Gris"},
+            ruRU = {"Азшара", "Гора Хиджал", "Пустоши", "Фералас", "Восточные Чумные земли", "Внутренние земли", "Элвиннский лес", "Сумеречный лес", "Западный край", "Ясеневый лес"},
+            zhCN = {"艾萨拉", "海加尔山", "凄凉之地", "菲拉斯", "东瘟疫之地", "辛特兰", "艾尔文森林", "暮色森林", "西部荒野", "灰谷"},
+            zhTW = {"艾薩拉", "海加爾山", "淒涼之地", "菲拉斯", "東瘟疫之地", "辛特蘭", "艾爾文森林", "暮色森林", "西部荒野", "梣谷"},
+        },
     },
     {
         key = "OnyxiaLairInstance",
@@ -189,6 +230,9 @@ Twm_RaidNames = {
             zhCN = "血色领地",
             zhTW = "血色領區",
         },
+        alias = {
+            frFR = {"Enclave Écarlate"},
+        },
     },
     {
         key = "2791",
@@ -205,6 +249,9 @@ Twm_RaidNames = {
             ruRU = "Штормовые утесы",
             zhCN = "风暴悬崖",
             zhTW = "暴風崖",
+        },
+        alias = {
+            itIT = {"Antro di Onyxia"},
         },
     },
     {
@@ -224,6 +271,11 @@ Twm_RaidNames = {
             zhCN = "水晶谷",
             zhTW = "水晶谷",
         },
+        alias = {
+            deDE = {"Das Kristalltal"},
+            esES = {"Vega de Cristal"},
+            itIT = {"Antro di Onyxia"},
+        },
     },
     {
         key = "2789",
@@ -241,6 +293,10 @@ Twm_RaidNames = {
             zhCN = "腐烂之痕",
             zhTW = "腐爛之痕",
         },
+        alias = {
+            deDE = {"Die Faulende Narbe"},
+            itIT = {"Antro di Onyxia"},
+        },
     },
     {
         key = "Zul'gurub",
@@ -257,6 +313,9 @@ Twm_RaidNames = {
             ruRU = "Зул'Гуруб",
             zhCN = "祖尔格拉布",
             zhTW = "祖爾格拉布",
+        },
+        alias = {
+            itIT = {"Zul'Gurub"},
         },
     },
 }

@@ -43,4 +43,5 @@ Templates.xml
 TerrainWorldMap.xml
 Settings.lua
 TerrainWorldMapButton.lua
+integrations\LeatrixMaps.lua
 sets\index.xml

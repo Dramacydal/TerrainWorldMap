@@ -155,6 +155,39 @@ function boxFromWdtGlobalPlacement(flavorDirPath, mapName, idToPath) {
 // same set gen_arenas.js/gen_poi_flightmasters.js use.
 const LOCALES = ['enUS', 'deDE', 'esES', 'esMX', 'frFR', 'itIT', 'koKR', 'ptBR', 'ruRU', 'zhCN', 'zhTW'];
 
+// Tables the alias names come from (see addAliases).
+const ALIAS_TABLES = ['LFGDungeons', 'AreaTable'];
+
+// Other names a map is known by, for comparing only (the displayed name stays
+// Map.csv's MapName_lang): the names the dungeon finder gives it (LFGDungeons,
+// by MapID) and the names of its top-level areas (AreaTable, ContinentID =
+// Map ID, no parent area) -- "The Black Morass" for Map.csv's "Opening of the
+// Dark Portal". A trailing "(Heroic)"-like note is dropped, and so is a name
+// equal to the map's own. Sets `a.alias = { <locale> = [names] }`.
+function addAliases(candidates, localesDir) {
+	for (const locale of LOCALES) {
+		let lfgRows, areaRows;
+		try {
+			lfgRows = parseCsv(findCsv(localesDir, `LFGDungeons.${locale}.`));
+			areaRows = parseCsv(findCsv(localesDir, `AreaTable.${locale}.`));
+		} catch (e) {
+			console.error(`Skipping aliases for ${locale}: ${e.message}`);
+			continue;
+		}
+		for (const a of candidates) {
+			const names = [];
+			const add = (name) => {
+				name = (name || '').replace(/\s*\([^)]*\)\s*$/, '').trim();
+				if (!name || name.toLowerCase() === (a.names[locale] || '').toLowerCase()) return;
+				if (!names.some(n => n.toLowerCase() === name.toLowerCase())) names.push(name);
+			};
+			for (const r of lfgRows) if (r.MapID === a.mapID) add(r.Name_lang);
+			for (const r of areaRows) if (r.ContinentID === a.mapID && r.ParentAreaID === '0') add(r.AreaName_lang);
+			if (names.length > 0) (a.alias = a.alias || {})[locale] = names;
+		}
+	}
+}
+
 // candidatesFile is this kind's own candidates/<file>.json (gen_candidates.js)
 // -- plural, unlike --kind's own singular value, matching
 // continents/battlegrounds/arenas' own natural plural filenames.
@@ -242,6 +275,9 @@ async function main() {
 	ensureDb2Csv({ ...dl, table: 'Map' });
 	for (const locale of LOCALES)
 		ensureDb2Csv({ ...dl, table: 'Map', locale });
+	for (const table of ALIAS_TABLES)
+		for (const locale of LOCALES)
+			ensureDb2Csv({ ...dl, table, locale });
 	const flavorDirPath = flavorDir(opts.workDir, opts.flavor);
 	const localesDir = path.join(flavorDirPath, 'locales');
 
@@ -284,6 +320,8 @@ async function main() {
 			if (byID[a.mapID]) a.names[locale] = byID[a.mapID];
 		}
 	}
+
+	addAliases(candidates, localesDir);
 
 	// nameId -> WMO path, for the pure-WMO fallback below only (candidates
 	// that DO have tile data never touch this).
@@ -405,6 +443,8 @@ async function main() {
 		+ "-- Twm_flightmasters' name tables -- see this file's own header comment.\n"
 		+ "-- `mapID` is Map.csv's own ID (a string) -- used by per-flavor visibility\n"
 		+ "-- lists such as Twm_SeasonOnlyMaps (Data_Vanilla/mapdata_seasons.lua).\n"
+		+ "-- `alias` ({ <locale> = {names} }, optional) are other names the map is known\n"
+		+ "-- by (dungeon finder, top-level area names) -- only for comparing, never shown.\n"
 		+ "-- `expansion` is Map.csv's own ExpansionID (a string, like every other ID\n"
 		+ "-- in this codebase) -- drives the expansion-selection dropdown level\n"
 		+ "-- TerrainWorldMap.lua inserts between this category and the actual list.\n\n"
@@ -421,6 +461,15 @@ async function main() {
 			fullOutput += `            ${locale} = "${name}",\n`;
 		}
 		fullOutput += `        },\n`;
+		if (a.alias) {
+			fullOutput += `        alias = {\n`;
+			for (const locale of LOCALES) {
+				if (!a.alias[locale]) continue;
+				const list = a.alias[locale].map(n => `"${n.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`).join(', ');
+				fullOutput += `            ${locale} = {${list}},\n`;
+			}
+			fullOutput += `        },\n`;
+		}
 		fullOutput += `    },\n`;
 	}
 	fullOutput += "}\n\n";

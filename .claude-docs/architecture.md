@@ -402,3 +402,78 @@ point is hovered) instead of a fixed XML anchor. Its row buttons must never
 call `EnableMouse(true)` (see gotchas.md) — they have no interaction of
 their own and doing so silently swallows clicks meant for whatever is under
 the tooltip (e.g. a map-drag).
+
+## Leatrix Maps integration (`integrations/LeatrixMaps.lua`)
+
+Leatrix's dungeon/raid icons on the World Map carry no map ID, only a
+localized name, a description and a position on the zone map. A left click
+(hooks on `LeaMapsGlobalPinMixin`'s `OnAcquired`/`OnMouseUp`, installed once
+the mixin exists, on `PLAYER_ENTERING_WORLD`) looks the instances of
+`Twm_instances` up, one per target map, among the instances reachable from the
+icon's continent (its own entrance list, then the lists of the instances it
+enters, like Blackwing Lair from Blackrock Spire; never through an "Exit", so a
+name from another continent, e.g. Coilfang on Outland, does not match an icon
+in the Eastern Kingdoms); plus the selector's maps no entrance marker leads to
+(`TWM_LeatrixMarkerlessGroup`: new maps whose entrances are not in the data;
+found by name only, opened like the others). By name, in
+tiers (case-insensitive through the game's own `string.lower`, which lowers
+Cyrillic too -- unlike plain Lua's, checked in game with `/dump
+string.lower("ПРИвет!")`; the icon's name has
+color codes -- Leatrix's level color is malformed, `|cffffff 0` -- the level and
+"(...)" notes removed): the first tier with a hit wins. The names compared are
+`GetRealZoneText` of the Map ID, the name our map selector shows and its
+`alias` names (generated: dungeon finder and top-level area names, e.g. "The
+Black Morass" for "Opening of the Dark Portal"; see scripts/README.md, Step
+11). An icon Leatrix names so that no locale matches ours is pinned to its Map ID in
+`TWM_LEATRIX_NAME_FIXES` (matched as the first tier; "The Ruins of Lordaeron" in
+Forever's Leatrix, which has no translation of it at all; remove the entry when
+Leatrix is fixed). Tiers: the icon's name equals the instance's; equals one of its
+":"-separated parts ("Auchindoun: Mana-Tombs"); the instance's name is in the
+icon's description (an icon for
+a whole complex such as Blackrock Mountain, "Ahn'Qiraj"; there the entrances
+around the nearest one are added, and it counts as a complex whenever the
+description lists two or more names). When no name matches, by position: the
+click is converted to Big coordinates (same math as
+`TWM_GetUnitContinentPosition`) and the entrances within
+`TWM_LEATRIX_MATCH_RADIUS` of the zone's larger side are taken, only those of
+the icon's own kind (its `atlasName`, "Dungeon" or "Raid": a raid icon does not
+take the dungeons next to it; not for a complex's icon, which has both); if there are
+none, the single nearest one within `TWM_LEATRIX_FAR_RADIUS`. One instance
+opens in `TWMFrame` through `TWM_OpenPortalTarget` without an arrival point
+(the map is fitted to the window, like a pick from the list); several -- a
+context menu at the cursor with our entrance icons. `/twm debug` prints what
+was compared for each click.
+
+The file lives in `integrations/` (one file per other addon). The feature has an
+option, `TWMOption.LeatrixMapsClick` (default on, `TWM_LeatrixClickEnabled`),
+in the "Integrations" settings tab (`Settings.lua`), a tab that is created only
+when Leatrix_Maps is loaded (`IsAddOnLoaded`, so an installed but disabled one
+does not count), which is checked on `PLAYER_LOGIN`, after every addon has
+loaded. (`GetAddOnEnableState(name, UnitName("player"))` at file load was not
+reliable: the tab was still created for a disabled addon.) Off: the icons behave as
+without TerrainWorldMap.
+
+Two kinds of Leatrix Maps exist. The Classic Era (1.15.x), Anniversary (2.5.x)
+and Mists (5.1.x) one makes its icons map
+pins (`LeaMapsGlobalPinMixin`, hooked as above). The Forever one (1.60.x) has no
+mixin: it draws plain frames on the map's canvas (`isLeaMapsPin`, data in
+`pin.data` = `{kind, x%, y%, name, description, atlas, minLevel, maxLevel}`) that
+take no mouse input and finds the icon under the cursor itself by their
+footprint. For that one `TWM_LeatrixInstallCanvasClicks` adds a canvas click
+handler (`WorldMapFrame:AddCanvasClickHandler`, called for a real click only,
+not a drag) and repeats that hit test (`TWM_LEATRIX_HIT_SCALE`). The handler
+returns true when it took the click: that stops the map's own handling, which
+would otherwise navigate to the zone under the cursor (an icon near the edge of
+the map, like Uldaman's in Forever, is over the neighbouring zone as well).
+The data is turned into the same `info`
+table (`TWM_LeatrixInfoFromData`), so everything below is shared. Its icons
+cannot be told from the other kind's by anything but these two paths.
+
+The result is worked out once per map, for all of its dungeon/raid icons
+together (`TWM_LeatrixAssign`, on the first click on that map; Leatrix's icon
+data is private to its addon and its icons are all created at once when a map is
+shown, so they are read from the pin pool), and cached by map and icon
+position. An instance an icon matched by name (the first two tiers) belongs to
+that icon: other icons of the map do not take it by position. Without that, the
+Frozen Halls icon, which stands next to Icecrown Citadel's, got the Citadel into
+its list.

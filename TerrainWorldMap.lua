@@ -506,7 +506,7 @@ if(Twm_DungeonNames) then
     TWM_DUNGEONS = {};
     local names, bases = TWM_DisplayNames(Twm_DungeonNames);
     for i, e in ipairs(Twm_DungeonNames) do
-        TWM_DUNGEONS[names[i]] = {e.key, expansion = e.expansion, mapID = e.mapID, base = bases[i]};
+        TWM_DUNGEONS[names[i]] = {e.key, expansion = e.expansion, mapID = e.mapID, base = bases[i], alias = e.alias and TWM_ResolveLocaleName(e.alias)};
     end
 end
 
@@ -514,7 +514,7 @@ if(Twm_RaidNames) then
     TWM_RAIDS = {};
     local names, bases = TWM_DisplayNames(Twm_RaidNames);
     for i, e in ipairs(Twm_RaidNames) do
-        TWM_RAIDS[names[i]] = {e.key, expansion = e.expansion, mapID = e.mapID, base = bases[i]};
+        TWM_RAIDS[names[i]] = {e.key, expansion = e.expansion, mapID = e.mapID, base = bases[i], alias = e.alias and TWM_ResolveLocaleName(e.alias)};
     end
 end
 
@@ -565,7 +565,7 @@ if(Twm_ScenarioNames) then
     TWM_SCENARIOS = {};
     local names, bases = TWM_DisplayNames(Twm_ScenarioNames);
     for i, e in ipairs(Twm_ScenarioNames) do
-        TWM_SCENARIOS[names[i]] = {e.key, mapID = e.mapID, base = bases[i]};
+        TWM_SCENARIOS[names[i]] = {e.key, mapID = e.mapID, base = bases[i], alias = e.alias and TWM_ResolveLocaleName(e.alias)};
     end
 end
 

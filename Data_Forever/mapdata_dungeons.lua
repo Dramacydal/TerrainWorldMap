@@ -23,6 +23,8 @@
 -- Twm_flightmasters' name tables -- see this file's own header comment.
 -- `mapID` is Map.csv's own ID (a string) -- used by per-flavor visibility
 -- lists such as Twm_SeasonOnlyMaps (Data_Vanilla/mapdata_seasons.lua).
+-- `alias` ({ <locale> = {names} }, optional) are other names the map is known
+-- by (dungeon finder, top-level area names) -- only for comparing, never shown.
 -- `expansion` is Map.csv's own ExpansionID (a string, like every other ID
 -- in this codebase) -- drives the expansion-selection dropdown level
 -- TerrainWorldMap.lua inserts between this category and the actual list.
@@ -63,6 +65,9 @@ Twm_DungeonNames = {
             zhCN = "黑石深渊",
             zhTW = "黑石深淵",
         },
+        alias = {
+            frFR = {"Profondeurs de Rochenoire"},
+        },
     },
     {
         key = "BlackRockSpire",
@@ -80,6 +85,10 @@ Twm_DungeonNames = {
             ruRU = "Вершина Черной горы",
             zhCN = "黑石塔",
             zhTW = "黑石塔",
+        },
+        alias = {
+            frFR = {"Pic Rochenoire"},
+            ruRU = {"Пик Черной горы"},
         },
     },
     {
@@ -99,6 +108,13 @@ Twm_DungeonNames = {
             zhCN = "燃烧的安多哈尔",
             zhTW = "燃燒的安多哈爾",
         },
+        alias = {
+            enUS = {"The Burning of Andorhal"},
+            deDE = {"Der Brand von Andorhal"},
+            esES = {"Incendio de Andorhal"},
+            frFR = {"L’incendie d’Andorhal"},
+            itIT = {"The Burning of Andorhal"},
+        },
     },
     {
         key = "CavernsOfTime",
@@ -115,6 +131,19 @@ Twm_DungeonNames = {
             ruRU = "Пещеры Времени",
             zhCN = "时光之穴",
             zhTW = "時光之穴",
+        },
+        alias = {
+            enUS = {"The Black Morass", "Old Hillsbrad Foothills", "Elsewhen"},
+            deDE = {"Das schwarze Fenn", "Die alten Vorgebirge von Hillsbrad", "Anderswann"},
+            esES = {"Ciénaga Negra", "Antiguas Laderas de Trabalomas", "Otro Momento"},
+            esMX = {"La Ciénaga Negra", "Antiguas Laderas de Trabalomas", "Otro tiempo"},
+            frFR = {"Le Noir Marécage", "Anciens contreforts de Hautebrande", "Autretemps"},
+            itIT = {"Palude Nera", "Passato delle Alture di Colletorto"},
+            koKR = {"검은늪", "옛 힐스브래드 구릉지", "엘스웬"},
+            ptBR = {"Lamaçal Negro", "Antigo Contraforte de Eira dos Montes", "Outrora"},
+            ruRU = {"Черные топи", "Старые предгорья Хилсбрада", "Гдекогда"},
+            zhCN = {"黑色沼泽", "旧希尔斯布莱德丘陵", "别时别地"},
+            zhTW = {"黑色沼澤", "老希爾斯布萊德丘陵", "艾爾斯溫"},
         },
     },
     {
@@ -134,6 +163,19 @@ Twm_DungeonNames = {
             zhCN = "达拉然城",
             zhTW = "達拉然城",
         },
+        alias = {
+            enUS = {"Hillsbrad Foothills"},
+            deDE = {"Vorgebirge von Hillsbrad"},
+            esES = {"Laderas de Trabalomas"},
+            esMX = {"Laderas de Trabalomas"},
+            frFR = {"Contreforts de Hautebrande"},
+            itIT = {"Hillsbrad Foothills"},
+            koKR = {"힐스브래드 구릉지"},
+            ptBR = {"Contraforte de Eira dos Montes"},
+            ruRU = {"Предгорья Хилсбрада"},
+            zhCN = {"希尔斯布莱德丘陵"},
+            zhTW = {"希爾斯布萊德丘陵"},
+        },
     },
     {
         key = "DeadminesInstance",
@@ -151,6 +193,19 @@ Twm_DungeonNames = {
             ruRU = "Мертвые копи",
             zhCN = "死亡矿井",
             zhTW = "死亡礦坑",
+        },
+        alias = {
+            enUS = {"Westfall", "The Great Sea", "Unused Ironcladcove", "***On Map Dungeon***", "The Deadmines"},
+            deDE = {"Westfall", "Das große Meer", "Unused Ironcladcove", "***On Map Dungeon***", "Die Todesminen"},
+            esES = {"Páramos de Poniente", "Mare Magnum", "Unused Ironcladcove", "***On Map Dungeon***", "Las Minas de la Muerte"},
+            esMX = {"Páramos de Poniente", "Mare Magnum", "Unused Ironcladcove", "***On Map Dungeon***", "Las Minas de la Muerte"},
+            frFR = {"Marche de l'Ouest", "La Grande mer", "Unused Ironcladcove", "***On Map Dungeon***", "Les Mortemines"},
+            itIT = {"Grande Mare", "Unused Ironcladcove", "***On Map Dungeon***"},
+            koKR = {"서부 몰락지대", "대해", "Unused Ironcladcove", "***On Map Dungeon***"},
+            ptBR = {"Cerro Oeste", "O Grande Oceano", "Unused Ironcladcove", "***On Map Dungeon***"},
+            ruRU = {"Западный край", "Великое море", "Unused Ironcladcove", "***On Map Dungeon***"},
+            zhCN = {"西部荒野", "无尽之海", "Unused Ironcladcove", "***On Map Dungeon***"},
+            zhTW = {"西部荒野", "無盡之海", "Unused Ironcladcove", "***On Map Dungeon***"},
         },
     },
     {
@@ -170,6 +225,19 @@ Twm_DungeonNames = {
             zhCN = "逆风小径",
             zhTW = "逆風小徑",
         },
+        alias = {
+            enUS = {"Redridge Mountains", "Blasted Lands", "Swamp of Sorrows", "Stranglethorn Vale", "Elwynn Forest", "Duskwood"},
+            deDE = {"Rotkammgebirge", "Verwüstete Lande", "Sümpfe des Elends", "Schlingendorntal", "Wald von Elwynn", "Dämmerwald"},
+            esES = {"Montañas Crestagrana", "Las Tierras Devastadas", "Pantano de las Penas", "Vega de Tuercespina", "Bosque de Elwynn", "Bosque del Ocaso"},
+            esMX = {"Montañas Crestagrana", "Las Tierras Devastadas", "Pantano de las Penas", "Vega de Tuercespina", "Bosque de Elwynn", "Bosque del Ocaso"},
+            frFR = {"Les Carmines", "Terres foudroyées", "Marais des Chagrins", "Vallée de Strangleronce", "Forêt d’Elwynn", "Bois de la Pénombre"},
+            itIT = {"Montagne Crestarossa", "Valico Ventomorto", "Terre Devastate", "Palude del Dolore", "Foresta di Elwynn", "Boscovespro"},
+            koKR = {"붉은마루 산맥", "저주받은 땅", "슬픔의 늪", "가시덤불 골짜기", "엘윈 숲", "그늘숲"},
+            ptBR = {"Montanhas Cristarrubra", "Barreira do Inferno", "Pântano das Mágoas", "Selva do Espinhaço", "Floresta de Elwynn", "Floresta do Crepúsculo"},
+            ruRU = {"Красногорье", "Выжженные земли", "Болото Печали", "Тернистая долина", "Элвиннский лес", "Сумеречный лес"},
+            zhCN = {"赤脊山", "诅咒之地", "悲伤沼泽", "荆棘谷", "艾尔文森林", "暮色森林"},
+            zhTW = {"赤脊山", "詛咒之地", "悲傷沼澤", "荊棘谷", "艾爾文森林", "暮色森林"},
+        },
     },
     {
         key = "2784",
@@ -186,6 +254,9 @@ Twm_DungeonNames = {
             ruRU = "Каньон Гибели Демона",
             zhCN = "屠魔峡谷",
             zhTW = "屠魔峽谷",
+        },
+        alias = {
+            itIT = {"Canyon della Caduta Infernale"},
         },
     },
     {
@@ -222,6 +293,9 @@ Twm_DungeonNames = {
             ruRU = "Раскопки: Болотина",
             zhCN = "挖掘场：湿地",
             zhTW = "挖掘場：濕地",
+        },
+        alias = {
+            esMX = {"Sitio de Excavación: Los Humedales"},
         },
     },
     {
@@ -331,6 +405,10 @@ Twm_DungeonNames = {
             zhCN = "剃刀高地",
             zhTW = "剃刀高地",
         },
+        alias = {
+            deDE = {"Die Hügel von Razorfen"},
+            esES = {"Zahúrda Rojocieno"},
+        },
     },
     {
         key = "RazorfenKraulInstance",
@@ -348,6 +426,9 @@ Twm_DungeonNames = {
             ruRU = "Лабиринты Иглошкурых",
             zhCN = "剃刀沼泽",
             zhTW = "剃刀沼澤",
+        },
+        alias = {
+            deDE = {"Der Kral von Razorfen"},
         },
     },
     {
@@ -367,6 +448,9 @@ Twm_DungeonNames = {
             zhCN = "洛丹伦废墟",
             zhTW = "羅德隆廢墟",
         },
+        alias = {
+            deDE = {"Die Ruinen von Lordaeron"},
+        },
     },
     {
         key = "MonasteryInstances",
@@ -384,6 +468,9 @@ Twm_DungeonNames = {
             ruRU = "Монастырь Алого ордена",
             zhCN = "血色修道院",
             zhTW = "血色修道院",
+        },
+        alias = {
+            deDE = {"Das Scharlachrote Kloster"},
         },
     },
     {
@@ -421,6 +508,19 @@ Twm_DungeonNames = {
             zhCN = "暗影堡",
             zhTW = "暗影堡",
         },
+        alias = {
+            enUS = {"Felwood"},
+            deDE = {"Teufelswald", "Die Schattenfeste"},
+            esES = {"Frondavil"},
+            esMX = {"Frondavil"},
+            frFR = {"Gangrebois"},
+            itIT = {"Vilbosco"},
+            koKR = {"악령의 숲"},
+            ptBR = {"Selva Maleva"},
+            ruRU = {"Оскверненный лес"},
+            zhCN = {"费伍德森林"},
+            zhTW = {"費伍德森林"},
+        },
     },
     {
         key = "Shadowfang",
@@ -438,6 +538,9 @@ Twm_DungeonNames = {
             ruRU = "Крепость Темного Клыка",
             zhCN = "影牙城堡",
             zhTW = "影牙城堡",
+        },
+        alias = {
+            itIT = {"Forte di Zannascura"},
         },
     },
     {
@@ -457,6 +560,19 @@ Twm_DungeonNames = {
             zhCN = "星陨兽穴",
             zhTW = "星殞獸穴",
         },
+        alias = {
+            enUS = {"Starfall Village"},
+            deDE = {"Starfall"},
+            esES = {"Aldea Estrella Fugaz"},
+            esMX = {"Aldea Estrella Fugaz"},
+            frFR = {"Pluie-d’Étoiles"},
+            itIT = {"Padiglione Pioggia di Stelle"},
+            koKR = {"별똥별 마을"},
+            ptBR = {"Aldeia Chuva Estelar"},
+            ruRU = {"Деревня Звездопада"},
+            zhCN = {"坠星村"},
+            zhTW = {"墜星村"},
+        },
     },
     {
         key = "StormwindJail",
@@ -474,6 +590,17 @@ Twm_DungeonNames = {
             ruRU = "Тюрьма Штормграда",
             zhCN = "暴风城监狱",
             zhTW = "暴風城監獄",
+        },
+        alias = {
+            enUS = {"The Stockade"},
+            deDE = {"Das Verlies"},
+            esES = {"Las Mazmorras"},
+            esMX = {"Las Mazmorras"},
+            frFR = {"La Prison"},
+            ptBR = {"O Cárcere"},
+            ruRU = {"Тюрьма"},
+            zhCN = {"监狱"},
+            zhTW = {"監獄"},
         },
     },
     {
@@ -600,6 +727,9 @@ Twm_DungeonNames = {
             ruRU = "Пещеры Стенаний",
             zhCN = "哀嚎洞穴",
             zhTW = "哀嚎洞穴",
+        },
+        alias = {
+            deDE = {"Die Höhlen des Wehklagens"},
         },
     },
     {

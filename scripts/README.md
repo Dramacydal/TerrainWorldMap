@@ -1097,6 +1097,18 @@ include) but no dropdown level — Mists is the only flavor with any, and
 they're all MoP (`ExpansionID=4`), so splitting by expansion there would be a
 single always-open submenu with nothing to filter.
 
+Each candidate also gets `alias = { <locale> = {names} }` (optional): other
+names the map is known by, **for comparing only** (the displayed name stays
+`Map.csv`'s `MapName_lang`; `integrations/LeatrixMaps.lua` matches icon names against them).
+Two sources, both self-downloaded per locale (`LFGDungeons.<locale>.csv`,
+`AreaTable.<locale>.csv`): `LFGDungeons.Name_lang` for the Map ID (the dungeon
+finder's names, e.g. "Caverns of Time - Dark Portal"), and the names of the
+map's top-level `AreaTable` areas (`ContinentID` = Map ID, `ParentAreaID` = 0 --
+"The Black Morass" for "Opening of the Dark Portal", "Hyjal Summit" for "The
+Battle for Mount Hyjal"). A trailing "(Heroic)"-like note is dropped, names
+equal to the map's own are left out, and `LFGDungeons` has no raids on most
+flavors (the area names cover those).
+
 **Structural filter is deliberately NOT `MapType=1`**, unlike every other
 generator's own top-level-map filter (`gen_mapareas.js`/`gen_arenas.js`/
 `gen_battlegrounds.js` all use it) — `Map.csv`'s `MapType` column is

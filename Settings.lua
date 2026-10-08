@@ -279,6 +279,31 @@ browserTab.layout:AddInitializer(CreateSettingsButtonInitializer(
     end,
     TWM_TOOLTIP_OPT_RESETPOSITION, true));
 
+--
+-- "Integrations" tab: other addons TerrainWorldMap works with (integrations/).
+-- Exists only when one of them is loaded, i.e. installed and enabled: that is
+-- known only once every addon has loaded, hence PLAYER_LOGIN.
+--
+
+local function AddOnLoaded(name)
+    return (C_AddOns and C_AddOns.IsAddOnLoaded or IsAddOnLoaded)(name);
+end
+
+local integrationsFrame = CreateFrame("Frame");
+integrationsFrame:RegisterEvent("PLAYER_LOGIN");
+integrationsFrame:SetScript("OnEvent", function(self)
+    self:UnregisterAllEvents();
+    if(not AddOnLoaded("Leatrix_Maps")) then return; end
+
+    local integrationsTab = CreateTab(TWM_OPTIONS_TAB_INTEGRATIONS, mainTab);
+
+    AddHeader(integrationsTab, "Leatrix Maps");
+
+    AddCheckbox(integrationsTab, "LeatrixMapsClick", TWM_OPTIONS_LEATRIXMAPS_CLICK, TWM_TOOLTIP_OPT_LEATRIXMAPSCLICK, true,
+        GlobalOptionGetter("LeatrixMapsClick", true),
+        function(value) TWMOption.LeatrixMapsClick = value; end);
+end);
+
 -- The panel's own "Defaults" button offers to reset every interface setting of
 -- the game, far more than these tabs need (the Browser tab has its own reset
 -- button): hidden while one of them is shown.

@@ -29,6 +29,12 @@ nothing to your addon folder's size or your loading screens.
   entrance marker to open that dungeon's map. Inside, exit markers lead
   back outdoors and links to other instances (e.g. Blackrock Depths to
   Molten Core) are marked too.
+- **Leatrix Maps** — click a dungeon or raid icon that Leatrix Maps puts on
+  the World Map to open that instance's map in the standalone window. An
+  icon that stands for several instances (Blackrock Mountain, Caverns of
+  Time, ...) shows a list of them to pick from. Can be switched off in
+  the "Integrations" settings tab, which appears only when Leatrix Maps is
+  installed and enabled.
 - **Map markers**, each independently toggleable (gear menu) — shown by
   default: Landmarks (named points of interest), Graveyards, Capitals,
   Dungeons & Raids (one toggle for both), and Flight Masters (color-coded

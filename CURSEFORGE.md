@@ -30,6 +30,10 @@ Currently supports **Classic Era (Vanilla)**, **Classic Anniversary (TBC)**, **M
 - `/twm center` — show the window and center it on your character; `/twm follow on|off` — follow your character.
 - `/twm reset` — reset the window position and size, `/twm reset all` — also all settings; `/twm options` — open the settings.
 
+## Integrations
+
+- **Leatrix Maps** — click a dungeon or raid icon that Leatrix Maps puts on the World Map to open that instance's map in the standalone window. An icon that stands for several instances (Blackrock Mountain, Caverns of Time, ...) shows a list of them to pick from. Can be switched off in the "Integrations" settings tab, which appears only when Leatrix Maps is installed and enabled.
+
 ## Supported clients
 
 - **Classic Era** (Vanilla)

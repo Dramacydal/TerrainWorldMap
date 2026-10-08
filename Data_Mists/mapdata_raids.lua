@@ -23,6 +23,8 @@
 -- Twm_flightmasters' name tables -- see this file's own header comment.
 -- `mapID` is Map.csv's own ID (a string) -- used by per-flavor visibility
 -- lists such as Twm_SeasonOnlyMaps (Data_Vanilla/mapdata_seasons.lua).
+-- `alias` ({ <locale> = {names} }, optional) are other names the map is known
+-- by (dungeon finder, top-level area names) -- only for comparing, never shown.
 -- `expansion` is Map.csv's own ExpansionID (a string, like every other ID
 -- in this codebase) -- drives the expansion-selection dropdown level
 -- TerrainWorldMap.lua inserts between this category and the actual list.
@@ -44,6 +46,19 @@ Twm_RaidNames = {
             ruRU = "Храм Ан'Киража",
             zhCN = "安其拉神殿",
             zhTW = "安其拉神廟",
+        },
+        alias = {
+            enUS = {"Ahn'Qiraj"},
+            deDE = {"Ahn'Qiraj"},
+            esES = {"Ahn'Qiraj"},
+            esMX = {"Ahn'Qiraj"},
+            frFR = {"Ahn’Qiraj"},
+            itIT = {"Ahn'Qiraj"},
+            koKR = {"안퀴라즈"},
+            ptBR = {"Ahn'Qiraj"},
+            ruRU = {"Ан'Кираж"},
+            zhCN = {"安其拉"},
+            zhTW = {"安其拉"},
         },
     },
     {
@@ -80,6 +95,10 @@ Twm_RaidNames = {
             ruRU = "Черный храм",
             zhCN = "黑暗神殿",
             zhTW = "黑暗神廟",
+        },
+        alias = {
+            deDE = {"Schwarzer Tempel"},
+            esMX = {"El Templo Oscuro"},
         },
     },
     {
@@ -135,6 +154,19 @@ Twm_RaidNames = {
             zhCN = "盘牙湖泊：毒蛇神殿",
             zhTW = "盤牙:毒蛇神殿洞穴",
         },
+        alias = {
+            enUS = {"Serpentshrine Cavern"},
+            deDE = {"Höhle des Schlangenschreins"},
+            esES = {"Caverna Santuario Serpiente"},
+            esMX = {"Caverna Santuario Serpiente"},
+            frFR = {"Caverne du sanctuaire du Serpent"},
+            itIT = {"Serpentshrine Cavern"},
+            koKR = {"불뱀 제단"},
+            ptBR = {"Caverna do Serpentário"},
+            ruRU = {"Змеиное святилище"},
+            zhCN = {"毒蛇神殿"},
+            zhTW = {"毒蛇神殿洞穴"},
+        },
     },
     {
         key = "DeathwingBack",
@@ -153,6 +185,19 @@ Twm_RaidNames = {
             zhCN = "巨龙之魂",
             zhTW = "巨龍之魂",
         },
+        alias = {
+            enUS = {"The Siege of Wyrmrest Temple", "Fall of Deathwing", "Spine of the Destroyer UNUSED"},
+            deDE = {"Belagerung des Wyrmruhtempels", "Todesschwinges Sturz", "Rückgrat des Zerstörers"},
+            esES = {"Asedio Templo Reposo del Dragón", "Caída de Alamuerte", "Espinazo del Destructor UNUSED"},
+            esMX = {"Asedio Templo Reposo del Dragón", "Caída de Alamuerte", "Espinazo del Destructor UNUSED"},
+            frFR = {"Le siège du temple du Repos du ver", "La chute d’Aile de mort", "L’échine du Destructeur INUTILISÉ"},
+            itIT = {"The Siege of Wyrmrest Temple", "Fall of Deathwing", "Spine of the Destroyer UNUSED"},
+            koKR = {"고룡쉼터 사원 탈환", "데스윙의 추락", "파괴자의 등뼈 미사용"},
+            ptBR = {"Cerco ao Repouso das Serpes", "Queda do Asa da Morte", "Espinhaço do Destruidor UNUSED"},
+            ruRU = {"Осада Храма Драконьего Покоя", "Падение Смертокрыла", "Spine of the Destroyer UNUSED"},
+            zhCN = {"围攻龙眠神殿", "死亡之翼的陨落", "Spine of the Destroyer UNUSED"},
+            zhTW = {"圍攻龍眠神殿", "死亡之翼隕落", "毀滅者之脊"},
+        },
     },
     {
         key = "EmeraldDream",
@@ -170,6 +215,19 @@ Twm_RaidNames = {
             ruRU = "Изумрудный Сон",
             zhCN = "翡翠梦境",
             zhTW = "翡翠夢境",
+        },
+        alias = {
+            enUS = {"The Verdant Fields", "Emerald Forest"},
+            deDE = {"Die Saftgrünen Felder", "Smaragdwald"},
+            esES = {"Los Verdegales", "Bosque Esmeralda"},
+            esMX = {"Los Verdegales", "Bosque Esmeralda"},
+            frFR = {"Les champs Verdoyants", "Forêt d’Émeraude"},
+            itIT = {"The Verdant Fields", "Emerald Forest"},
+            koKR = {"신록의 들판", "에메랄드 숲"},
+            ptBR = {"Campos Verdejantes", "Floresta Esmeralda"},
+            ruRU = {"Зеленеющие поля", "Изумрудный лес"},
+            zhCN = {"青草平原", "翠叶森林"},
+            zhTW = {"青草平原", "翠葉森林"},
         },
     },
     {
@@ -225,6 +283,19 @@ Twm_RaidNames = {
             zhCN = "恐惧之心",
             zhTW = "恐懼之心",
         },
+        alias = {
+            enUS = {"The Dread Approach", "Nightmare of Shek'zeer"},
+            deDE = {"Der Schreckensvorstoß", "Shek'zeers Alptraum"},
+            esES = {"Un enfoque aterrador", "Pesadilla de Shek'zeer"},
+            esMX = {"Un enfoque aterrador", "Pesadilla de Shek'zeer"},
+            frFR = {"L’approche de l’effroi", "Le cauchemar de Shek’zeer"},
+            itIT = {"The Dread Approach", "Nightmare of Shek'zeer"},
+            koKR = {"다가오는 공포", "셰크지르의 악몽"},
+            ptBR = {"A Chegada do Pavor", "Pesadelo de Shek'zeer"},
+            ruRU = {"Надвигающийся ужас", "Кошмар Шек'зир"},
+            zhCN = {"恐惧临近", "夏柯希尔的梦魇"},
+            zhTW = {"恐懼門徑", "杉齊爾的夢魘"},
+        },
     },
     {
         key = "IcecrownCitadel",
@@ -242,6 +313,19 @@ Twm_RaidNames = {
             ruRU = "Цитадель Ледяной Короны",
             zhCN = "冰冠堡垒",
             zhTW = "冰冠城塞",
+        },
+        alias = {
+            enUS = {"The Frost Queen's Lair", "Putricide's Laboratory of Alchemical Horrors and Fun", "The Crimson Hall", "The Frozen Throne", "The Sanctum of Blood"},
+            deDE = {"Der Hort der Frostkönigin", "Seuchenmords Laboratorium der Alchemistischen Schrecken und Späße", "Die Blutrote Halle", "Der Frostthron", "Das Sanktum des Blutes"},
+            esES = {"La Guarida de la Reina de Escarcha", "Laboratorio Horrores y Risas Alquímicas de Putricidio", "La Sala Carmesí", "El Trono Helado", "El Sagrario de Sangre"},
+            esMX = {"La Guarida de la Reina de Escarcha", "Laboratorio Horrores y Risas Alquímicas de Putricidio", "La Sala Carmesí", "El Trono Helado", "El Sagrario de Sangre"},
+            frFR = {"Le repaire de la Reine du Givre", "Laboratoire des Désopilantes atrocités alchimiques de Putricide", "La salle Cramoisie", "Le Trône de glace", "Le sanctum du Sang"},
+            itIT = {"The Frost Queen's Lair", "Putricide's Laboratory of Alchemical Horrors and Fun", "The Crimson Hall", "The Frozen Throne", "The Sanctum of Blood"},
+            koKR = {"서리 여왕의 둥지", "공포와 재미가 넘치는 퓨트리사이드의 연금술 실험실", "진홍빛 전당", "얼어붙은 왕좌", "피의 성소"},
+            ptBR = {"Covil da Rainha Gélida", "Laboratório de Horrores e Diversões Alquímicas do Putricídio", "Salão Carmesim", "O Trono de Gelo", "Sacrário de Sangue"},
+            ruRU = {"Логово Королевы Льда", "Лаборатория алхимических ужасов и забав", "Багровый зал", "Ледяной Трон", "Святилище Крови"},
+            zhCN = {"冰霜女王的巢穴", "普崔赛德的恐怖和娱乐化学实验室", "血色厅堂", "冰封王座", "鲜血秘室"},
+            zhTW = {"冰霜之后的巢穴", "普崔希德的恐懼與歡樂鍊金實驗室", "赤紅大廳", "冰封王座", "血之聖所"},
         },
     },
     {
@@ -279,6 +363,9 @@ Twm_RaidNames = {
             zhCN = "玛瑟里顿的巢穴",
             zhTW = "瑪瑟里頓的巢穴",
         },
+        alias = {
+            frFR = {"Repaire de Magtheridon"},
+        },
     },
     {
         key = "MogushanPalace",
@@ -296,6 +383,19 @@ Twm_RaidNames = {
             ruRU = "Подземелья Могу'шан",
             zhCN = "魔古山宝库",
             zhTW = "魔古山寶庫",
+        },
+        alias = {
+            enUS = {"Guardians of Mogu'shan", "The Vault of Mysteries"},
+            deDE = {"Wächter von Mogu'shan", "Das Gewölbe der Mysterien"},
+            esES = {"Guardianes de Mogu'shan", "La cámara de los misterios"},
+            esMX = {"Guardianes de Mogu'shan", "La cámara de los misterios"},
+            frFR = {"Gardiens des Mogu’shan", "Le caveau des Mystères"},
+            itIT = {"Guardians of Mogu'shan", "The Vault of Mysteries"},
+            koKR = {"모구샨의 수호자", "신비의 금고"},
+            ptBR = {"Guardiões de Mogu'shan", "A Galeria dos Mistérios"},
+            ruRU = {"Стражи Могу'шан", "Хранилище тайн"},
+            zhCN = {"魔古山守护者", "神秘宝库"},
+            zhTW = {"魔古山的守護者", "秘法寶庫"},
         },
     },
     {
@@ -351,6 +451,9 @@ Twm_RaidNames = {
             zhCN = "奥妮克希亚的巢穴",
             zhTW = "奧妮克希亞的巢穴",
         },
+        alias = {
+            ptBR = {"Covil da Onyxia"},
+        },
     },
     {
         key = "AhnQiraj",
@@ -369,6 +472,10 @@ Twm_RaidNames = {
             zhCN = "安其拉废墟",
             zhTW = "安其拉廢墟",
         },
+        alias = {
+            enUS = {"Ahn'Qiraj Ruins"},
+            itIT = {"Ahn'Qiraj Ruins"},
+        },
     },
     {
         key = "OrgrimmarRaid",
@@ -386,6 +493,19 @@ Twm_RaidNames = {
             ruRU = "Осада Оргриммара",
             zhCN = "决战奥格瑞玛",
             zhTW = "圍攻奧格瑪",
+        },
+        alias = {
+            enUS = {"Vale of Eternal Sorrows", "Gates of Retribution", "The Underhold", "Downfall"},
+            deDE = {"Tal des Ewigen Kummers", "Tore der Vergeltung", "Die Tiefenfestung", "Niedergang"},
+            esES = {"Valle de la Pena Eterna", "Las Puertas de la Venganza", "El Búnker", "El Ocaso", "Siege of Orgrimmar"},
+            esMX = {"Valle de la Pena Eterna", "Las Puertas de la Venganza", "El Búnker", "El Ocaso", "Siege of Orgrimmar"},
+            frFR = {"Val de l’Éternelle tristesse", "Les portes de la Vindicte", "Fort-du-Gouffre", "La chute", "Siege of Orgrimmar"},
+            itIT = {"Vale of Eternal Sorrows", "Gates of Retribution", "The Underhold", "Downfall"},
+            koKR = {"영원한 슬픔의 골짜기", "응보의 성문", "지하요새", "폭군의 몰락"},
+            ptBR = {"Vale das Mágoas Eternas", "Portões da Retaliação", "O Forte Subterrâneo", "A Queda", "Siege of Orgrimmar"},
+            ruRU = {"Вечноскорбящий дол", "Расплата у врат", "Подземная крепость", "Низвержение", "Siege of Orgrimmar"},
+            zhCN = {"锦绣谷之殇", "复仇之门", "地下堡垒", "暴君的黄昏"},
+            zhTW = {"恆憂谷", "懲戒之門", "地下要塞", "霸權隕落", "Siege of Orgrimmar"},
         },
     },
     {
@@ -459,6 +579,19 @@ Twm_RaidNames = {
             zhCN = "海加尔山之战",
             zhTW = "海加爾山之戰",
         },
+        alias = {
+            enUS = {"Hyjal Past", "Hyjal Summit"},
+            deDE = {"Hyjal der Vergangenheit", "Hyjalgipfel"},
+            esES = {"El Pasado Hyjal", "La Cima Hyjal"},
+            esMX = {"El Pasado Hyjal", "La Cima Hyjal"},
+            frFR = {"Passé d’Hyjal", "Sommet d’Hyjal"},
+            itIT = {"Hyjal Past", "Hyjal Summit"},
+            koKR = {"과거의 하이잘", "하이잘 정상"},
+            ptBR = {"Hyjal Antigo", "Pico Hyjal"},
+            ruRU = {"Прошлое Хиджала", "Вершина Хиджала"},
+            zhCN = {"海加尔", "海加尔峰"},
+            zhTW = {"過往的海加爾山", "海加爾山之巔"},
+        },
     },
     {
         key = "NexusRaid",
@@ -513,6 +646,11 @@ Twm_RaidNames = {
             zhCN = "红玉圣殿",
             zhTW = "晶紅聖所",
         },
+        alias = {
+            enUS = {"Ruby Sanctum"},
+            deDE = {"Rubinsanktum"},
+            itIT = {"Ruby Sanctum"},
+        },
     },
     {
         key = "SunwellPlateau",
@@ -530,6 +668,19 @@ Twm_RaidNames = {
             ruRU = "Солнечный Колодец",
             zhCN = "太阳之井",
             zhTW = "太陽之井",
+        },
+        alias = {
+            enUS = {"Sunwell Plateau"},
+            deDE = {"Sonnenbrunnen", "Sonnenbrunnenplateau"},
+            esES = {"Meseta de La Fuente del Sol"},
+            esMX = {"Meseta de La Fuente del Sol"},
+            frFR = {"Puits de soleil", "Plateau du Puits de soleil"},
+            itIT = {"Sunwell Plateau"},
+            koKR = {"태양샘 고원"},
+            ptBR = {"A Nascente do Sol", "Platô da Nascente do Sol"},
+            ruRU = {"Плато Солнечного Колодца"},
+            zhCN = {"太阳之井高地"},
+            zhTW = {"太陽之井高地"},
         },
     },
     {
@@ -567,6 +718,19 @@ Twm_RaidNames = {
             zhCN = "雷电王座",
             zhTW = "雷霆王座",
         },
+        alias = {
+            enUS = {"Last Stand of the Zandalari", "Forgotten Depths", "Halls of Flesh-Shaping", "Pinnacle of Storms"},
+            deDE = {"Das letzte Gefecht der Zandalari", "Vergessene Tiefen", "Hallen der Fleischformer", "Die Spitze der Stürme", "Der Thron des Donners"},
+            esES = {"La carga de la brigada Zandalari", "Abismo de la Desidia", "Cámaras de Modelado de Carne", "Pináculo de las Tormentas"},
+            esMX = {"La carga de la brigada Zandalari", "Abismo de la Desidia", "Cámaras de Modelado de Carne", "Pináculo de las Tormentas"},
+            frFR = {"Le baroud d’honneur des Zandalari", "Profondeurs oubliées", "Salles des Sculpte-Chair", "Cime des Tempêtes"},
+            itIT = {"Last Stand of the Zandalari", "Forgotten Depths", "Halls of Flesh-Shaping", "Pinnacle of Storms"},
+            koKR = {"잔달라 부족 최후의 저항", "잊혀진 심연", "살점구체자의 전당", "폭풍의 첨탑"},
+            ptBR = {"Resistência Final dos Zandalari", "Profundezas Abandonadas", "Salões da Carne Moldada", "Pináculo das Tempestades"},
+            ruRU = {"Последний оплот зандаларов", "Забытые глубины", "Залы Искажения Плоти", "Вершина Бурь"},
+            zhCN = {"赞达拉的背水一战", "被遗忘的深渊", "修身殿", "风暴之巅"},
+            zhTW = {"贊達拉的最後防線", "遺忘深淵", "血肉塑形大廳", "風暴之巔"},
+        },
     },
     {
         key = "ArgentTournamentRaid",
@@ -584,6 +748,19 @@ Twm_RaidNames = {
             ruRU = "Испытание крестоносца",
             zhCN = "十字军的试炼",
             zhTW = "十字軍試煉",
+        },
+        alias = {
+            enUS = {"Trial of the Grand Crusader"},
+            deDE = {"Prüfung des Obersten Kreuzfahrers"},
+            esES = {"Prueba del Gran Cruzado"},
+            esMX = {"Prueba del Gran Cruzado"},
+            frFR = {"L'épreuve du grand croisé"},
+            itIT = {"Trial of the Grand Crusader"},
+            koKR = {"십자군 사령관의 시험장"},
+            ptBR = {"Prova do Grande Cruzado"},
+            ruRU = {"Испытание великого крестоносца"},
+            zhCN = {"大十字军的试炼"},
+            zhTW = {"大十字軍試煉"},
         },
     },
     {

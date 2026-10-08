@@ -23,6 +23,8 @@
 -- Twm_flightmasters' name tables -- see this file's own header comment.
 -- `mapID` is Map.csv's own ID (a string) -- used by per-flavor visibility
 -- lists such as Twm_SeasonOnlyMaps (Data_Vanilla/mapdata_seasons.lua).
+-- `alias` ({ <locale> = {names} }, optional) are other names the map is known
+-- by (dungeon finder, top-level area names) -- only for comparing, never shown.
 -- `expansion` is Map.csv's own ExpansionID (a string, like every other ID
 -- in this codebase) -- drives the expansion-selection dropdown level
 -- TerrainWorldMap.lua inserts between this category and the actual list.
@@ -45,6 +47,19 @@ Twm_RaidNames = {
             zhCN = "安其拉神殿",
             zhTW = "安其拉神廟",
         },
+        alias = {
+            enUS = {"Ahn'Qiraj"},
+            deDE = {"Ahn'Qiraj"},
+            esES = {"Ahn'Qiraj"},
+            esMX = {"Ahn'Qiraj"},
+            frFR = {"Ahn'Qiraj"},
+            itIT = {"Ahn'Qiraj"},
+            koKR = {"안퀴라즈"},
+            ptBR = {"Ahn'Qiraj"},
+            ruRU = {"Ан'Кираж"},
+            zhCN = {"安其拉"},
+            zhTW = {"安其拉"},
+        },
     },
     {
         key = "BlackTemple",
@@ -62,6 +77,10 @@ Twm_RaidNames = {
             ruRU = "Черный храм",
             zhCN = "黑暗神殿",
             zhTW = "黑暗神廟",
+        },
+        alias = {
+            esES = {"Templo Oscuro"},
+            esMX = {"Templo Oscuro"},
         },
     },
     {
@@ -99,6 +118,19 @@ Twm_RaidNames = {
             zhCN = "盘牙湖泊：毒蛇神殿",
             zhTW = "盤牙:毒蛇神殿洞穴",
         },
+        alias = {
+            enUS = {"Serpentshrine Cavern"},
+            deDE = {"Höhle des Schlangenschreins"},
+            esES = {"Caverna Santuario Serpiente"},
+            esMX = {"Caverna Santuario Serpiente"},
+            frFR = {"Caverne du sanctuaire du Serpent"},
+            itIT = {"Serpentshrine Cavern"},
+            koKR = {"불뱀 제단"},
+            ptBR = {"Caverna do Serpentário"},
+            ruRU = {"Змеиное святилище"},
+            zhCN = {"毒蛇神殿"},
+            zhTW = {"毒蛇神殿洞穴"},
+        },
     },
     {
         key = "EmeraldDream",
@@ -116,6 +148,19 @@ Twm_RaidNames = {
             ruRU = "Изумрудный Сон",
             zhCN = "翡翠梦境",
             zhTW = "翡翠夢境",
+        },
+        alias = {
+            enUS = {"The Verdant Fields", "Emerald Forest"},
+            deDE = {"Die saftgrünen Felder", "Smaragdwald"},
+            esES = {"Los Verdegales", "Bosque Esmeralda"},
+            esMX = {"Los Verdegales", "Bosque Esmeralda"},
+            frFR = {"Les Champs verdoyants", "Forêt d'émeraude"},
+            itIT = {"The Verdant Fields", "Emerald Forest"},
+            koKR = {"신록의 들판", "에메랄드 숲"},
+            ptBR = {"Campos Verdejantes", "Floresta Esmeralda"},
+            ruRU = {"Зеленеющие поля", "Изумрудный лес"},
+            zhCN = {"青草平原", "翠叶森林"},
+            zhTW = {"青草平原", "翠葉森林"},
         },
     },
     {
@@ -135,6 +180,9 @@ Twm_RaidNames = {
             zhCN = "格鲁尔的巢穴",
             zhTW = "戈魯爾之巢",
         },
+        alias = {
+            frFR = {"Repaire de Gruul"},
+        },
     },
     {
         key = "Karazahn",
@@ -153,6 +201,19 @@ Twm_RaidNames = {
             zhCN = "卡拉赞",
             zhTW = "卡拉贊",
         },
+        alias = {
+            enUS = {"Karazhan *UNUSED*"},
+            deDE = {"Karazhan *UNUSED*"},
+            esES = {"Karazhan *UNUSED*"},
+            esMX = {"Karazhan *UNUSED*"},
+            frFR = {"Karazhan *UNUSED*"},
+            itIT = {"Karazhan *UNUSED*"},
+            koKR = {"Karazhan *UNUSED*"},
+            ptBR = {"Karazhan *UNUSED*"},
+            ruRU = {"Karazhan *UNUSED*"},
+            zhCN = {"Karazhan *UNUSED*"},
+            zhTW = {"Karazhan *UNUSED*"},
+        },
     },
     {
         key = "HellfireRaid",
@@ -170,6 +231,9 @@ Twm_RaidNames = {
             ruRU = "Логово Магтеридона",
             zhCN = "玛瑟里顿的巢穴",
             zhTW = "瑪瑟里頓的巢穴",
+        },
+        alias = {
+            frFR = {"Le repaire de Magtheridon"},
         },
     },
     {
@@ -279,6 +343,19 @@ Twm_RaidNames = {
             zhCN = "海加尔山之战",
             zhTW = "海加爾山戰場",
         },
+        alias = {
+            enUS = {"Hyjal Summit"},
+            deDE = {"Hyjalgipfel"},
+            esES = {"La Cima Hyjal"},
+            esMX = {"La Cima Hyjal"},
+            frFR = {"Sommet d'Hyjal"},
+            itIT = {"Hyjal Summit"},
+            koKR = {"하이잘 정상"},
+            ptBR = {"Pico Hyjal"},
+            ruRU = {"Вершина Хиджала"},
+            zhCN = {"海加尔峰"},
+            zhTW = {"海加爾山"},
+        },
     },
     {
         key = "SunwellPlateau",
@@ -296,6 +373,19 @@ Twm_RaidNames = {
             ruRU = "Солнечный Колодец",
             zhCN = "太阳之井",
             zhTW = "太陽之井",
+        },
+        alias = {
+            enUS = {"Sunwell Plateau"},
+            deDE = {"Sonnenbrunnen", "Sonnenbrunnenplateau"},
+            esES = {"Meseta de La Fuente del Sol"},
+            esMX = {"Meseta de La Fuente del Sol"},
+            frFR = {"Puits de soleil", "Plateau du Puits de soleil"},
+            itIT = {"Sunwell Plateau"},
+            koKR = {"태양샘 고원"},
+            ptBR = {"A Nascente do Sol", "Platô da Nascente do Sol"},
+            ruRU = {"Плато Солнечного Колодца"},
+            zhCN = {"太阳之井高地"},
+            zhTW = {"太陽之井高地"},
         },
     },
     {

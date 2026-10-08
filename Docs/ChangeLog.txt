@@ -11,6 +11,15 @@ TerrainWorldMap ChangeLog
   Buildings) with the three modes as its submenu.
 - Added: the same city buildings in the standalone map window, on the
   continent maps when zoomed in ("Show WMO Layers" toggles them).
+- Added: Leatrix Maps integration -- clicking a dungeon or raid icon it puts
+  on the World Map opens that instance's map in the standalone map window,
+  fitted to the window. When an icon stands for several instances
+  (Blackrock Mountain, Caverns of Time, Ahn'Qiraj, the Frozen Halls), a list
+  of them, sorted by name and with their entrance icons, appears at the
+  cursor. Works with every version of Leatrix Maps (Classic Era,
+  Anniversary, Mists and WoW: Forever). Can be switched off in the new "Integrations"
+  settings tab, which only appears when Leatrix Maps is installed and
+  enabled.
 - Changed: "Draw tiles on city maps" is now on (On + Buildings) by default.
 
 2.0.0 (October 3, 2026)

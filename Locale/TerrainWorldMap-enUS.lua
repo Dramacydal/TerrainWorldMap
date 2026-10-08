@@ -1,4 +1,4 @@
-﻿local _;
+local _;
 
 -- metadata magic
 TWM_TITLE = C_AddOns.GetAddOnMetadata("TerrainWorldMap", "Title") or "Y";
@@ -34,6 +34,9 @@ TWM_DEBUG_TILES_OFF = "TerrainWorldMap: tile debug labels OFF";
 TWM_OPTIONS_VERSION = "Version %s";
 TWM_OPTIONS_TAB_WORLDMAP = "World Map";
 TWM_OPTIONS_TAB_BROWSER = "Browser";
+TWM_OPTIONS_TAB_INTEGRATIONS = "Integrations";
+TWM_OPTIONS_LEATRIXMAPS_CLICK = "Open instance map on icon click";
+TWM_TOOLTIP_OPT_LEATRIXMAPSCLICK = "Clicking a dungeon or raid icon that Leatrix Maps puts on the World Map opens that instance's map in the TerrainWorldMap window. When several instances share an icon, a list to pick from appears.";
 TWM_OPTIONS_ENABLEBUTTON = "Enable Minimap Button";
 TWM_OPTIONS_TRACKONSHOW = "Zoom to Player on Show";
 TWM_OPTIONS_ALPHA = "Transparency";
