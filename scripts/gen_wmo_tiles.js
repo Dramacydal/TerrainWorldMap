@@ -194,7 +194,8 @@ const ROT_EPSILON = 0.05; // degrees -- MODF rotation floats aren't always exact
 // client itself doesn't consider real terrain (same class of staleness as
 // the WMOMinimapTexture ghost-tile fix above, see .claude-docs/gotchas.md)
 // -- trusting "this file exists and got extracted" alone isn't enough.
-function findModfPlacements(mapDir, validTileKeys) {
+// onlyTileKeys (optional Set of "CCxRR" keys): scan just those tiles' files.
+function findModfPlacements(mapDir, validTileKeys, onlyTileKeys) {
 	const entries = [];
 	const seen = new Set();
 	for (const f of fs.readdirSync(mapDir)) {
@@ -202,6 +203,7 @@ function findModfPlacements(mapDir, validTileKeys) {
 		const m = f.match(/_(\d+)_(\d+)_obj0\.adt$/i);
 		if (m) {
 			const key = `${m[1].padStart(2, '0')}x${m[2].padStart(2, '0')}`;
+			if (onlyTileKeys && !onlyTileKeys.has(key)) continue;
 			if (!validTileKeys.has(key)) {
 				console.error(`  (ignoring ${f} -- not a real, obj0ADT-backed tile per this map's own WDT)`);
 				continue;
@@ -225,6 +227,8 @@ function findModfPlacements(mapDir, validTileKeys) {
 						nameId,
 						pos: [buf.readFloatLE(b + 8), buf.readFloatLE(b + 12), buf.readFloatLE(b + 16)],
 						rot: [buf.readFloatLE(b + 20), buf.readFloatLE(b + 24), buf.readFloatLE(b + 28)],
+						// Bounding box in the same (ADT) coordinates as pos: min xyz, max xyz.
+						ext: [32, 36, 40, 44, 48, 52].map(o => buf.readFloatLE(b + o)),
 					});
 				}
 			}
@@ -360,10 +364,106 @@ function groupBoundingBox(groupFilePath) {
 	return null;
 }
 
+// The placement's local -> Big transform: {toBig(rotLocalX, rotLocalY),
+// anchorHeight}. The rotation-only half (fixed 90-degree baking step + this
+// placement's own real yaw) plus the anchor = raw MODF.position. A per-ADT
+// MODF.position is in ADT coordinates (origin at the map corner), hence
+// MAP_ORIGIN - pos. The global WMO of a WMO-only map (WDT MODF, `fromWdt`;
+// stored as (0, 0, 0) on every map checked) is a world position: its Big
+// anchor is the world position itself, (world Y, world X) like every other
+// Big coordinate. (Treating it as ADT coordinates put these maps at
+// (MAP_ORIGIN, MAP_ORIGIN) away from where AreaTrigger/teleport coordinates
+// say they are.) MODF.extents agrees with this anchor: the model's local Y is
+// mirrored about local 0 (see audit_wmo_extents.js).
+function placementTransform(p, mapName) {
+	const yawRad = -p.rot[1] * Math.PI / 180;
+	const cosT = Math.cos(yawRad), sinT = Math.sin(yawRad);
+	function rotateOnly(rotLocalX, rotLocalY) {
+		const finalLocalX = rotLocalX * cosT - rotLocalY * sinT;
+		const finalLocalY = rotLocalX * sinT + rotLocalY * cosT;
+		return [-finalLocalX, -finalLocalY];
+	}
+	if (p.fromWdt && (p.pos[0] !== 0 || p.pos[2] !== 0)) {
+		console.error(`  (warning: ${mapName}'s global WMO has a non-zero position ${p.pos.join(', ')} -- its axis order is unverified)`);
+	}
+	const anchorBigX = p.fromWdt ? p.pos[2] : MAP_ORIGIN - p.pos[0];
+	const anchorBigY = p.fromWdt ? p.pos[0] : MAP_ORIGIN - p.pos[2];
+	return {
+		anchorHeight: p.pos[1],
+		toBig(rotLocalX, rotLocalY) {
+			const off = rotateOnly(rotLocalX, rotLocalY);
+			return [anchorBigX + off[0], anchorBigY + off[1]];
+		},
+	};
+}
+
+// ---- City mode (--city-boxes-file) ----
+// WMO tiles for the capitals only: those whose bounding box intersects the
+// city's zone box (Twm_mapareas {x1,x2,y1,y2}, x1 > x2 and y1 > y2). A city
+// is keyed by its uiMapID (Twm_CityMapIDs).
+
+// [{uiMapID, continent, box: {x1, x2, y1, y2}}] from a flavor's mapdata_continents.lua.
+function loadCityRegions(luaText) {
+	const block = (startRe) => {
+		const m = startRe.exec(luaText);
+		if (!m) return '';
+		const end = luaText.indexOf('\n}', m.index);
+		return luaText.slice(m.index, end === -1 ? undefined : end);
+	};
+	const cityIds = [...block(/Twm_CityMapIDs\s*=\s*\{/).matchAll(/\[(\d+)\]\s*=\s*true/g)].map(m => m[1]);
+	const zoneOf = {};
+	for (const m of block(/Twm_UiMapID2Zone\s*=\s*\{/).matchAll(/\[(\d+)\]\s*=\s*\{"([^"]+)",\s*(\d+)\}/g))
+		zoneOf[m[1]] = { continent: m[2], areaID: m[3] };
+
+	const regions = [];
+	for (const uiMapID of cityIds) {
+		const zone = zoneOf[uiMapID];
+		if (!zone) continue;
+		const mapareas = block(new RegExp(`Twm_mapareas\\["${escapeRegExp(zone.continent)}"\\]\\s*=\\s*\\{`));
+		const m = new RegExp(`\\[${zone.areaID}\\]\\s*=\\s*\\{([^}]+)\\}`).exec(mapareas);
+		if (!m) continue;
+		const [x1, x2, y1, y2] = m[1].split(',').map(parseFloat);
+		regions.push({ uiMapID, continent: zone.continent, box: { x1, x2, y1, y2 } });
+	}
+	return regions;
+}
+
+// "CCxRR" keys of the ADT tiles a Big box touches (same col/row convention as
+// Twm_WDTValidTiles: col from Big X, row from Big Y).
+function tileKeysCovering(box) {
+	const mini = (v) => v / -MINI2BIG + 32;
+	const keys = [];
+	const colMin = Math.floor(Math.min(mini(box.x1), mini(box.x2))), colMax = Math.ceil(Math.max(mini(box.x1), mini(box.x2)));
+	const rowMin = Math.floor(Math.min(mini(box.y1), mini(box.y2))), rowMax = Math.ceil(Math.max(mini(box.y1), mini(box.y2)));
+	for (let col = colMin; col < colMax; col++)
+		for (let row = rowMin; row < rowMax; row++)
+			keys.push(`${String(col).padStart(2, '0')}x${String(row).padStart(2, '0')}`);
+	return keys;
+}
+
+// Whether an axis-aligned tile box {xmin,xmax,ymin,ymax} overlaps a region box.
+function intersectsRegion(tileBox, box) {
+	return tileBox.xmin < box.x1 && tileBox.xmax > box.x2 && tileBox.ymin < box.y1 && tileBox.ymax > box.y2;
+}
+
+// A per-ADT placement's bounding box (MODF extents) in Big coordinates, for the
+// same box test: Big = MAP_ORIGIN - ADT coordinate, along X and (ADT z) Y.
+function placementBigBox(p) {
+	return {
+		xmin: MAP_ORIGIN - p.ext[3], xmax: MAP_ORIGIN - p.ext[0],
+		ymin: MAP_ORIGIN - p.ext[5], ymax: MAP_ORIGIN - p.ext[2],
+	};
+}
+
+// A city placement is a continent WMO with a tilt of a few tenths of a degree
+// (it follows the terrain): ignored, unlike for an instance, where a real
+// pitch/roll would change the floor.
+const CITY_ROT_EPSILON = 1; // degrees
+
 function parseArgs(argv) {
 	const opts = {
 		workDir: null, flavor: null, clientDir: null, online: false, clientLocale: 'enUS',
-		out: null, force: false, proxy: null, maps: null, candidatesKind: null,
+		out: null, force: false, proxy: null, maps: null, candidatesKind: null, cityBoxesFile: null,
 	};
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i];
@@ -377,6 +477,7 @@ function parseArgs(argv) {
 		else if (a === '--proxy') opts.proxy = argv[++i];
 		else if (a === '--maps') opts.maps = argv[++i];
 		else if (a === '--candidates') opts.candidatesKind = argv[++i];
+		else if (a === '--city-boxes-file') opts.cityBoxesFile = argv[++i];
 		else throw new Error(`Unknown option: ${a}`);
 	}
 	return opts;
@@ -390,6 +491,9 @@ function printUsage() {
 	console.error('  Self-extracts (via CASCConsole) each map\'s obj0 ADTs/WDT, then -- once MODF placements are');
 	console.error('  resolved against the community listfile and each root WMO\'s own WMOID against WMOMinimapTexture.csv --');
 	console.error('  exactly the WMO group/minimap files they need.');
+	console.error('  --city-boxes-file <Data_<Flavor>/mapdata_continents.lua> (instead of --candidates/--maps): WMO tiles of the capital');
+	console.error('  cities only -- the continents\' placements near each city, tiles intersecting its zone box -- written as');
+	console.error('  Twm_CityWMOTiles[<uiMapID>] (see the README).');
 }
 
 async function main() {
@@ -410,9 +514,13 @@ async function main() {
 		printUsage();
 		process.exit(1);
 	}
+	// City mode: the maps are the continents the cities stand on.
+	const cityRegions = opts.cityBoxesFile ? loadCityRegions(fs.readFileSync(opts.cityBoxesFile, 'utf8')) : null;
 	let mapNames;
 	try {
-		mapNames = resolveMapKeys({ maps: opts.maps, candidatesKind: opts.candidatesKind, workDir: opts.workDir, flavor: opts.flavor });
+		mapNames = cityRegions
+			? [...new Set(cityRegions.map(r => r.continent))]
+			: resolveMapKeys({ maps: opts.maps, candidatesKind: opts.candidatesKind, workDir: opts.workDir, flavor: opts.flavor });
 	} catch (e) {
 		console.error(e.message);
 		printUsage();
@@ -481,6 +589,12 @@ async function main() {
 	// the two as redundant -- wrong; reverted.)
 	const placementsByMap = {};
 	const wantedNameIds = new Set();
+	// City mode: per continent, the obj0 tiles around its cities.
+	const cityTileKeys = {};
+	for (const r of cityRegions || []) {
+		const keys = cityTileKeys[r.continent] = cityTileKeys[r.continent] || new Set();
+		for (const key of tileKeysCovering(r.box)) keys.add(key);
+	}
 	// Phase 1: self-extract every requested map's obj0 ADTs (per-tile MODF
 	// source) and its own WDT (for the pure-WMO WDT-level MODF fallback) in
 	// ONE combined CASCConsole call, not one call per map -- each launch
@@ -514,16 +628,30 @@ async function main() {
 		// used below for the real placement lookup) -- a genuine pure-WMO
 		// map short-circuits to "cache hit" without ever looking for obj0
 		// files at all.
+		// City mode: just the obj0 tiles around each city, not the continents'.
+		const obj0FileRe = (m, key) => {
+			const [col, row] = key.split('x').map(s => String(parseInt(s, 10)));
+			return new RegExp(`^${escapeRegExp(m)}_0*${col}_0*${row}_obj0\\.adt$`, 'i');
+		};
 		const needsExtraction = mapNames.some(m => {
 			const dir = path.join(flavorDirPath, 'world', 'maps', m);
 			const wdtPath = path.join(dir, `${m}.wdt`);
 			if (!fs.existsSync(wdtPath)) return true;
+			if (cityTileKeys[m]) {
+				const files = fs.readdirSync(dir);
+				return [...cityTileKeys[m]].some(key => !files.some(f => obj0FileRe(m, key).test(f)));
+			}
 			if (findWdtPlacement(wdtPath).length > 0) return false;
 			return !fs.readdirSync(dir).some(f => /_obj0\.adt$/i.test(f));
 		});
 		if (needsExtraction || extractOpts.force) {
-			const escapedNames = mapNames.map(escapeRegExp);
-			const contAlt = escapedNames.join('|');
+			const filePattern = (m) => cityTileKeys[m]
+				? `${escapeRegExp(m)}\\.wdt|${[...cityTileKeys[m]].map(key => {
+					const [col, row] = key.split('x').map(s => String(parseInt(s, 10)));
+					return `${escapeRegExp(m)}_0*${col}_0*${row}_obj0\\.adt`;
+				}).join('|')}`
+				: null;
+			const contAlt = mapNames.map(escapeRegExp).join('|');
 			// obj0 filenames embed the map's own directory stem as a literal
 			// prefix (e.g. "stratholme raid_37_24_obj0.adt", "zul'gurub_33_52_
 			// obj0.adt") -- \w excludes space/apostrophe/etc, so a map whose
@@ -538,7 +666,9 @@ async function main() {
 			// two known cases.
 			ensureExtracted({
 				...extractOpts,
-				pattern: `^world/maps/(${contAlt})/([^/]+\\.wdt|[^/]+_obj0\\.adt)$`,
+				pattern: cityRegions
+					? `^world/maps/(${mapNames.map(m => `${escapeRegExp(m)}/(${filePattern(m)})`).join('|')})$`
+					: `^world/maps/(${contAlt})/([^/]+\\.wdt|[^/]+_obj0\\.adt)$`,
 				checkPaths: [],
 			});
 		} else {
@@ -554,11 +684,15 @@ async function main() {
 			continue;
 		}
 		const validTileKeys = new Set(getValidTiles(path.join(mapDir, `${mapName}.wdt`), 'obj0ADT'));
-		let placements = findModfPlacements(mapDir, validTileKeys);
+		let placements = findModfPlacements(mapDir, validTileKeys, cityTileKeys[mapName]);
 		if (placements.length === 0) {
 			// No per-ADT MODF at all -- try the WDT-level global placement
 			// (pure-WMO map, no real ADT terrain) before giving up.
 			placements = findWdtPlacement(path.join(mapDir, `${mapName}.wdt`));
+		}
+		// City mode: only the WMOs whose own box reaches a city.
+		if (cityRegions) {
+			placements = placements.filter(p => cityRegions.some(r => r.continent === mapName && intersectsRegion(placementBigBox(p), r.box)));
 		}
 		placementsByMap[mapName] = placements;
 		for (const p of placements) wantedNameIds.add(p.nameId);
@@ -644,6 +778,9 @@ async function main() {
 	// actually need.
 	const neededPaths = new Set();
 	const neededTileFiles = new Map();
+	// City mode: every tile of a placed WMO is only a candidate until its box
+	// is known (needs the group files) -- see below.
+	const cityCandidates = [];
 	for (const mapName of mapNames) {
 		for (const p of placementsByMap[mapName] || []) {
 			const wmoPath = idToPath[p.nameId];
@@ -655,12 +792,10 @@ async function main() {
 				neededPaths.add(wmoPath.replace(/\.wmo$/i, `_${String(g).padStart(3, '0')}.wmo`));
 			for (const t of tiles) {
 				if (skipTileIdSet.has(String(t.fileID))) continue;
-				neededTileFiles.set(t.fileID, { id: t.fileID, rel: tileLocalRel(t.fileID) });
+				if (cityRegions) cityCandidates.push({ mapName, p, wmoPath, t });
+				else neededTileFiles.set(t.fileID, { id: t.fileID, rel: tileLocalRel(t.fileID) });
 			}
 		}
-	}
-	if (neededTileFiles.size > 0) {
-		ensureExtractedFileDataIds({ ...extractOpts, files: [...neededTileFiles.values()] });
 	}
 	if (neededPaths.size > 0) {
 		const pathList = [...neededPaths];
@@ -673,7 +808,37 @@ async function main() {
 		ensureExtractedPaths({ ...extractOpts, paths: pathList });
 	}
 
-	let fullOutput = "-- GENERATED FILE -- do not hand-edit, regenerate with scripts/gen_wmo_tiles.js\n"
+	// City mode: only the tiles whose box intersects a city of their continent
+	// are worth extracting. The real tile size is only known from the BLP
+	// itself, so this pre-filter uses the nominal size (the largest a tile
+	// can be); the exact filter runs on the real corners below.
+	if (cityRegions) {
+		const transforms = new Map(), groupBoxCache = new Map();
+		for (const { mapName, p, wmoPath, t } of cityCandidates) {
+			const groupPath = path.join(flavorDirPath, wmoPath.replace(/\.wmo$/i, `_${String(t.groupNum).padStart(3, '0')}.wmo`));
+			if (!groupBoxCache.has(groupPath))
+				groupBoxCache.set(groupPath, fs.existsSync(groupPath) ? groupBoundingBox(groupPath) : null);
+			const box = groupBoxCache.get(groupPath);
+			if (!box) continue;
+			if (!transforms.has(p)) transforms.set(p, placementTransform(p, mapName));
+			const { toBig } = transforms.get(p);
+			const localX1 = Math.min(box.min[0], box.max[0]) + t.blockX * TILE_UNITS;
+			const localY1 = Math.min(box.min[1], box.max[1]) + t.blockY * TILE_UNITS;
+			const corners = [toBig(localY1 + TILE_UNITS, localX1), toBig(localY1, localX1),
+				toBig(localY1, localX1 + TILE_UNITS), toBig(localY1 + TILE_UNITS, localX1 + TILE_UNITS)];
+			const tileBox = {
+				xmin: Math.min(...corners.map(c => c[0])), xmax: Math.max(...corners.map(c => c[0])),
+				ymin: Math.min(...corners.map(c => c[1])), ymax: Math.max(...corners.map(c => c[1])),
+			};
+			if (cityRegions.some(r => r.continent === mapName && intersectsRegion(tileBox, r.box)))
+				neededTileFiles.set(t.fileID, { id: t.fileID, rel: tileLocalRel(t.fileID) });
+		}
+	}
+	if (neededTileFiles.size > 0) {
+		ensureExtractedFileDataIds({ ...extractOpts, files: [...neededTileFiles.values()] });
+	}
+
+	let fullOutput ="-- GENERATED FILE -- do not hand-edit, regenerate with scripts/gen_wmo_tiles.js\n"
 		+ "-- and replace this file wholesale. See scripts/README.md for details.\n"
 		+ "--\n"
 		+ "-- Minimap tiles for the WMO structure actually placed on a map whose\n"
@@ -706,6 +871,12 @@ async function main() {
 		+ "-- Twm_WMOTiles itself is declared once, centrally, in mapdata_zones.lua\n"
 		+ "-- (this file, and its dungeons/raids/arenas siblings, only assign their\n"
 		+ "-- own Twm_WMOTiles[\"<name>\"] key) -- see Twm_WDTValidTiles there for why.\n\n";
+	if (cityRegions) {
+		fullOutput = fullOutput.replace(/-- Twm_WMOTiles itself[\s\S]*$/,
+			"-- City mode: Twm_CityWMOTiles[<uiMapID>] (one per capital, Twm_CityMapIDs) holds the\n"
+			+ "-- tiles of the WMOs placed on the continent that intersect the city's zone box.\n"
+			+ "-- Twm_CityWMOTiles is declared once, centrally, in mapdata_zones.lua.\n\n");
+	}
 
 	// checkedWmoAreasByMap (skip_lists.js) is an opt-in per-map allowlist --
 	// only load Map.csv for the Directory->ID lookup it needs when this
@@ -743,50 +914,11 @@ async function main() {
 			if (!tiles || tiles.length === 0) continue; // no minimap art baked for this WMO at all
 
 			const pitchRollMag = Math.max(Math.abs(p.rot[0]), Math.abs(p.rot[2]));
-			if (pitchRollMag > ROT_EPSILON) {
+			if (pitchRollMag > (cityRegions ? CITY_ROT_EPSILON : ROT_EPSILON)) {
 				console.error(`  (skipping ${mapName}'s ${wmoPath} -- has minimap tiles but a real pitch/roll (${p.rot.map(x => x.toFixed(2))}), not supported)`);
 				continue;
 			}
-			const yawRad = -p.rot[1] * Math.PI / 180;
-			const cosT = Math.cos(yawRad), sinT = Math.sin(yawRad);
-			// rotateOnly: the rotation-only half of the placement transform
-			// (fixed 90-degree baking step + this placement's own real yaw),
-			// with NO translation added -- i.e. where a local point ends up
-			// in Big-space if this placement's own anchor (MODF.position)
-			// were sitting at Big (0,0). Big = MAP_ORIGIN - World and
-			// World = pos + finalLocal are both linear in `pos`, so
-			// subtracting them out like this is exact, not an approximation
-			// -- confirmed: toBig(x,y) - toBig(0,0) == rotateOnly(x,y) for
-			// any x,y,pos (this is just algebra, not a new assumption).
-			function rotateOnly(rotLocalX, rotLocalY) {
-				const finalLocalX = rotLocalX * cosT - rotLocalY * sinT;
-				const finalLocalY = rotLocalX * sinT + rotLocalY * cosT;
-				return [-finalLocalX, -finalLocalY];
-			}
-			// Anchor = raw MODF.position. MODF.extents agrees with it for real
-			// placements: extents center = pos + R*(bboxCx, -bboxCy), i.e. the
-			// model's local Y is mirrored about local 0 (see
-			// audit_wmo_extents.js, 875/951 within 1 unit).
-			//
-			// A per-ADT MODF.position is in ADT coordinates (origin at the
-			// map corner), hence MAP_ORIGIN - pos. The global WMO of a WMO-only
-			// map (WDT MODF, `fromWdt`; stored as (0, 0, 0) on every map
-			// checked) is a world position: its Big anchor is the world
-			// position itself, (world Y, world X) like every other Big
-			// coordinate. Treating it as ADT coordinates put these maps at
-			// (MAP_ORIGIN, MAP_ORIGIN) away from where AreaTrigger/teleport
-			// coordinates say they are (verified: the tiles were exactly
-			// (MAP_ORIGIN, MAP_ORIGIN) + (trigger world Y, world X)).
-			if (p.fromWdt && (p.pos[0] !== 0 || p.pos[2] !== 0)) {
-				console.error(`  (warning: ${mapName}'s global WMO has a non-zero position ${p.pos.join(', ')} -- its axis order is unverified)`);
-			}
-			const anchorBigX = p.fromWdt ? p.pos[2] : MAP_ORIGIN - p.pos[0];
-			const anchorBigY = p.fromWdt ? p.pos[0] : MAP_ORIGIN - p.pos[2];
-			const anchorHeight = p.pos[1];
-			function toBig(rotLocalX, rotLocalY) {
-				const off = rotateOnly(rotLocalX, rotLocalY);
-				return [anchorBigX + off[0], anchorBigY + off[1]];
-			}
+			const { toBig, anchorHeight } = placementTransform(p, mapName);
 
 			// One group file per distinct groupNum referenced by its tiles.
 			const groupNums = [...new Set(tiles.map(t => t.groupNum))];
@@ -844,6 +976,8 @@ async function main() {
 				// for the ADT-side half of this same filter).
 				if (skipTileIdSet.has(String(t.fileID))) continue;
 				if (skipGroupIdSet.has(`${wmoId}-${t.groupNum}`)) continue;
+				// City mode: tiles outside every city were never extracted.
+				if (cityRegions && !neededTileFiles.has(t.fileID)) continue;
 
 				// Real crop size (see this file's header) replaces the
 				// nominal TILE_UNITS for THIS tile's own span. X: localX1 is
@@ -913,6 +1047,11 @@ async function main() {
 					ymin: Math.min(...cornerYs), ymax: Math.max(...cornerYs),
 				};
 				if (mapID && !isWmoTileInCheckedArea(opts.flavor, mapID, tileBox)) continue;
+				// City mode: only a tile that intersects a city's zone box.
+				const cityIds = cityRegions
+					? cityRegions.filter(r => r.continent === mapName && intersectsRegion(tileBox, r.box)).map(r => r.uiMapID)
+					: null;
+				if (cityIds && cityIds.length === 0) continue;
 
 				// Per-GROUP height, not just the placement's own MODF.position[1]
 				// -- a single WMO placement can have groups at meaningfully
@@ -949,6 +1088,7 @@ async function main() {
 					// prefixing it makes group_id unique per real physical
 					// group on the whole map.
 					wmoId,
+					cityIds,
 					groupNum: t.groupNum,
 					groupId: `${wmoId}-${t.groupNum}`,
 					groupName: realName || `Group ${t.groupNum}`,
@@ -989,37 +1129,49 @@ async function main() {
 		// groupNum) ascending here -- numerically, not a string sort of the
 		// compound group_id itself (which would put "10-0" before "2-0") --
 		// so the addon's own group checkbox list needs no runtime sort.
-		const byGroup = new Map();
-		for (const t of mapTiles) {
-			if (!byGroup.has(t.groupId)) byGroup.set(t.groupId, { groupName: t.groupName, internalName: t.internalName, wmoId: t.wmoId, groupNum: t.groupNum, tiles: [] });
-			byGroup.get(t.groupId).tiles.push(t);
-		}
-		const groupIds = [...byGroup.keys()].sort((a, b) => {
-			const ga = byGroup.get(a), gb = byGroup.get(b);
-			return (ga.wmoId - gb.wmoId) || (ga.groupNum - gb.groupNum);
-		});
+		// One table per map, or per city in city mode (a tile of the map that
+		// intersects a city's zone box belongs to that city).
+		const outputs = cityRegions
+			? cityRegions.filter(r => r.continent === mapName).map(r => ({
+				declaration: `Twm_CityWMOTiles[${r.uiMapID}]`,
+				tiles: mapTiles.filter(t => t.cityIds.includes(r.uiMapID)),
+			}))
+			: [{ declaration: `Twm_WMOTiles["${mapName}"]`, tiles: mapTiles }];
 
-		fullOutput += `Twm_WMOTiles["${mapName}"] = {\n`;
-		for (const groupId of groupIds) {
-			const group = byGroup.get(groupId);
-			const groupName = group.groupName.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-			fullOutput += `    {\n`;
-			fullOutput += `        group_id = "${groupId}",\n`;
-			fullOutput += `        group_name = "${groupName}",\n`;
-			// The group's own (internal) name, only when it differs from group_name.
-			if (group.internalName && group.internalName !== group.groupName) {
-				const internalName = group.internalName.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-				fullOutput += `        group_internal_name = "${internalName}",\n`;
+		for (const output of outputs) {
+			if (output.tiles.length === 0) continue;
+			const byGroup = new Map();
+			for (const t of output.tiles) {
+				if (!byGroup.has(t.groupId)) byGroup.set(t.groupId, { groupName: t.groupName, internalName: t.internalName, wmoId: t.wmoId, groupNum: t.groupNum, tiles: [] });
+				byGroup.get(t.groupId).tiles.push(t);
 			}
-			fullOutput += `        tiles = {\n`;
-			for (const t of group.tiles) {
-				const corners = t.corners.map(c => `${c[0]}, ${c[1]}`).join(', ');
-				fullOutput += `            {${t.fileID}, ${t.cx}, ${t.cy}, ${t.width}, ${t.height}, ${t.yawDeg}, ${t.z}, ${corners}},\n`;
+			const groupIds = [...byGroup.keys()].sort((a, b) => {
+				const ga = byGroup.get(a), gb = byGroup.get(b);
+				return (ga.wmoId - gb.wmoId) || (ga.groupNum - gb.groupNum);
+			});
+
+			fullOutput += `${output.declaration} = {\n`;
+			for (const groupId of groupIds) {
+				const group = byGroup.get(groupId);
+				const groupName = group.groupName.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+				fullOutput += `    {\n`;
+				fullOutput += `        group_id = "${groupId}",\n`;
+				fullOutput += `        group_name = "${groupName}",\n`;
+				// The group's own (internal) name, only when it differs from group_name.
+				if (group.internalName && group.internalName !== group.groupName) {
+					const internalName = group.internalName.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+					fullOutput += `        group_internal_name = "${internalName}",\n`;
+				}
+				fullOutput += `        tiles = {\n`;
+				for (const t of group.tiles) {
+					const corners = t.corners.map(c => `${c[0]}, ${c[1]}`).join(', ');
+					fullOutput += `            {${t.fileID}, ${t.cx}, ${t.cy}, ${t.width}, ${t.height}, ${t.yawDeg}, ${t.z}, ${corners}},\n`;
+				}
+				fullOutput += `        },\n`;
+				fullOutput += `    },\n`;
 			}
-			fullOutput += `        },\n`;
-			fullOutput += `    },\n`;
+			fullOutput += '}\n';
 		}
-		fullOutput += '}\n';
 	}
 
 	fs.writeFileSync(opts.out, fullOutput);

@@ -12,7 +12,10 @@ nothing to your addon folder's size or your loading screens.
 ## Features
 
 - **Terrain overlay on the World Map** — real minimap tiles instead of
-  Blizzard's painted map art, toggleable per zone/world view/city map.
+  Blizzard's painted map art, toggleable per zone/world view/city map; on
+  capital city maps the city's buildings can be drawn over the terrain too
+  (Off / On / On + Buildings); the standalone window shows them on
+  continent maps too, when zoomed in.
 - **Standalone map window** — movable, resizable, zoomable; the map fills
   the window under a semi-transparent header (map selectors, Goto Player,
   options) and footer (zoom, terrain/WMO toggles). Jump to any zone or to

@@ -24,9 +24,12 @@ local TWM_ICON_BASE_SIZE = 14;
 -- anchored to a pan anchor frame, so small view moves cost one SetPoint
 -- instead of a full icon layout. The full layout reruns once the view drifts
 -- FOLLOW_REFRESH_PX from the last layout; culling uses a FOLLOW_MARGIN_PX
--- border so nothing pops in at the edges in between.
-local FOLLOW_MARGIN_PX = 192;
-local FOLLOW_REFRESH_PX = 96;
+-- border so nothing pops in at the edges in between. The same distances are
+-- used for the culled WMO tiles of a continent (TerrainWorldMap.lua).
+TWM_PAN_MARGIN_PX = 192;
+TWM_PAN_REFRESH_PX = 96;
+local FOLLOW_MARGIN_PX = TWM_PAN_MARGIN_PX;
+local FOLLOW_REFRESH_PX = TWM_PAN_REFRESH_PX;
 
 local function UsesPanning(frame)
     return frame.followMode or _G[frame:GetName().."ViewFrame"].dragme;

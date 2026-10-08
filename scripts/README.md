@@ -790,6 +790,26 @@ node gen_wmo_tiles.js --work-dir C:\wow-data --flavor wow_anniversary --client-d
 node gen_wmo_tiles.js --work-dir C:\wow-data --flavor wow_anniversary --client-dir "C:\Program Files\World of Warcraft" --out Data_TBC/mapdata_wmo_tiles_arenas.lua --candidates arenas
 ```
 
+**City mode (`--city-boxes-file`)** — the WMO tiles of the capital cities,
+drawn over their terrain on the world map (`WorldMapOverlay.lua`, only while
+the city-terrain option is on):
+
+```bash
+node gen_wmo_tiles.js --work-dir C:\wow-data --flavor wow_anniversary --client-dir "C:\Program Files\World of Warcraft" --city-boxes-file Data_TBC/mapdata_continents.lua --out Data_TBC/mapdata_wmo_tiles_cities.lua
+```
+
+Instead of `--candidates`, the cities come from the flavor's own
+`mapdata_continents.lua` (`Twm_CityMapIDs` → `Twm_UiMapID2Zone` → the zone box in
+`Twm_mapareas`), and the maps are the continents they stand on. Only what
+touches a city is unpacked: the continent's obj0 ADTs covering each city box,
+then only the WMOs whose own bounding box (MODF extents) intersects the box, and
+of those only the minimap tiles whose box intersects it (checked on the nominal
+tile size before extracting, on the real corners after). The output is
+`Twm_CityWMOTiles[<uiMapID>]` (same group/tile tuples as `Twm_WMOTiles`,
+declared once in `mapdata_zones.lua`). A tilt of a few tenths of a degree
+(city WMOs follow the terrain) is accepted here; a real pitch/roll of an
+instance WMO is still skipped.
+
 Self-extracts in two passes: each map's own obj0 ADTs/WDT first (to find
 `MODF` placements at all), then — once those placements are resolved
 against the community listfile (`<work-dir>/CASCConsole/listfile.csv`,

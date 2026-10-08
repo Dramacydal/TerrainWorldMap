@@ -688,6 +688,26 @@ local TWM_WMO_DEBUG_COLOR_POOL = {
     {0, 1, 1},     -- cyan
 };
 
+-- The capitals' WMO tiles (Twm_CityWMOTiles, by uiMapID: what the world map
+-- draws on a city map) are also drawn on their continent's map here: one list
+-- of groups per continent (the group tables are shared, not copied), marked
+-- `cull`: it holds the tiles of several cities, so only the tiles in view
+-- (and big enough to see) are laid out, and the group list / height slider
+-- (meaningless across cities) are not offered for it.
+for uiMapID, groups in pairs(Twm_CityWMOTiles) do
+    local zone = Twm_UiMapID2Zone[uiMapID];
+    if(zone) then
+        local list = Twm_WMOTiles[zone[1]];
+        if(not list) then
+            list = {cull = true};
+            Twm_WMOTiles[zone[1]] = list;
+        end
+        for _, group in ipairs(groups) do
+            list[#list + 1] = group;
+        end
+    end
+end
+
 -- Whether `map` has any real ADT terrain at all -- Twm_WDTValidTiles[map] is
 -- written (mapdata_tiles.lua, parse_wdt.js) for EVERY map this addon knows
 -- about, including pure-WMO dungeons/raids, but as an EMPTY table for one of
@@ -704,16 +724,26 @@ end
 -- for a map that genuinely has BOTH real terrain and baked WMO tiles -- a
 -- map with only one of the two always draws that one, unconditionally,
 -- regardless of either persisted option.
+--
+-- On a continent (a `cull` list, see above) the terrain is always shown; "Show
+-- WMO Layers" is only offered while WMO tiles are in view and the footer has
+-- room for it (frame.wmoChecksActive, TWM_UpdateOverlayChecks), and the
+-- buildings show whenever they are in view and the checkbox is not there.
 function TWM_ShouldShowTerrain(frame)
     local map = frame.opt.Map;
     if(not TWM_MapHasTerrain(map)) then return false; end
-    if(not (Twm_WMOTiles and Twm_WMOTiles[map])) then return true; end
+    local groups = Twm_WMOTiles and Twm_WMOTiles[map];
+    if(not groups or groups.cull) then return true; end
     return frame.opt.ShowTerrain ~= false;
 end
 
 function TWM_ShouldShowWMOOverlay(frame)
     local map = frame.opt.Map;
-    if(not (Twm_WMOTiles and Twm_WMOTiles[map])) then return false; end
+    local groups = Twm_WMOTiles and Twm_WMOTiles[map];
+    if(not groups) then return false; end
+    if(groups.cull) then
+        return frame.wmoInView and (not frame.wmoChecksActive or frame.opt.ShowWMOOverlay) and true or false;
+    end
     if(not TWM_MapHasTerrain(map)) then return true; end
     return frame.opt.ShowWMOOverlay and true or false;
 end
@@ -734,10 +764,59 @@ local function TWM_WMOGroupOrderLess(a, b)
     return a.order < b.order;
 end
 
+-- Culled lists (see Twm_WMOTiles of a continent above): the tiles are laid out
+-- only from this zoom up (the same for every tile, so a building does not fall
+-- apart piece by piece when zooming out), and only those reaching into the view
+-- (x1..x2, y1..y2, mini coordinates, the view plus a margin).
+local TWM_WMO_CULL_MIN_ZOOM = 50; -- a full 128-yard tile is about 12 pixels there
+
+local function TWM_WMOTileVisible(tile, z, x1, y1, x2, y2)
+    if(z < TWM_WMO_CULL_MIN_ZOOM) then return false; end
+    -- The tile's circle (center, half its diagonal -- the tile may be turned) against the area.
+    local r = math.sqrt(tile[4]*tile[4] + tile[5]*tile[5]) / 2 / MINI2BIGX;
+    local mx, my = TWM_Big2Mini_Coord(tile[2], tile[3]);
+    return mx >= x1 - r and mx <= x2 + r and my >= y1 - r and my <= y2 + r;
+end
+
+local function TWM_WMOGroupVisible(group, z, x1, y1, x2, y2)
+    for _, tile in ipairs(group.tiles) do
+        if(TWM_WMOTileVisible(tile, z, x1, y1, x2, y2)) then return true; end
+    end
+    return false;
+end
+
+-- Whether any tile of a culled list is in the area x1..x2, y1..y2.
+local function TWM_WMOAnyTileInView(groups, z, x1, y1, x2, y2)
+    for _, group in ipairs(groups) do
+        if(TWM_WMOGroupVisible(group, z, x1, y1, x2, y2)) then return true; end
+    end
+    return false;
+end
+
 function TWM_WMOOverlay_Update(frame)
     local lm = frame:GetName();
     local vf = _G[lm.."ViewFrame"];
     local groups = Twm_WMOTiles and Twm_WMOTiles[frame.opt.Map];
+    local Lx, Ly = frame.viewX or frame.opt.Location[1], frame.viewY or frame.opt.Location[2];
+    local z = frame:GetZoom();
+
+    -- A culled list: the view plus the icons' margin, in mini coordinates. It is
+    -- checked and laid out again once the view has moved TWM_PAN_REFRESH_PX
+    -- (TWM_WMOOverlay_Pan), less than the margin, so no tile gets into view unnoticed.
+    local cull, cx1, cy1, cx2, cy2 = groups and groups.cull;
+    if(cull) then
+        local margin = TWM_PAN_MARGIN_PX / z;
+        cx1, cy1 = Lx - margin, Ly - margin;
+        cx2, cy2 = Lx + vf:GetWidth() / z + margin, Ly + vf:GetHeight() / z + margin;
+        frame.wmoCullMap, frame.wmoCullZ, frame.wmoCullLx, frame.wmoCullLy = frame.opt.Map, z, Lx, Ly;
+
+        -- Whether any tile is in that area decides if "Show WMO Layers" is offered.
+        local inView = TWM_WMOAnyTileInView(groups, z, cx1, cy1, cx2, cy2);
+        if(frame.wmoInView ~= inView) then
+            frame.wmoInView = inView;
+            TWM_UpdateOverlayChecks(frame);
+        end
+    end
 
     if(not groups or not TWM_ShouldShowWMOOverlay(frame)) then
         frame.wmoLayout = nil;
@@ -762,7 +841,8 @@ function TWM_WMOOverlay_Update(frame)
     end
     local n = 0;
     for gi, group in ipairs(groups) do
-        if(group.tiles[1] and TWM_IsWMOGroupEnabled(frame, group.group_id)) then
+        if(group.tiles[1] and TWM_IsWMOGroupEnabled(frame, group.group_id)
+            and (not cull or TWM_WMOGroupVisible(group, z, cx1, cy1, cx2, cy2))) then
             n = n + 1;
             local entry = ordered[n];
             if(not entry) then
@@ -777,8 +857,6 @@ function TWM_WMOOverlay_Update(frame)
     end
     table.sort(ordered, TWM_WMOGroupOrderLess);
 
-    local Lx, Ly = frame.viewX or frame.opt.Location[1], frame.viewY or frame.opt.Location[2];
-    local z = frame:GetZoom();
     local cutoff = frame.wmoOverlayHeightCutoff;
     local baseLevel = vf:GetFrameLevel() + 1;
     local debugFrame = TWM_DebugTiles and TWM_WMOOverlay_EnsureDebugFrame(frame, vf) or nil;
@@ -806,7 +884,8 @@ function TWM_WMOOverlay_Update(frame)
         local tex = TWM_WMOOverlay_EnsureTexture(gf, k);
         local zval = tile[7];
 
-        if(cutoff and zval and zval > cutoff + TWM_WMO_OVERLAY_HEIGHT_EPSILON) then
+        if((cutoff and zval and zval > cutoff + TWM_WMO_OVERLAY_HEIGHT_EPSILON)
+            or (cull and not TWM_WMOTileVisible(tile, z, cx1, cy1, cx2, cy2))) then
             tex:Hide();
             TWM_HideTileDebugBorder(tex);
         else
@@ -888,11 +967,25 @@ end
 function TWM_WMOOverlay_Pan(frame)
     local layout = frame.wmoLayout;
     local z = frame:GetZoom();
+    local Lx, Ly = frame.viewX or frame.opt.Location[1], frame.viewY or frame.opt.Location[2];
+
+    -- A culled list: checked and laid out again once the view has moved
+    -- TWM_PAN_REFRESH_PX from the last layout (also when nothing is drawn, as
+    -- the check decides whether the "Show WMO Layers" checkbox is offered).
+    local groups = Twm_WMOTiles and Twm_WMOTiles[frame.opt.Map];
+    if(groups and groups.cull) then
+        local limit = TWM_PAN_REFRESH_PX / z;
+        if(frame.wmoCullMap ~= frame.opt.Map or frame.wmoCullZ ~= z
+            or math.abs(Lx - frame.wmoCullLx) > limit or math.abs(Ly - frame.wmoCullLy) > limit) then
+            return TWM_WMOOverlay_Update(frame);
+        end
+        if(not layout and not TWM_DebugTiles) then return; end -- nothing drawn
+    end
+
     if(not (layout and frame.wmoAnchor and layout.z == z and layout.map == frame.opt.Map)) then
         return TWM_WMOOverlay_Update(frame);
     end
 
-    local Lx, Ly = frame.viewX or frame.opt.Location[1], frame.viewY or frame.opt.Location[2];
     local anchor = frame.wmoAnchor;
     anchor:ClearAllPoints();
     anchor:SetPoint("TOPLEFT", _G[frame:GetName().."ViewFrame"], "TOPLEFT", -(Lx - layout.Lx)*z, (Ly - layout.Ly)*z);
@@ -1277,7 +1370,13 @@ end
 -- checkbox visible above it (it anchors below the WMO group checkbox list,
 -- or the WMO checkbox itself when that list is empty/hidden, regardless of
 -- whether the Show Terrain/Show WMO Layers pair itself is currently shown).
-function TWM_UpdateOverlayButtons(frame)
+-- The checkboxes alone (TWM_UpdateOverlayButtons below does the rest). On a
+-- continent (a `cull` list) the terrain is always on, so only "Show WMO
+-- Layers" is offered, and only while WMO tiles are in view (frame.wmoInView,
+-- set by TWM_WMOOverlay_Update) and when it fits the footer at the window's
+-- current width -- unlike on an instance map, the window is not widened for
+-- it, as that would happen while panning.
+function TWM_UpdateOverlayChecks(frame)
     local lm = frame:GetName();
     local terrainButton = _G[lm.."ShowTerrainButton"];
     local wmoButton = _G[lm.."ShowWMOOverlayButton"];
@@ -1286,17 +1385,34 @@ function TWM_UpdateOverlayButtons(frame)
     local map = frame.opt.Map;
     local groups = Twm_WMOTiles and Twm_WMOTiles[map];
     local hybrid = groups and TWM_MapHasTerrain(map);
+    local cull = hybrid and groups.cull;
+    if(cull and not frame.wmoInView) then hybrid = false; end
 
-    if(hybrid) then
-        terrainButton:Show();
-        terrainButton:SetChecked(frame.opt.ShowTerrain);
-        wmoButton:Show();
-        wmoButton:SetChecked(frame.opt.ShowWMOOverlay);
-    else
-        terrainButton:Hide();
-        wmoButton:Hide();
-    end
+    hybrid = hybrid and true or false;
+    terrainButton:SetShown(hybrid and not cull);
+    terrainButton:SetChecked(frame.opt.ShowTerrain);
+    wmoButton:SetShown(hybrid);
+    wmoButton:SetChecked(frame.opt.ShowWMOOverlay);
     TWM_LayoutFooterChecks(frame);
+
+    if(hybrid and cull and frame:GetWidth() < TWM_FooterMinWidth(frame)) then
+        hybrid = false;
+        wmoButton:Hide();
+        TWM_LayoutFooterChecks(frame);
+    end
+    frame.wmoChecksActive = hybrid and true or false;
+    if(cull) then TWM_UpdateMinSize(frame); end
+end
+
+function TWM_UpdateOverlayButtons(frame)
+    local lm = frame:GetName();
+    local groups = Twm_WMOTiles and Twm_WMOTiles[frame.opt.Map];
+    -- What is in view is kept when the window is shown again on the same map.
+    if(frame.wmoInViewMap ~= frame.opt.Map) then
+        frame.wmoInViewMap = frame.opt.Map;
+        frame.wmoInView = nil;
+    end
+    TWM_UpdateOverlayChecks(frame);
 
     -- Runtime-only per-group checkbox state, reset here -- see
     -- TWM_IsWMOGroupEnabled's own header for the full "when"/"why".
@@ -1319,7 +1435,7 @@ function TWM_UpdateOverlayButtons(frame)
             end
         end
 
-        if(TWMOption.WMOTileManagement) then
+        if(TWMOption.WMOTileManagement and not groups.cull) then
             TWM_EnsureWMOGroupDropdown(frame, groups);
         else
             TWM_HideWMOGroupDropdown(frame);
@@ -1331,7 +1447,7 @@ function TWM_UpdateOverlayButtons(frame)
         -- header comment for why nil, not maxH itself, is what "no
         -- cutoff" means.
         frame.wmoOverlayHeightCutoff = nil;
-        if(maxH > minH) then
+        if(maxH > minH and not groups.cull) then
             -- Horizontal slider, min at LEFT/max at RIGHT (its own real
             -- default -- see TWM_WMOOverlay_EnsureHeightSlider's own header
             -- for why that needs no negation trick here, unlike the
@@ -1709,6 +1825,12 @@ function TWMFrame_OnLoadExtra()
         -- TWM_IsWMOGroupEnabled).
         TWM_LayoutHeader(self);
         TWM_UpdateOverlayButtons(self);
+        -- The view frame has no size yet while the window is being shown, so
+        -- what is in view (a continent's "Show WMO Layers") is worked out once
+        -- the layout has resolved.
+        C_Timer.After(0, function()
+            if(self:IsShown()) then TWM_WMOOverlay_Update(self); end
+        end);
     end);
 end
 

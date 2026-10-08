@@ -51,9 +51,11 @@ local function AddSlider(tab, variable, name, tooltip, default, minValue, maxVal
     return setting;
 end
 
--- choices: {{value, label, tooltip}, ...}
+-- choices: {{value, label, tooltip}, ...}; the values are of the default's type
+-- (string or number).
 local function AddDropdown(tab, variable, name, tooltip, default, choices, getValue, setValue)
-    local setting = AddSetting(tab, variable, Settings.VarType.String, name, default, getValue, setValue);
+    local varType = type(default) == "number" and Settings.VarType.Number or Settings.VarType.String;
+    local setting = AddSetting(tab, variable, varType, name, default, getValue, setValue);
     Settings.CreateDropdown(tab.category, setting, function()
         local container = Settings.CreateControlTextContainer();
         for _, choice in ipairs(choices) do
@@ -120,9 +122,13 @@ AddCheckbox(worldMapTab, "WorldViewTiles", TWM_MENU_WORLDVIEW_TILES, TWM_TOOLTIP
     GlobalOptionGetter("WorldMapOverlayWorldView", false),
     function(value) TWM_SetWorldViewTiles(value); end);
 
-AddCheckbox(worldMapTab, "CityMapTiles", TWM_MENU_CITYMAP_TILES, TWM_TOOLTIP_OPT_CITYMAPTILES, false,
-    GlobalOptionGetter("WorldMapOverlayCityMaps", false),
-    function(value) TWM_SetCityMapTiles(value); end);
+AddDropdown(worldMapTab, "CityMapTiles", TWM_MENU_CITYMAP_TILES, TWM_TOOLTIP_OPT_CITYMAPTILES, TWM_CITY_MAP_BUILDINGS, {
+        {TWM_CITY_MAP_OFF, TWM_CITYMAP_MODE_OFF},
+        {TWM_CITY_MAP_TERRAIN, TWM_CITYMAP_MODE_TERRAIN},
+        {TWM_CITY_MAP_BUILDINGS, TWM_CITYMAP_MODE_BUILDINGS},
+    },
+    function() return TWM_GetCityMapTilesMode(); end,
+    function(value) TWM_SetCityMapTilesMode(value); end);
 
 --
 -- "Browser" tab: the TerrainWorldMap window itself.

@@ -36,6 +36,9 @@ Twm_mapareas = {}
 Twm_WDTValidTiles = {}
 Twm_NoLiquidTiles = {}
 Twm_WMOTiles = {}
+-- WMO tiles of the capital cities by uiMapID (Twm_CityMapIDs), drawn over their
+-- terrain on the world map (WorldMapOverlay.lua).
+Twm_CityWMOTiles = {}
 Twm_TileFileID = {}
 
 -- Named sub-area/POI labels, keyed by top-level map name. Per-continent and

@@ -365,6 +365,33 @@ shown only while `C_Seasons.GetActiveSeason()` equals the listed season (where
 `C_Seasons` does not exist, e.g. Forever, they stay hidden). When only one
 expansion is left in a category the expansion submenu level is skipped.
 
+## Capital-city WMO tiles on the world map (`Twm_CityWMOTiles`)
+
+The "Draw tiles on city maps" option has three modes (`TWM_GetCityMapTilesMode`,
+saved as `WorldMapOverlayCityMode`; the menus show it as a checkbox -- Off <-> On +
+Buildings on click -- with the modes as its submenu, the Settings tab as a dropdown):
+Off, On (terrain only), On + Buildings. In the last one, on a capital's world map
+(`Twm_CityMapIDs`) `WorldMapOverlay.lua` draws the city's WMO minimap tiles over its terrain
+(`DrawCityWMOTiles`: one child frame per WMO group, frame level = rank by height,
+tiles positioned/rotated like `TWM_WMOOverlay_Update`'s, mapped to the overlay's
+pixels through the zone box like the terrain). Data:
+`Data_<Flavor>/mapdata_wmo_tiles_cities.lua`, `Twm_CityWMOTiles[<uiMapID>]`, from
+`gen_wmo_tiles.js --city-boxes-file` (see `scripts/README.md`: only the WMOs and
+tiles that intersect the city's zone box are unpacked). The standalone window draws
+the same tiles on the continent's map: at load, `TerrainWorldMap.lua` merges the
+cities' groups into `Twm_WMOTiles[<continent>]` (a list marked `cull`, groups shared
+with `Twm_CityWMOTiles`) so the regular `TWM_WMOOverlay_Update` machinery applies.
+The terrain stays always on there; "Show WMO Layers" (alone, no Show Terrain) is
+offered only while WMO tiles are in view and the footer has room for it
+(`TWM_UpdateOverlayChecks`, `frame.wmoInView`/`wmoChecksActive`; the window is not
+widened for it, unlike on instance maps). A `cull` list lays out only tiles in
+the view (plus `TWM_PAN_MARGIN_PX`) and only from `TWM_WMO_CULL_MIN_ZOOM` up -- a
+continent holds ~1000 city tiles/groups, one frame each -- and `TWM_WMOOverlay_Pan`
+redoes the layout (and the "tiles in view" check behind the checkbox) once the view
+has moved `TWM_PAN_REFRESH_PX`, the same distances as the icons' pan anchor in
+`Points.lua`; its group list dropdown and height slider are not offered. A city's WMOs are placed on the
+continent (per-ADT MODF, ADT coordinates), unlike a pure-WMO instance.
+
 ## The custom tooltip (`TWMTooltip`)
 
 Not the Blizzard `GameTooltip` — a fully custom frame

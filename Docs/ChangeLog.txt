@@ -1,6 +1,18 @@
 
 TerrainWorldMap ChangeLog
 ================
+2.1.0 (October 8, 2026)
+----------------------------
+- Added: capital city buildings on the World Map. "Draw tiles on city maps"
+  now has three modes -- Off, On (terrain only) and On + Buildings -- and
+  the last one draws the city's buildings (Stormwind, Orgrimmar, Ironforge,
+  Undercity, ...) over the terrain, so underground cities like Undercity
+  look right too. In the menus the option is a checkbox (Off <-> On +
+  Buildings) with the three modes as its submenu.
+- Added: the same city buildings in the standalone map window, on the
+  continent maps when zoomed in ("Show WMO Layers" toggles them).
+- Changed: "Draw tiles on city maps" is now on (On + Buildings) by default.
+
 2.0.0 (October 3, 2026)
 ----------------------------
 - Added: Dungeon, Raid, Scenario (Mists of Pandaria) and Arena maps in the

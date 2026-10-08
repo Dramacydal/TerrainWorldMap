@@ -1,6 +1,6 @@
 ## Interface: 11509
 ## Title: TerrainWorldMap
-## Version: 2.0.0
+## Version: 2.1.0
 ## Author: Dramacydal, Boo Diddly (Yatlas)
 ## X-Website: https://github.com/Dramacydal/TerrainWorldMap
 ## Notes: Overlays real terrain tiles onto the World Map
@@ -22,6 +22,7 @@ Data_Vanilla\mapdata_raids.lua
 Data_Vanilla\mapdata_seasons.lua
 Data_Vanilla\mapdata_wmo_tiles_dungeons.lua
 Data_Vanilla\mapdata_wmo_tiles_raids.lua
+Data_Vanilla\mapdata_wmo_tiles_cities.lua
 Data_Vanilla\mapdata_poi_areas.lua
 Data_Vanilla\mapdata_poi_battlegrounds_areas.lua
 Data_Vanilla\mapdata_poi_graveyards.lua
