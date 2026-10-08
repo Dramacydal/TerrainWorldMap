@@ -3366,14 +3366,33 @@ end
 local TWM_CONTROLS_HIDE_DELAY = 0.5;
 local TWM_CONTROLS_FADE_TIME = 0.25;
 
+-- Global names of the controls, built once: this runs every frame and must not
+-- create garbage.
+local function TWM_ControlNames(self)
+    local names = self.controlNames;
+    if(not names) then
+        local name = self:GetName();
+        -- the slider is not a child of the strips: it is created on the window itself
+        names = {
+            strips = {name.."Header", name.."Footer", name.."ResizeButton", name.."WMOOverlayHeightSlider"},
+            dropdown = name.."DropDown",
+            dropdown2 = name.."DropDown2",
+        };
+        self.controlNames = names;
+    end
+    return names;
+end
+
+local function TWM_MenuOpen(dropdown)
+    return dropdown and dropdown:IsMenuOpen();
+end
+
 local function TWM_ControlsWanted(self)
     if(self:IsMouseOver() or self.isMoving) then return true; end
     -- A button held while the controls are visible (slider, resize, drag) keeps them.
     if((self.controlsAlpha or 1) > 0 and IsMouseButtonDown()) then return true; end
-    for _, dropdown in ipairs({_G[self:GetName().."DropDown"], _G[self:GetName().."DropDown2"], self.wmoGroupDropdown}) do
-        if(dropdown and dropdown:IsMenuOpen()) then return true; end
-    end
-    return false;
+    local names = TWM_ControlNames(self);
+    return TWM_MenuOpen(_G[names.dropdown]) or TWM_MenuOpen(_G[names.dropdown2]) or TWM_MenuOpen(self.wmoGroupDropdown) or false;
 end
 
 function TWMFrameTemplate:UpdateControlsFade(elapsed)
@@ -3396,12 +3415,15 @@ function TWMFrameTemplate:UpdateControlsFade(elapsed)
     end
     self.controlsAlpha = alpha;
 
-    local name = self:GetName();
-    -- Not children of the strips: created on the window itself.
-    local sliderName = name.."WMOOverlayHeightSlider";
-    for _, control in ipairs({_G[name.."Header"], _G[name.."Footer"], _G[name.."ResizeButton"], _G[sliderName] or false, self.wmoGroupDropdown or false}) do
+    -- fully shown and already applied: nothing to set
+    if(alpha == 1 and self.controlsAppliedAlpha == 1) then return; end
+    self.controlsAppliedAlpha = alpha;
+
+    for _, controlName in ipairs(TWM_ControlNames(self).strips) do
+        local control = _G[controlName];
         if(control) then control:SetAlpha(alpha); end
     end
+    if(self.wmoGroupDropdown) then self.wmoGroupDropdown:SetAlpha(alpha); end
 end
 
 function TWMFrameTemplate:OnUpdate(elapsed)
