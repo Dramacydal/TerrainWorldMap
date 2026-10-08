@@ -413,9 +413,12 @@ the mixin exists, on `PLAYER_ENTERING_WORLD`) looks the instances of
 icon's continent (its own entrance list, then the lists of the instances it
 enters, like Blackwing Lair from Blackrock Spire; never through an "Exit", so a
 name from another continent, e.g. Coilfang on Outland, does not match an icon
-in the Eastern Kingdoms); plus the selector's maps no entrance marker leads to
+in the Eastern Kingdoms). Only when none of those matches by name, the
+selector's maps no entrance marker leads to are tried
 (`TWM_LeatrixMarkerlessGroup`: new maps whose entrances are not in the data;
-found by name only, opened like the others). By name, in
+found by name only, opened like the others, never the maps still in
+development): used as extra candidates they would join a match already made
+(the old Scholomance next to the one the marker leads to). By name, in
 tiers (case-insensitive through the game's own `string.lower`, which lowers
 Cyrillic too -- unlike plain Lua's, checked in game with `/dump
 string.lower("ПРИвет!")`; the icon's name has

@@ -177,11 +177,18 @@ local function TWM_LeatrixMarkerlessGroup()
             end
         end
 
+        -- maps still in development are not for players, whether or not they
+        -- are listed ("Show Inaccessible Maps"): no icon stands for them
+        local development = {};
+        for _, id in ipairs(Twm_DevelopmentMaps or {}) do development[id] = true; end
+
         markerless = {};
         for kind, list in pairs({Dungeon = TWM_DUNGEONS or {}, Raid = TWM_RAIDS or {}}) do
             for displayName, e in pairs(list) do
                 local mapID = tonumber(e.mapID);
-                if(mapID and not hasMarker[mapID]) then markerless[#markerless + 1] = {kind, mapID, displayName}; end
+                if(mapID and not hasMarker[mapID] and not development[e.mapID]) then
+                    markerless[#markerless + 1] = {kind, mapID, displayName};
+                end
             end
         end
     end
@@ -242,35 +249,41 @@ local function TWM_LeatrixCandidates(uiMapID, info, namesOnly, skip)
             return false;
         end,
     };
-    local tier = "position";
-    local groups = TWM_LeatrixReachableGroups(continent);
-    groups[#groups + 1] = TWM_LeatrixMarkerlessGroup();
-    for tierIndex, matches in ipairs(matchers) do
-        for _, group in ipairs(groups) do
-            for _, v in ipairs(group) do
-                local entry = TWM_LeatrixSelectorEntry(v[2]);
-                local names = {GetRealZoneText(v[2]) or v[3]};
-                if(entry) then
-                    names[#names + 1] = entry.name;
-                    for _, alias in ipairs(entry.alias or {}) do names[#names + 1] = alias; end
-                end
-                if(tierIndex == 1 and v[2] == fixedMapID) then
-                    consider(v, distance(v, group));
-                else
-                    for _, name in ipairs(names) do
-                        if(matches(name:lower())) then
-                            consider(v, distance(v, group));
-                            break;
+    -- The first tier that finds something among the entries of `groups`; its
+    -- index, nil when none does.
+    local function findByName(groups)
+        for tierIndex, matches in ipairs(matchers) do
+            for _, group in ipairs(groups) do
+                for _, v in ipairs(group) do
+                    local entry = TWM_LeatrixSelectorEntry(v[2]);
+                    local names = {GetRealZoneText(v[2]) or v[3]};
+                    if(entry) then
+                        names[#names + 1] = entry.name;
+                        for _, alias in ipairs(entry.alias or {}) do names[#names + 1] = alias; end
+                    end
+                    if(tierIndex == 1 and v[2] == fixedMapID) then
+                        consider(v, distance(v, group));
+                    else
+                        for _, name in ipairs(names) do
+                            if(matches(name:lower())) then
+                                consider(v, distance(v, group));
+                                break;
+                            end
                         end
                     end
                 end
             end
+            if(next(found)) then return tierIndex; end
         end
-        if(next(found)) then
-            tier = tierIndex;
-            break;
-        end
+        return nil;
     end
+
+    -- The entrance markers' instances first; the maps no marker leads to only
+    -- when none of those matches (else they would join a match already made,
+    -- like an old map of the same name next to the one the marker leads to).
+    local tier = findByName(TWM_LeatrixReachableGroups(continent))
+        or findByName({TWM_LeatrixMarkerlessGroup()})
+        or "position";
 
     local function sorted()
         local list = {};
