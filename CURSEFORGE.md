@@ -32,7 +32,7 @@ Currently supports **Classic Era (Vanilla)**, **Classic Anniversary (TBC)**, **M
 
 ## Integrations
 
-- **Leatrix Maps** — click a dungeon or raid icon that Leatrix Maps puts on the World Map to open that instance's map in the standalone window. An icon that stands for several instances (Blackrock Mountain, Caverns of Time, ...) shows a list of them to pick from. Can be switched off in the "Integrations" settings tab, which appears only when Leatrix Maps is installed and enabled.
+- **Leatrix Maps** — click a dungeon or raid icon that Leatrix Maps puts on the World Map to open that instance's map in the standalone window. Can be switched off in the "Integrations" settings tab, which appears only when Leatrix Maps is installed and enabled.
 
 ## Supported clients
 
