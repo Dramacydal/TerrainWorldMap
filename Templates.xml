@@ -138,12 +138,20 @@
 				end
 			</OnLeave>
 			<OnDragStart>
+				-- A drag that starts on a selected tile of the debug window's
+				-- "Tile move" tab moves the tiles instead of panning.
+				if(TWM_TileMoveDragStart and TWM_TileMoveDragStart(self)) then
+					return;
+				end
 				self.dragme = true;
 				twm_lastdragx = nil;
 				twm_lastdragy = nil;
 				TWM_elapsed = 0;
 			</OnDragStart>
 			<OnDragStop>
+				if(TWM_TileMoveDragStop and TWM_TileMoveDragStop()) then
+					return;
+				end
 				self.dragme = false;
 				self:GetParent():UpdateDropDown2();
 				TWMFrame_RelayoutPoints(self:GetParent());
@@ -155,7 +163,10 @@
 				if(self.dragme) then
 					TWMFrameViewFrame_OnDrag(self);
 				end
-				if(self.inme and self:GetParent() == TWMFrame and TWM_DebugTiles) then
+				if(TWM_TileMoveDragUpdate) then
+					TWM_TileMoveDragUpdate(self);
+				end
+				if(self.inme and self:GetParent() == TWMFrame and TWM_DebugTiles and (TWM_DebugFeatures.cursor or TWM_DebugFeatures.hover)) then
 					TWMFrameViewFrame_UpdateCursorCoord(self);
 				end
 				if(self.inpoint) then

@@ -456,7 +456,7 @@ local function TWM_LeatrixIconClick(pin, info)
 
     local assigned = TWM_LeatrixAssign(WorldMapFrame:GetMapID(), info);
     local list, tier, plain = assigned.list, assigned.tier, assigned.plain;
-    if(TWM_DebugTiles) then
+    if(TWM_DebugOn("leatrix")) then
         local names = {};
         for _, c in ipairs(list) do names[#names + 1] = c.name; end
         print("TWM Leatrix: name=" .. tostring(info.name):gsub("|", "||") .. " plain=" .. tostring(plain)

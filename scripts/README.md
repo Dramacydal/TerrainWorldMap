@@ -253,7 +253,7 @@ MoguIslandDailyArea), Forever adds `"2991"` and has no Outland/Northrend.
 ## Step 3 — `parse_wdt.js`: tile validity + AreaIDs
 
 ```bash
-node parse_wdt.js --work-dir <dir> --flavor <product> (--client-dir <wow-install-path> | --online) --out <out-file.lua> (--candidates <continents|battlegrounds|arenas|dungeons|raids|scenarios> | --maps <Name1,Name2,...>) [--noliquid] [--areatable-dir <dir>] [--bake-tile-fileids] [--force] [--proxy <url>]
+node parse_wdt.js --work-dir <dir> --flavor <product> (--client-dir <wow-install-path> | --online) --out <out-file.lua> (--candidates <continents|battlegrounds|arenas|dungeons|raids|scenarios> | --maps <Name1,Name2,...>) [--noliquid] [--check-tile-art] [--areatable-dir <dir>] [--bake-tile-fileids] [--force] [--proxy <url>]
 ```
 
 - **`--work-dir`**/**`--flavor`** (required) — see step 2
@@ -262,6 +262,7 @@ node parse_wdt.js --work-dir <dir> --flavor <product> (--client-dir <wow-install
 - **`--client-locale`** (optional, default `enUS`) — CASCConsole's own extraction locale (`-l`); rarely needs changing
 - **`--out`** (required) — output path, e.g. `Data_<Flavor>/mapdata_tiles_<kind>.lua` — one call per category now (see below), not one combined file
 - **`--noliquid`** (optional) — also detect underwater tiles (noLiquid minimaps) — only meaningful for flavors with submerged zones (Mists onward: Vashj'ir, Pandaria coastline)
+- **`--check-tile-art`** (optional, off by default; only for `--candidates dungeons|raids|scenarios`) — drops every ADT tile whose minimap BLP this client does not ship (the WDT lists a tile as real even then, and there is nothing to draw), extracting the minimaps to check; a map left with no tile is then absent from the `gen_instance_maps.js` output. **Mists data is generated with it** (without it Maelstrom Deathwing Fight, Crypt of Forgotten Kings, The Secrets of Ragefire, Mogu Island Loot Room, Proving Grounds and Stromgarde Keep show up as maps with no picture); on Vanilla and Anniversary it changes nothing today, but nothing is lost by passing it. Forgetting it is easy: no other step notices.
 - **`--areatable-dir`** (optional, defaults to `<work-dir>/<flavor>`, self-downloaded) — folder containing `AreaTable.*.csv`, for the rare case you want to point it at a different snapshot
 - **`--bake-tile-fileids`** (optional) — resolves each tile's minimap BLP `FileDataID` (from `<work-dir>/CASCConsole/listfile.csv`) into `Twm_TileFileID[continent][filename]`. **Only needed for a flavor where `Texture:SetTexture("World\Minimaps\...")` doesn't resolve by path string at all** — confirmed on WoW: Forever/Camelot (see `.claude-docs/gotchas.md`); every other flavor still loads fine by path and doesn't need this flag. A tile with no listfile entry gets a loud `WARNING` on stderr and falls back to the (broken, on that flavor) path string — not silently dropped.
 - **`--candidates <kind>`** / **`--maps <Name1,Name2,...>`** (exactly one required) — see this README's intro; `--candidates` needs `gen_candidates.js` run first
@@ -288,6 +289,8 @@ node parse_wdt.js --work-dir C:\wow-data --flavor wow_classic_era --client-dir "
 node parse_wdt.js --work-dir C:\wow-data --flavor wow_anniversary --online --out Data_TBC/mapdata_tiles_dungeons.lua --candidates dungeons
 
 node parse_wdt.js --work-dir C:\wow-data --flavor wow_classic --client-dir "C:\Program Files\World of Warcraft" --out Data_Mists/mapdata_tiles_continents.lua --noliquid --candidates continents
+
+node parse_wdt.js --work-dir C:\wow-data --flavor wow_classic --client-dir "C:\Program Files\World of Warcraft" --out Data_Mists/mapdata_tiles_dungeons.lua --noliquid --check-tile-art --candidates dungeons
 ```
 
 Prints per-continent diagnostics to stderr, including `*** MISMATCH ***`
@@ -875,6 +878,32 @@ extract each placement's root `.wmo` file and read that field to know which
   that WMO's real `{GroupNum, BlockX, BlockY, FileDataID}` tile list. A
   second, narrower listfile pass then resolves only those specific
   FileDataIDs to their own paths, for extraction and BLP-dimension reading.
+- **No tile is filtered by the group data.** `WMOMinimapTexture` is taken as it
+  is. Two filters are in the script but **off** (`EXPERIMENTAL_BLOCK_FILTER`,
+  `EXPERIMENTAL_UNREACHABLE_FILTER`), because they were inferred from
+  Stormwind's data, not from any documented rule:
+  - `isBlockOutsideGroup` drops blocks that start beyond a group's own box
+    (a group has ceil(extent / 128) blocks per axis). In Forever's city WMOs
+    that removes shifted duplicates (Stormwind's The Park groups 220-222 carry
+    copies of group 218's blocks), but it also removes rows of an incomplete
+    table (Naxxramas has such rows too).
+  - Groups flagged `0x80` (`MOGP_FLAG_UNREACHABLE`, MOGP header flags at offset
+    8; `SMOGroup::UNREACHABLE` on [wowdev.wiki/WMO](https://wowdev.wiki/WMO),
+    which gives it no description). In Stormwind they are the backdrop groups
+    (`TreeFacades*`, `Cathy_Facade01`, `mageTowerFacade`, `mountains`); that
+    this is what the flag means is a guess.
+- **A row naming a group beyond the WMO's own group count** (`GroupNum >=`
+  `nGroups`, `MOHD` offset 4) only gets a warning in the log (and is kept):
+  the table is stale against a rebuilt WMO, or the group files are newer than
+  the root. Dropping such rows made Anniversary's Naxxramas (root: 65 groups,
+  tiles and group files up to 71) worse.
+- **The table itself can be wrong**, and nothing in the client data fixes it
+  (wow.export draws the same). Forever 1.60.1.70291's Orgrimmar WMO 21142 was
+  rebuilt (141 -> 138 groups, four groups merged into one) while its rows kept
+  the old `GroupNum`s, and rows with a wrong `GroupNum` or missing blocks exist
+  on the stable clients too (Naxxramas: FileDataID 247233 is listed as group 61
+  block (1,0) but continues group 53's tile 214223). `/twm tile <FileDataID>`
+  finds such tiles in game.
 - **Rotation scope**: yaw (the Y rotation) is applied; a placement with a real
   pitch/roll (non-zero rotation on the other two axes, e.g. Tanaris' abandoned
   orc tower, Caverns of Time's ogre mound) is skipped with a console warning,
@@ -932,9 +961,13 @@ extract each placement's root `.wmo` file and read that field to know which
   wrong keys — no error, `Twm_WMOTiles[frame.opt.Map]` just always
   misses.
 - Output: `Twm_WMOTiles["<map>"] = { {group_id = "<WMOID>-<GroupNum>",
-  group_name = "<MOGN name or Group N>", tiles = { {fileID, cx, cy, width,
+  group_name = "<MOGN name or Group N>", box = {c1x,c1y, c2x,c2y, c3x,c3y,
+  c4x,c4y}, tiles = { {fileID, cx, cy, width,
   height, yawDeg, z, c1x,c1y, c2x,c2y, c3x,c3y, c4x,c4y}, ... }}, ... }`, groups
-  sorted by (WMOID, GroupNum). `cx/cy` = tile centre (Big coordinates),
+  sorted by (WMOID, GroupNum). `box` = the group's own `MOGP` bounding box (the
+  rectangle its tile blocks are laid out in) as 4 Big-coordinate corners, in a
+  tile's corner order; a group drawn by several placements keeps the first's.
+  `cx/cy` = tile centre (Big coordinates),
   `width/height` = the tile's real footprint from its BLP header, `yawDeg` = the
   placement's yaw, `z` = `MODF.position[1]` + the group's LOWEST bbox Z (the same
   key wow.export sorts by), c1..c4 = the real corners.

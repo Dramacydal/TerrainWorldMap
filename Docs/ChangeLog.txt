@@ -1,6 +1,13 @@
 
 TerrainWorldMap ChangeLog
 ================
+2.1.1 (October 23, 2026)
+----------------------------
+- Update to latest forever
+- Hardcoded workarounds for broken tile placements in Forever and MoP, tiles look almost ok now
+- Sync some translations from WoW data
+- New debug menu
+
 2.1.0 (October 8, 2026)
 ----------------------------
 - Added: capital city buildings on the World Map. "Draw tiles on city maps"

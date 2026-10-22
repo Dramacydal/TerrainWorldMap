@@ -3,7 +3,7 @@
 -- strings). Hidden from the dungeon/raid/scenario lists unless
 -- TWMOption.ShowDevelopmentMaps is on (TerrainWorldMap.lua, TWM_IsMapHidden).
 -- A map that is dev in only one flavor is added from that flavor's own
--- Data_<Flavor>/mapdata_poi.lua instead (Mists: 309, 289).
+-- Data_<Flavor>/mapdata_poi.lua instead (Mists: 309, 289, 189).
 Twm_DevelopmentMaps = {
     "169",  -- Emerald Dream
     "734",  -- Ahn'Qiraj Terrace

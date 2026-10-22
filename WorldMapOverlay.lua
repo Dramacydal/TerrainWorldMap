@@ -231,6 +231,11 @@ local function DrawCityWMOTiles(mapID, bx1, bx2, by1, by2, frameW, frameH)
     local groups = Twm_CityWMOTiles[mapID];
     if(not groups) then return; end
 
+    -- The capital's tiles are in the list of its continent (see TerrainWorldMap.lua), so the
+    -- tile toggle list of the debug window belongs to that map.
+    local zone = Twm_UiMapID2Zone[mapID];
+    local tileToggleMap = zone and zone[1];
+
     local ordered = {};
     for order, group in ipairs(groups) do
         if(group.tiles[1]) then
@@ -257,12 +262,16 @@ local function DrawCityWMOTiles(mapID, bx1, bx2, by1, by2, frameW, frameH)
             -- {fileID, cx, cy, width, height, yawDeg, z, corners...}; the
             -- content is transposed by the SetTexCoord above, so the box is
             -- width <- height and height <- width (see TWM_WMOOverlay_Update).
-            tex:SetTexture(tile[1]);
-            tex:ClearAllPoints();
-            tex:SetPoint("CENTER", overlay, "TOPLEFT", (bx1-tile[2])*sx, -(by1-tile[3])*sy);
-            tex:SetSize(tile[5]*sx, tile[4]*sy);
-            tex:SetRotation(math.rad(-(tile[6] or 0)), CITY_WMO_ROTATION_PIVOT);
-            tex:Show();
+            if(TWM_TileToggleHidesTile(tileToggleMap, entry.group.group_id, tile[1])) then
+                tex:Hide();
+            else
+                tex:SetTexture(tile[1]);
+                tex:ClearAllPoints();
+                tex:SetPoint("CENTER", overlay, "TOPLEFT", (bx1-tile[2])*sx, -(by1-tile[3])*sy);
+                tex:SetSize(tile[5]*sx, tile[4]*sy);
+                tex:SetRotation(math.rad(-(tile[6] or 0)), CITY_WMO_ROTATION_PIVOT);
+                tex:Show();
+            end
         end
         for k = #tiles + 1, #gf.textures do
             gf.textures[k]:Hide();
@@ -437,6 +446,11 @@ local function RefreshOverlay()
     end
 
     ReleaseTexturesFrom(idx+1);
+end
+
+-- Draws the overlay again (the tile toggle list of the debug window changed).
+function TWM_RefreshWorldMapOverlay()
+    RefreshOverlay();
 end
 
 function TWM_SetWorldMapOverlay(enabled, silent)

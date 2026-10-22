@@ -305,7 +305,9 @@ is the placed WMO's own baked group tiles. A map can have both (Orgrimmar
 Arena) — they are generated independently.
 
 `Twm_WMOTiles[map]` is an array of groups,
-`{group_id = "<WMOID>-<GroupNum>", group_name, tiles = {...}}`; each tile is
+`{group_id = "<WMOID>-<GroupNum>", group_name, box = {c1x,c1y .. c4x,c4y}, tiles = {...}}`
+(`box` = the group's own MOGP bounding box, 4 Big corners; `/twm debug` draws it as 4 solid lines in the color of the group's tile
+borders, thicker, `TWM_WMODebugGroupBox`); each tile is
 `{fileID, cx, cy, width, height, yawDeg, z, c1x,c1y, c2x,c2y, c3x,c3y, c4x,c4y}`
 (Big coordinates; `z` = placement `MODF.position[1]` + the group's lowest
 bbox Z, the same key wow.export orders by; the corners are the real, possibly
@@ -327,6 +329,80 @@ else on ViewFrame is lifted above that range by `TWM_WMO_FRAME_BAND`
 (`Points.lua`): point markers, flight masters, the flight path frame, and the
 zoom/terrain/WMO buttons. The debug borders/labels (`/twm debug`) sit on a
 dedicated frame just above the groups. See gotchas.md, "WMO overlay stacking".
+`/twm debug` opens a window (`TWMDebugFrame`, `TWM_EnsureDebugWindow`: frameless, flat
+background, drag by the window, close button, resize grip; the checkboxes flow into as many columns
+as the width holds, the height keeps at least what the rows need; size and position are saved in
+`TWMOption.DebugWindow`) with one checkbox per debug feature (`TWM_DEBUG_FEATURES`: ADT tile borders and zone labels, WMO tile
+borders, WMO tile labels, group boxes, group labels (the group_id at the center of the group's
+box, `TWM_WMODebugGroupLabel`), hover blink/list, cursor coordinates, the group menu on
+continents, the Leatrix click log); all on at the start, runtime only. `TWM_DebugTiles` is true
+while the window is open; code asks `TWM_DebugOn(key)` (window open and the box ticked) or
+`TWM_DebugAnyWMO()`; `TWM_DebugRefresh()` re-lays the map out after a change.
+The window has tabs along the top (`TWM_DEBUG_TABS`, one pane each, the open one saved in
+`TWMOption.DebugTab`): "Settings" (the checkboxes), "Tile toggle", "Tile move", "Export".
+"Tile toggle": two trees (group -> tiles, check boxes, "+" lists the tiles). Left: the groups with at
+least one tile on the screen (`TWMFrame.wmoDrawnGroups`, filled by every layout while the window is
+open: tile corners' box in the view, below the height cutoff, not moved right; the group menu must
+show the group), each with all its tiles; a tile is drawn
+while its box is ticked (unticking hides it, session only, `tileOffLeft`). `>` moves a group or one
+tile to the right tree, the saved `TWMOption.TileToggle` (nodes `{maps = {...}, group, name, tiles =
+{{tile, hidden}}}`, a node is made when its first tile is moved and belongs to every map that has
+the group, `TWM_TileToggleMapsOf`; nodes saved before maps were recorded get theirs on load,
+`TWM_TileToggleMigrate`; the right tree lists only the nodes of the map open now; the tick boxes
+are shared by the maps of a node, the left boxes are per map): there a ticked tile (default) is NOT
+drawn on those maps; `<` moves back. The box of a group only sets the boxes of its tiles (ticked while all are);
+drawing depends on a tile's own box (`TWM_TileToggleHidesTile`), in TWMFrame
+(`TWM_WMOOverlay_Update`) and on the World Map overlay (`DrawCityWMOTiles`), also when the window
+is closed. The list is prepared in the window and then made code: the "Export" tab writes the
+saved lists (every tile in them, whatever the boxes) as the text of `Data_<Flavor>/mapdata_wmo_tile_toggle.lua`
+(`Twm_TileToggleVersion` = the date and time of the export, `Twm_TileToggle`, warnings for entries
+that no longer fit the data), to copy and paste whole. On load `TWM_TileToggleSync`: when the
+version differs from the saved `TWMOption.TileToggleVersion` (none = 0, so the shipped 0 leaves a
+saved list alone), the saved list is replaced by the shipped one (the old one is not kept).
+"Tile move": the same two trees and boxes (`f.moveView`; the open tab's trees are filled by
+`TWM_TileToggleRefreshLists`, `f.toggleView` for the first tab), but its OWN saved list, the tiles
+to move (`TWMOption.TileMove`), independent of the toggle list: a tile in one is not in the other.
+The boxes of both lists are only visual (ticked = not drawn here and now, `toggleHiddenTiles`
+takes the ticks of both lists); the lists are what is exported, every tile of them, whatever the
+boxes. `>` adds to the list of the open tab (`TWM_TileListAdd`: ticked on "Tile toggle", unticked
+on "Tile move", as those tiles are there to be dragged), `<` removes (`TWM_TileListRemove`; a
+placed tile of the move list goes back to its own place). A click on a row of the right tree
+selects that group or tile (`tileMoveSelection`, a second click clears it). While a selection
+exists and this tab is open, a left drag that starts on a selected tile, in TWMFrame's
+view, moves tiles instead of panning (hooks in the ViewFrame's `OnDragStart/OnDragStop/OnUpdate`,
+Templates.xml; `TWM_TileMoveDragStart/Update/Stop`): a selected group moves all its drawn tiles
+(not ticked) by the same amount, a selected tile only itself. With Shift held at the start of the
+drag the selection is turned instead, as a rigid body about its center of mass (the tile centers
+weighted by tile area; one tile about its own center), by the angle the cursor goes round that point, snapped so that the
+first tile's yaw is a whole degree. `yawDeg` (`tile[6]`) is the direction of the side c1 -> c2 in
+Big coordinates (atan2), so a turn by an angle in Big coordinates adds that angle to it. Moving a
+tile changes its tuple in `Twm_WMOTiles` itself (`TWM_TileMovePlace`: center `[2],[3]`, yaw `[6]`
+and corners `[8..15]`, the data's corners turned about the data's center and taken to the new
+one; the original numbers are kept in `tileOrigin`), the tuples being shared with
+`Twm_CityWMOTiles` the World Map overlay follows. The move list has a node per map and group
+(`{maps = {map}, group, name, tiles = {{tile, hidden, cx, cy, yaw}}}`); the FINAL center cx, cy
+(Big coordinates, two decimals) and, only for a turned tile, yaw are set by the drag and applied at
+load (`TWM_TileMoveApplyAll` from `TWM_TileToggleLoad`); a tile only listed has none. Leaving the tab or closing the window ends the drag mode (selection
+cleared, `TWM_TileMoveEnd`). The shipped list `Twm_TileMove` (`{map, group, name, tiles =
+{{FileDataID, cx, cy}}}`, `{FileDataID}` for a tile not placed yet) has no version of its own:
+`TWM_TileToggleSync` replaces both saved lists when `Twm_TileToggleVersion` differs (the tiles
+come unticked in the move list, ticked in the toggle list). The "Export" tab writes both lists
+under one version.
+A drag that starts on a point icon (Points.lua's `TWMP_EnableDragThrough`) still pans.
+With the hover feature on, the tiles under the cursor blink and the label next to the cursor
+lists them (`TWM_WMODebugHover`, `TerrainWorldMap.lua`): the tiles drawn by the
+last layout (`frame.wmoDebugTiles`, textures carrying `tex.wmoTile`) are matched
+against the cursor by their own real corners (`tile[8..15]`, so a turned tile is
+hit as drawn); every tile under the cursor is listed and blinks, the one whose
+center is nearest first. A blinking tile is
+drawn once more as a copy on its own frame (`frame.wmoHoverFrame`, one level below
+the debug frame, above every group frame), so it shows over all other tiles whatever
+their stacking; its border dims instead. `/twm tile <FileDataID> [...]`
+(`TWM_PinWMOTiles`) finds those tiles on the current map, centers the view on the
+first and keeps them blinking (`frame.wmoPinned`) wherever the cursor is in the view.
+The WMO tiles that are never drawn are the Tile toggle list (see the Tile toggle tab above,
+`Data_<Flavor>/mapdata_wmo_tile_toggle.lua`); the generator's own skip list is
+`scripts/skip_lists.js` (`skipWmoGroups`).
 
 **Controls.** The "Show Terrain"/"Show WMO Layers" checkbox pair
 (`TWMFrameShowTerrainButton`/`TWMFrameShowWMOOverlayButton`, in the footer strip) appears only for a map that has BOTH ADT terrain and `Twm_WMOTiles`

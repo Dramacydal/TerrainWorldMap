@@ -15,24 +15,5 @@
 -- tables (TaxiRoutes.lua) -- see this file's own header comment.
 
 Twm_ArenaNames = {
-    {
-        key = "2995",
-        name = {
-            enUS = "Hyjal Crater",
-            deDE = "Hyjalkrater",
-            esES = "Cráter de Hyjal",
-            esMX = "Cráter de Hyjal",
-            frFR = "Cratère d’Hyjal",
-            itIT = "Hyjal Crater",
-            koKR = "하이잘 분화구",
-            ptBR = "Cratera de Hyjal",
-            ruRU = "Кратер Хиджал",
-            zhCN = "海加尔火山口",
-            zhTW = "海加爾火山口",
-        },
-    },
 }
 
-Twm_mapareas["2995"] = {
-    [0] = {-533.3333333333334, -4266.666666666667, 6400, 3733.3333333333335},    --HyjalCrater
-}

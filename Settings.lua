@@ -247,12 +247,26 @@ AddSlider(browserTab, "FlightPathInterpolation", TWM_OPTIONS_FLIGHTPATH_INTERPOL
 
 AddHeader(browserTab, TWM_OPTIONS_GROUP_EXTRAS);
 
-AddCheckbox(browserTab, "WMOTileManagement", TWM_OPTIONS_WMO_TILE_MANAGEMENT, TWM_TOOLTIP_OPT_WMOTILEMANAGEMENT, false,
+local wmoTileManagementSetting, wmoTileManagementInitializer = AddCheckbox(browserTab, "WMOTileManagement",
+    TWM_OPTIONS_WMO_TILE_MANAGEMENT, TWM_TOOLTIP_OPT_WMOTILEMANAGEMENT, false,
     GlobalOptionGetter("WMOTileManagement", false),
     function(value)
         TWMOption.WMOTileManagement = value;
         if(TWMFrame) then TWM_UpdateOverlayButtons(TWMFrame); end
     end);
+
+-- Only matters while the menu is on (indented under it, greyed out otherwise, like the
+-- enemy faction flight masters under the flight masters). The menu is generated again on
+-- every open, so nothing to refresh here.
+local _, wmoGroupByNameInitializer = AddCheckbox(browserTab, "WMOGroupByName",
+    TWM_OPTIONS_WMO_GROUP_BY_NAME, TWM_TOOLTIP_OPT_WMOGROUPBYNAME, true,
+    GlobalOptionGetter("WMOGroupByName", true),
+    function(value)
+        TWMOption.WMOGroupByName = value;
+    end);
+wmoGroupByNameInitializer:SetParentInitializer(wmoTileManagementInitializer, function()
+    return wmoTileManagementSetting:GetValue();
+end);
 
 AddCheckbox(browserTab, "ShowDevelopmentMaps", TWM_OPTIONS_SHOW_DEVELOPMENT_MAPS, TWM_TOOLTIP_OPT_SHOWDEVELOPMENTMAPS, false,
     GlobalOptionGetter("ShowDevelopmentMaps", false),

@@ -50,3 +50,4 @@ TWM_MAPS = {
 -- ones.
 tinsert(Twm_DevelopmentMaps, "309"); -- Ancient Zul'Gurub (Zul'gurub)
 tinsert(Twm_DevelopmentMaps, "289"); -- Scholomance OLD (SchoolofNecromancy)
+tinsert(Twm_DevelopmentMaps, "189"); -- Scarlet Monastery of Old (MonasteryInstances)

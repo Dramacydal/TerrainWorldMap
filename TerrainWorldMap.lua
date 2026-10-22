@@ -197,23 +197,1174 @@ end
 local dummyv = nil;
 local nilfunc = function() end
 
--- Debug: overlay each map tile with its grid-cell coordinate and the live
--- zone reported there. Toggle with "/twm debug".
+-- Debug mode ("/twm debug"): a small window with one checkbox per debug feature
+-- (TWM_DEBUG_FEATURES). TWM_DebugTiles is true while the window is open; a feature
+-- works only then and only when its checkbox is on (TWM_DebugOn). All on at the start,
+-- then as saved (TWMOption.DebugFeatures). The texts are English only: a developer tool.
 TWM_DebugTiles = false;
 
-function TWM_ToggleTileDebug()
-    TWM_DebugTiles = not TWM_DebugTiles;
-    if(not TWM_DebugTiles and TWM_HideCursorCoordLabel) then
-        -- Otherwise the label sticks around showing stale coordinates
-        -- until the mouse happens to leave the view -- OnUpdate simply
-        -- stops refreshing it once TWM_DebugTiles is false (see
-        -- Templates.xml's own gate), it doesn't hide it.
-        TWM_HideCursorCoordLabel();
+local TWM_DEBUG_FEATURES = {
+    {"adtTiles",   "Map tile borders and zone labels (ADT grid)"},
+    {"wmoBorders", "WMO tile borders"},
+    {"wmoLabels",  "WMO tile labels (FileDataID)"},
+    {"groupBoxes", "WMO group boxes"},
+    {"groupLabels", "WMO group labels (WMOID-group)"},
+    {"hover",      "Tile under the cursor: blink and list"},
+    {"cursor",     "Cursor coordinates (Ctrl copies)"},
+    {"groupMenu",  "WMO group menu on continents"},
+    {"leatrix",    "Leatrix click log (chat)"},
+};
+
+TWM_DebugFeatures = {};
+for _, feature in ipairs(TWM_DEBUG_FEATURES) do
+    TWM_DebugFeatures[feature[1]] = true;
+end
+
+function TWM_DebugOn(key)
+    return TWM_DebugTiles and TWM_DebugFeatures[key] and true or false;
+end
+
+-- The feature set survives a UI reload: kept in TWMOption.DebugFeatures (saved variable,
+-- not there yet when this file loads, so read when the window is shown).
+function TWM_DebugSetFeature(key, value)
+    TWM_DebugFeatures[key] = value and true or false;
+    if(TWMOption) then
+        TWMOption.DebugFeatures = TWMOption.DebugFeatures or {};
+        TWMOption.DebugFeatures[key] = TWM_DebugFeatures[key];
     end
-    if(TWMFrame.opt) then
+end
+
+local function TWM_DebugLoadFeatures()
+    local saved = TWMOption and TWMOption.DebugFeatures;
+    if(not saved) then return; end
+    for _, feature in ipairs(TWM_DEBUG_FEATURES) do
+        if(saved[feature[1]] ~= nil) then
+            TWM_DebugFeatures[feature[1]] = saved[feature[1]] and true or false;
+        end
+    end
+end
+
+-- Whether anything is drawn for the WMO tiles (the debug frame and the layout are needed).
+function TWM_DebugAnyWMO()
+    local f = TWM_DebugFeatures;
+    return TWM_DebugTiles and (f.wmoBorders or f.wmoLabels or f.groupBoxes or f.groupLabels or f.hover) and true or false;
+end
+
+-- Applies the feature set: drops what the cursor label and the blinking show, and lays
+-- the map out again (the group menu of a continent depends on it too; the groups are
+-- all enabled again).
+function TWM_DebugRefresh()
+    if(TWM_HideCursorCoordLabel) then TWM_HideCursorCoordLabel(); end
+    if(TWMFrame and TWMFrame.opt) then
+        TWM_UpdateOverlayButtons(TWMFrame);
         TWMFrame:SetLocation(TWMFrame.opt.Location[1], TWMFrame.opt.Location[2], true);
     end
-    print(TWM_DebugTiles and TWM_DEBUG_TILES_ON or TWM_DEBUG_TILES_OFF);
+end
+
+-- Tile toggle (debug window, "Tile toggle" tab): two trees, group -> tiles, with check
+-- boxes. Left, what is drawn now: a tile is drawn while its box is ticked (unticking
+-- hides it, this lasts the session: tileOffLeft). Right, the saved list
+-- (TWMOption.TileToggle = {{maps = {...}, group = "<WMOID>-<GroupNum>", name, tiles = {{tile =
+-- FileDataID, hidden}, ...}}, ...}; a node belongs to every map (a key of Twm_WMOTiles)
+-- that has the group): a ticked tile there (the default for a moved one) is NOT drawn on
+-- those maps. The box of a group only sets the boxes of its tiles (ticked while all are);
+-- whether a tile is drawn depends on its own box alone. TWMFrame and the World Map
+-- overlay both obey it, also when the debug window is closed.
+-- The "Tile move" tab has the same two trees, but its own saved list (the right tree,
+-- TWMOption.TileMove, see below): the two lists are independent, a tile in one is not in the
+-- other. The boxes of a saved list only say whether the tile is drawn here and now (to look
+-- at the map); what is shipped is the list, not the boxes.
+local toggleHiddenTiles = {};  -- map -> {"<group>#<FileDataID>" -> true}: ticked in either saved list
+local toggleInList = {toggle = {}, move = {}}; -- list -> the same: in the saved list at all (ticked or not)
+local tileOffLeft = {};        -- the same: unticked on the left
+local toggleBuiltFrom, moveBuiltFrom, toggleDirty = nil, nil, true;
+local toggleUIDirty = false; -- the list of the groups drawn now is out of date
+local toggleMigratedFrom;
+
+-- The map open in TWMFrame (a key of Twm_WMOTiles).
+local function TWM_TileToggleCurrentMap()
+    return TWMFrame and TWMFrame.opt and TWMFrame.opt.Map;
+end
+
+-- The maps whose data has the group (sorted), from Twm_WMOTiles (which never changes
+-- after loading); a group found nowhere has none.
+local mapsOfGroup;
+local function TWM_TileToggleMapsOf(groupId)
+    if(not mapsOfGroup) then
+        mapsOfGroup = {};
+        for map, groups in pairs(Twm_WMOTiles or {}) do
+            for _, group in ipairs(groups) do
+                local maps = mapsOfGroup[group.group_id];
+                if(not maps) then
+                    maps = {};
+                    mapsOfGroup[group.group_id] = maps;
+                end
+                maps[#maps + 1] = map;
+            end
+        end
+        for _, maps in pairs(mapsOfGroup) do table.sort(maps); end
+    end
+    return mapsOfGroup[groupId];
+end
+
+local function TWM_TileToggleNodeOnMap(node, map)
+    for _, other in ipairs(node.maps) do
+        if(other == map) then return true; end
+    end
+    return false;
+end
+
+-- Nodes saved before the maps were recorded get them: every map whose data has the group
+-- (the map "?" for a group found nowhere: never shown, but not lost).
+local function TWM_TileToggleMigrate(list)
+    if(toggleMigratedFrom == list) then return; end
+    toggleMigratedFrom = list;
+    for _, node in ipairs(list) do
+        if(not node.maps) then
+            node.maps = {};
+            for _, map in ipairs(TWM_TileToggleMapsOf(node.group) or {"?"}) do
+                node.maps[#node.maps + 1] = map;
+            end
+            node.map = nil;
+        end
+    end
+end
+
+-- The list shipped with the addon (Data_<Flavor>/mapdata_wmo_tile_toggle.lua, pasted from the
+-- Export tab of the debug window): nodes {group, name, maps, tiles = {FileDataID, ...}},
+-- the tiles never drawn (all the tiles of the list: its boxes are not shipped). When its Twm_TileToggleVersion (the date and time of the export) is not the saved
+-- TWMOption.TileToggleVersion (none counts as 0), the saved list is replaced by a copy of
+-- it (the old one is not kept), and so is the list of the moved tiles (Twm_TileMove, saved
+-- as TWMOption.TileMove), which has no version of its own. Done once per saved table
+-- (TWMOption is replaced by the saved variables after this file has loaded).
+local toggleSyncedFor;
+local function TWM_TileToggleSync()
+    if(not TWMOption or toggleSyncedFor == TWMOption) then return; end
+    toggleSyncedFor = TWMOption;
+    -- A version is a date and time ("2026-10-24 15:30"), or a plain number in the older files;
+    -- compared as text.
+    local version = Twm_TileToggleVersion or 0;
+    if(tostring(TWMOption.TileToggleVersion or 0) == tostring(version)) then return; end
+
+    local list = {};
+    for _, shipped in ipairs(Twm_TileToggle or {}) do
+        local node = {group = shipped.group, name = shipped.name, tiles = {}};
+        if(shipped.maps) then -- else the maps of the group are filled in (TWM_TileToggleMigrate)
+            node.maps = {};
+            for _, map in ipairs(shipped.maps) do node.maps[#node.maps + 1] = map; end
+        end
+        for _, fileID in ipairs(shipped.tiles) do
+            node.tiles[#node.tiles + 1] = {tile = fileID, hidden = true};
+        end
+        list[#list + 1] = node;
+    end
+
+    -- The second saved list, of the same version: the tiles to be moved (Twm_TileMove: nodes
+    -- {map, group, name, tiles = {{FileDataID, cx, cy}, ...}}; a tile in the list that has not
+    -- been placed has only its FileDataID). The boxes are not shipped: the tiles come drawn.
+    local moves = {};
+    for _, shipped in ipairs(Twm_TileMove or {}) do
+        local node = {maps = {shipped.map}, group = shipped.group, name = shipped.name, tiles = {}};
+        for _, tile in ipairs(shipped.tiles) do
+            node.tiles[#node.tiles + 1] = {tile = tile[1], hidden = false, cx = tile[2], cy = tile[3], yaw = tile[4]};
+        end
+        moves[#moves + 1] = node;
+    end
+    TWMOption.TileMove = moves;
+
+    TWMOption.TileToggle = list;
+    TWMOption.TileToggleVersion = version;
+    toggleDirty = true;
+    -- print(format("|cff40ff40TerrainWorldMap|r Tile toggle list replaced by the one of the addon (version %s, %d groups).",
+    --     tostring(version), #list));
+end
+
+local function TWM_TileToggleEntries(create)
+    if(not TWMOption) then return nil; end
+    TWM_TileToggleSync();
+    local list = TWMOption.TileToggle;
+    if(list and list[1] and not list[1].tiles) then -- the flat format of the first version
+        list = nil;
+        TWMOption.TileToggle = nil;
+    end
+    if(create and not list) then
+        list = {};
+        TWMOption.TileToggle = list;
+    end
+    if(list) then TWM_TileToggleMigrate(list); end
+    return list;
+end
+
+-- Runs the version check and the migration at once (VARIABLES_LOADED), not at the first
+-- use of the list.
+function TWM_TileToggleLoad()
+    TWM_TileToggleEntries();
+    TWM_TileMoveApplyAll();
+end
+
+-- The lookup sets are rebuilt when the list changes, or when the saved table has been
+-- replaced (the saved variables are loaded after this file).
+local function TWM_TileToggleEnsureBuilt()
+    local list, moves = TWM_TileToggleEntries(), TWM_TileMoveEntries();
+    if(not toggleDirty and list == toggleBuiltFrom and moves == moveBuiltFrom) then return; end
+    toggleBuiltFrom, moveBuiltFrom, toggleDirty = list, moves, false;
+    wipe(toggleHiddenTiles);
+    wipe(toggleInList.toggle);
+    wipe(toggleInList.move);
+    for kind, nodes in pairs({toggle = list, move = moves}) do
+        local inList = toggleInList[kind];
+        for _, node in ipairs(nodes or {}) do
+            for _, map in ipairs(node.maps) do
+                local hidden, has = toggleHiddenTiles[map], inList[map];
+                if(not hidden) then
+                    hidden = {};
+                    toggleHiddenTiles[map] = hidden;
+                end
+                if(not has) then
+                    has = {};
+                    inList[map] = has;
+                end
+                for _, saved in ipairs(node.tiles) do
+                    local key = node.group .. "#" .. saved.tile;
+                    has[key] = true;
+                    if(saved.hidden ~= false) then
+                        hidden[key] = true;
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- Whether the tile is in the saved list ("toggle" or "move") of the map.
+function TWM_TileToggleInList(kind, map, groupId, fileID)
+    TWM_TileToggleEnsureBuilt();
+    local set = toggleInList[kind][map];
+    return set ~= nil and set[groupId .. "#" .. fileID] == true;
+end
+
+-- Whether a ticked box of a saved list hides the tile on the map (not counting the left tree).
+function TWM_TileToggleListHides(map, groupId, fileID)
+    TWM_TileToggleEnsureBuilt();
+    local hidden = toggleHiddenTiles[map];
+    return hidden ~= nil and hidden[groupId .. "#" .. fileID] == true;
+end
+
+function TWM_TileToggleHidesTile(map, groupId, fileID)
+    TWM_TileToggleEnsureBuilt();
+    local hidden, off = toggleHiddenTiles[map], tileOffLeft[map];
+    if(not hidden and not off) then return false; end
+    local key = groupId .. "#" .. fileID;
+    return ((hidden and hidden[key]) or (off and off[key])) and true or false;
+end
+
+-- Whether every tile of the group is hidden: the group then shows no box and no label either.
+function TWM_TileToggleHidesAll(map, group)
+    TWM_TileToggleEnsureBuilt();
+    local hidden, off = toggleHiddenTiles[map], tileOffLeft[map];
+    if(not hidden and not off) then return false; end
+    local id = group.group_id;
+    for _, tile in ipairs(group.tiles) do
+        local key = id .. "#" .. tile[1];
+        if(not ((hidden and hidden[key]) or (off and off[key]))) then return false; end
+    end
+    return true;
+end
+
+-- The list of the groups drawn now changed (a layout); the tab refreshes itself.
+function TWM_TileToggleMarkDirty()
+    toggleUIDirty = true;
+end
+
+-- A change of the saved list: everything is laid out again.
+function TWM_TileToggleChanged()
+    toggleDirty = true;
+    if(TWMFrame and TWMFrame.opt) then TWM_WMOOverlay_Update(TWMFrame); end
+    if(TWM_RefreshWorldMapOverlay) then TWM_RefreshWorldMapOverlay(); end
+end
+
+-- The saved list of the open tab: "toggle" (Tile toggle) or "move" (Tile move).
+local function TWM_TileListKind()
+    return TWMDebugFrame and TWMDebugFrame.tab == "move" and "move" or "toggle";
+end
+
+local function TWM_TileListEntries(kind, create)
+    if(kind == "move") then return TWM_TileMoveEntries(create); end
+    return TWM_TileToggleEntries(create);
+end
+
+-- The node of a group: in the toggle list one node holds all the maps of the group, in the
+-- move list there is a node for each map.
+local function TWM_TileListFindNode(kind, list, groupId, map)
+    for _, node in ipairs(list) do
+        if(node.group == groupId and (kind == "toggle" or TWM_TileToggleNodeOnMap(node, map))) then return node; end
+    end
+end
+
+local function TWM_TileToggleFindTile(node, fileID)
+    for i, saved in ipairs(node.tiles) do
+        if(saved.tile == fileID) then return saved, i; end
+    end
+end
+
+-- Tile move ("Tile move" tab): the second saved list, the tiles whose place is changed by
+-- dragging them. TWMOption.TileMove = {{maps = {map}, group = "<WMOID>-<GroupNum>", name,
+-- tiles = {{tile = FileDataID, hidden, cx, cy, yaw}, ...}}, ...}: a node per map and group (the
+-- same group may sit elsewhere on another map); cx, cy is the FINAL center of a tile that has
+-- been placed (Big coordinates, as tile[2], tile[3] of the data), none for a tile only listed;
+-- yaw (degrees, as tile[6]) its final turn, only when it has been turned.
+-- Applying a move changes the tile tuple of Twm_WMOTiles itself (center and the 4 corners), so
+-- TWMFrame and the World Map overlay, which share the tuples, both draw it; the original
+-- numbers are kept to put a tile back.
+local tileOrigin = setmetatable({}, {__mode = "k"}); -- tile tuple -> its original numbers
+local tileMoveSelection; -- {group = "<WMOID>-<GroupNum>", tile = FileDataID or nil (the whole group)}
+local tileMoveDrag;      -- the drag in progress, see TWM_TileMoveDragStart
+local moveMigratedFrom;
+
+function TWM_TileMoveEntries(create)
+    if(not TWMOption) then return nil; end
+    TWM_TileToggleSync();
+    local list = TWMOption.TileMove;
+    if(create and not list) then
+        list = {};
+        TWMOption.TileMove = list;
+    end
+    -- Nodes of the first version ({map, group, name, tiles = {{tile, cx, cy}}}) get the new shape.
+    if(list and moveMigratedFrom ~= list) then
+        moveMigratedFrom = list;
+        for _, node in ipairs(list) do
+            if(not node.maps) then
+                node.maps = {node.map};
+                node.map = nil;
+                for _, saved in ipairs(node.tiles) do saved.hidden = false; end
+            end
+        end
+    end
+    return list;
+end
+
+-- The tile tuple of the data (a tile of the group on the map), nil if there is none.
+local function TWM_TileMoveFindTuple(map, groupId, fileID)
+    for _, group in ipairs(Twm_WMOTiles and Twm_WMOTiles[map] or {}) do
+        if(group.group_id == groupId) then
+            for _, tile in ipairs(group.tiles) do
+                if(tile[1] == fileID) then return tile; end
+            end
+        end
+    end
+end
+
+-- Puts the tile with its center at (cx, cy), turned to `yaw` degrees (nil: as it is in the
+-- data); the corners go along: the data's corners turned by the difference of the yaws about
+-- the data's center, then taken to (cx, cy). yawDeg [6] is the direction of the side c1 -> c2 in
+-- Big coordinates (atan2, degrees), so turning a tile by an angle in Big coordinates adds it to yaw.
+function TWM_TileMovePlace(tile, cx, cy, yaw)
+    local origin = tileOrigin[tile];
+    if(not origin) then
+        origin = {tile[2], tile[3], tile[8], tile[9], tile[10], tile[11], tile[12], tile[13], tile[14], tile[15], tile[6] or 0};
+        tileOrigin[tile] = origin;
+    end
+    yaw = yaw or origin[11];
+    local turn = math.rad(yaw - origin[11]);
+    local cos, sin = math.cos(turn), math.sin(turn);
+    tile[2], tile[3], tile[6] = cx, cy, yaw;
+    for i = 0, 3 do
+        local rx, ry = origin[3 + i * 2] - origin[1], origin[4 + i * 2] - origin[2];
+        tile[8 + i * 2], tile[9 + i * 2] = cx + rx * cos - ry * sin, cy + rx * sin + ry * cos;
+    end
+end
+
+local function TWM_TileMoveRestore(tile)
+    local origin = tileOrigin[tile];
+    if(not origin) then return; end
+    tile[2], tile[3], tile[6] = origin[1], origin[2], origin[11];
+    for i = 0, 3 do
+        tile[8 + i * 2], tile[9 + i * 2] = origin[3 + i * 2], origin[4 + i * 2];
+    end
+    tileOrigin[tile] = nil;
+end
+
+-- Every tile goes back, then the saved moves are applied (at load, and when the list is replaced).
+function TWM_TileMoveApplyAll()
+    for tile in pairs(tileOrigin) do TWM_TileMoveRestore(tile); end
+    for _, node in ipairs(TWM_TileMoveEntries() or {}) do
+        for _, saved in ipairs(node.tiles) do
+            local tile = saved.cx and TWM_TileMoveFindTuple(node.maps[1], node.group, saved.tile);
+            if(tile) then TWM_TileMovePlace(tile, saved.cx, saved.cy, saved.yaw); end
+        end
+    end
+end
+
+-- The selected tiles that can be grabbed now: the tiles of the selected node of the move list
+-- (or the one selected) that are drawn, as {tile = the tuple, id = FileDataID, saved = its
+-- entry in the list}; also the node. nil when nothing is selected on this map.
+local function TWM_TileMoveSelected()
+    local selection, map = tileMoveSelection, TWM_TileToggleCurrentMap();
+    local list = TWM_TileMoveEntries();
+    local node = selection and list and TWM_TileListFindNode("move", list, selection.group, map);
+    if(not node) then return nil; end
+    local result = {};
+    for _, saved in ipairs(node.tiles) do
+        if(not selection.tile or saved.tile == selection.tile) then
+            local tile = TWM_TileMoveFindTuple(map, node.group, saved.tile);
+            if(tile and not TWM_TileToggleHidesTile(map, node.group, saved.tile)) then
+                result[#result + 1] = {tile = tile, id = saved.tile, saved = saved};
+            end
+        end
+    end
+    return result, node;
+end
+
+-- Left -> right: the tiles (FileDataIDs) of a group go into the group's node of the saved list
+-- of the open tab (created when there is none); a group moves with all the tiles it has on the
+-- left. The toggle list takes them ticked (so not drawn: they are to be hidden), the move list
+-- unticked (drawn: they are to be dragged).
+local function TWM_TileListAdd(kind, map, groupId, name, fileIDs)
+    local list = TWM_TileListEntries(kind, true);
+    if(not list or not map) then return; end
+    local node = TWM_TileListFindNode(kind, list, groupId, map);
+    if(not node) then
+        node = {maps = {}, group = groupId, name = name, tiles = {}};
+        if(kind == "toggle") then -- a group on several maps goes into the list for all of them at once
+            for _, other in ipairs(TWM_TileToggleMapsOf(groupId) or {}) do node.maps[#node.maps + 1] = other; end
+        end
+        list[#list + 1] = node;
+    end
+    if(not TWM_TileToggleNodeOnMap(node, map)) then node.maps[#node.maps + 1] = map; end
+    for _, fileID in ipairs(fileIDs) do
+        if(not TWM_TileToggleFindTile(node, fileID)) then
+            node.tiles[#node.tiles + 1] = {tile = fileID, hidden = kind == "toggle"};
+        end
+        for _, other in ipairs(node.maps) do
+            if(tileOffLeft[other]) then tileOffLeft[other][groupId .. "#" .. fileID] = nil; end
+        end
+    end
+    TWM_TileToggleChanged();
+end
+
+-- Right -> left: one tile, or (fileID nil) the whole node; the tiles are drawn again (on all
+-- the maps of a toggle node), the placed tiles of the move list go back to their own place.
+local function TWM_TileListRemove(kind, map, groupId, fileID)
+    local list = TWM_TileListEntries(kind);
+    local node = list and TWM_TileListFindNode(kind, list, groupId, map);
+    if(not node) then return; end
+    for i = #node.tiles, 1, -1 do
+        local saved = node.tiles[i];
+        if(not fileID or saved.tile == fileID) then
+            if(kind == "move") then
+                local tile = TWM_TileMoveFindTuple(node.maps[1], node.group, saved.tile);
+                if(tile) then TWM_TileMoveRestore(tile); end
+            end
+            table.remove(node.tiles, i);
+        end
+    end
+    if(#node.tiles == 0) then
+        for i, other in ipairs(list) do
+            if(other == node) then table.remove(list, i); break; end
+        end
+    end
+    TWM_TileToggleChanged();
+end
+
+local TWM_TILETOGGLE_ROW = 18;
+local tileToggleExpanded = {left = {}, right = {}}; -- group_id -> its tiles are listed (runtime only)
+
+-- A scrolling list of pooled rows (mouse wheel, no scroll bar art); `makeRow(parent)`
+-- builds one row.
+local function TWM_TileToggleCreateList(parent, makeRow)
+    local list = {rows = {}, makeRow = makeRow};
+    local scroll = CreateFrame("ScrollFrame", nil, parent);
+    local background = scroll:CreateTexture(nil, "BACKGROUND");
+    background:SetAllPoints();
+    background:SetColorTexture(0, 0, 0, 0.35);
+    local child = CreateFrame("Frame", nil, scroll);
+    child:SetSize(1, 1);
+    scroll:SetScrollChild(child);
+    scroll:EnableMouseWheel(true);
+    scroll:SetScript("OnMouseWheel", function(self, delta)
+        local value = self:GetVerticalScroll() - delta * TWM_TILETOGGLE_ROW * 3;
+        self:SetVerticalScroll(math.max(0, math.min(self:GetVerticalScrollRange(), value)));
+    end);
+    scroll:SetScript("OnSizeChanged", function(self, width) child:SetWidth(width); end);
+    scroll:SetScript("OnShow", function(self) child:SetWidth(math.max(1, self:GetWidth())); end);
+    list.scroll, list.child = scroll, child;
+
+    function list:GetRow(i)
+        local row = self.rows[i];
+        if(not row) then
+            row = self.makeRow(self.child);
+            row:SetHeight(TWM_TILETOGGLE_ROW);
+            row:SetPoint("TOPLEFT", self.child, "TOPLEFT", 0, -(i - 1) * TWM_TILETOGGLE_ROW);
+            row:SetPoint("TOPRIGHT", self.child, "TOPRIGHT", 0, -(i - 1) * TWM_TILETOGGLE_ROW);
+            self.rows[i] = row;
+        end
+        row:Show();
+        return row;
+    end
+
+    -- n rows are in use.
+    function list:Finish(n)
+        for i = n + 1, #self.rows do
+            self.rows[i]:Hide();
+        end
+        self.child:SetHeight(math.max(1, n * TWM_TILETOGGLE_ROW));
+    end
+    return list;
+end
+
+local function TWM_TileToggleSmallButton(parent, text, width)
+    local button = CreateFrame("Button", nil, parent);
+    button:SetSize(width, TWM_TILETOGGLE_ROW);
+    button.text = button:CreateFontString(nil, "OVERLAY", "GameFontNormal");
+    button.text:SetPoint("CENTER");
+    button.text:SetText(text);
+    button:SetScript("OnEnter", function(self) self.text:SetTextColor(1, 1, 1); end);
+    button:SetScript("OnLeave", function(self) self.text:SetTextColor(1, 0.82, 0); end);
+    return button;
+end
+
+-- A row of either tree: row.data = {side = "left"|"right", kind = "group"|"tile",
+-- group = the data group (left) or the saved node (right), tile = the tile tuple (left)
+-- or the saved tile (right)}.
+local function TWM_TileToggleGroupId(data)
+    return data.side == "left" and data.group.group_id or data.group.group;
+end
+
+-- The FileDataIDs a group row stands for: its tiles that are not in the saved list (left),
+-- or the saved tiles of the node (right).
+local function TWM_TileToggleRowTiles(data)
+    local ids = {};
+    if(data.side == "left") then
+        local kind, map = TWM_TileListKind(), TWM_TileToggleCurrentMap();
+        local list = TWM_TileListEntries(kind);
+        local node = list and TWM_TileListFindNode(kind, list, data.group.group_id, map);
+        if(node and not TWM_TileToggleNodeOnMap(node, map)) then node = nil; end
+        for _, tile in ipairs(data.group.tiles) do
+            if(not (node and TWM_TileToggleFindTile(node, tile[1]))) then ids[#ids + 1] = tile[1]; end
+        end
+    else
+        for _, saved in ipairs(data.group.tiles) do ids[#ids + 1] = saved.tile; end
+    end
+    return ids;
+end
+
+-- ">" (left) moves a group, or one tile of it, to the right tree (the saved list of the open
+-- tab); "<" (right) moves it back.
+local function TWM_TileToggleMoveClick(self)
+    local data = self:GetParent().data;
+    local id = TWM_TileToggleGroupId(data);
+    local map = TWM_TileToggleCurrentMap();
+    if(data.side == "left") then
+        local ids = data.kind == "group" and TWM_TileToggleRowTiles(data) or {data.tile[1]};
+        TWM_TileListAdd(TWM_TileListKind(), map, id, data.group.group_name, ids);
+    else
+        TWM_TileListRemove(TWM_TileListKind(), map, id, data.kind == "tile" and data.tile.tile or nil);
+    end
+    TWM_TileToggleRefreshLists();
+end
+
+local function TWM_TileToggleExpandClick(self)
+    local data = self:GetParent().data;
+    local expanded = tileToggleExpanded[data.side];
+    local id = TWM_TileToggleGroupId(data);
+    expanded[id] = not expanded[id] or nil;
+    TWM_TileToggleRefreshLists();
+end
+
+-- The tiles unticked on the left, of a map (created when there are none).
+local function TWM_TileToggleOffSet(map)
+    local set = tileOffLeft[map];
+    if(not set) then
+        set = {};
+        tileOffLeft[map] = set;
+    end
+    return set;
+end
+
+-- Left: the box of a tile is "drawn"; right: "not drawn" (saved). The box of a group only
+-- sets the boxes of its tiles to its own new state.
+local function TWM_TileToggleCheckClick(self)
+    local data = self:GetParent().data;
+    local checked = self:GetChecked() and true or false;
+    local id = TWM_TileToggleGroupId(data);
+    if(data.side == "left") then
+        local off = TWM_TileToggleOffSet(TWM_TileToggleCurrentMap());
+        if(data.kind == "tile") then
+            off[id .. "#" .. data.tile[1]] = (not checked) or nil;
+        else
+            for _, fileID in ipairs(TWM_TileToggleRowTiles(data)) do
+                off[id .. "#" .. fileID] = (not checked) or nil;
+            end
+        end
+    elseif(data.kind == "tile") then
+        data.tile.hidden = checked;
+    else
+        for _, saved in ipairs(data.group.tiles) do saved.hidden = checked; end
+    end
+    TWM_TileToggleChanged();
+    TWM_TileToggleRefreshLists();
+end
+
+-- Check box, "+/-" (groups), label and the move button; the same row for both trees.
+local function TWM_TileToggleMakeRow(parent)
+    local row = CreateFrame("Button", nil, parent);
+    local highlight = row:CreateTexture(nil, "HIGHLIGHT");
+    highlight:SetAllPoints();
+    highlight:SetColorTexture(1, 1, 1, 0.08);
+    row.check = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate");
+    row.check:SetSize(TWM_TILETOGGLE_ROW, TWM_TILETOGGLE_ROW);
+    row.check:SetScript("OnClick", TWM_TileToggleCheckClick);
+    row.expand = TWM_TileToggleSmallButton(row, "+", 14);
+    row.expand:SetPoint("LEFT", row, "LEFT", 22, 0);
+    row.expand:SetScript("OnClick", TWM_TileToggleExpandClick);
+    row.move = TWM_TileToggleSmallButton(row, ">", 18);
+    row.move:SetPoint("RIGHT", row, "RIGHT", -2, 0);
+    row.move:SetScript("OnClick", TWM_TileToggleMoveClick);
+    row.label = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall");
+    row.label:SetJustifyH("LEFT");
+    row.label:SetWordWrap(false);
+    return row;
+end
+
+-- A click on a row of the right tree of the "Tile move" tab selects the group or the tile
+-- (the tiles that can then be dragged in the map); a second click clears it.
+local function TWM_TileMoveRowClick(self)
+    local data = self.data;
+    if(not (data and data.side == "right")) then return; end
+    local id = data.group.group;
+    local fileID = data.kind == "tile" and data.tile.tile or nil;
+    local selection = tileMoveSelection;
+    if(selection and selection.group == id and selection.tile == fileID) then
+        tileMoveSelection = nil;
+    else
+        tileMoveSelection = {group = id, tile = fileID};
+    end
+    TWM_TileToggleRefreshLists();
+end
+
+-- The row of the "Tile move" tab: the same, selectable, with a mark for the selected one.
+local function TWM_TileMoveMakeRow(parent)
+    local row = TWM_TileToggleMakeRow(parent);
+    row.selection = row:CreateTexture(nil, "BACKGROUND");
+    row.selection:SetAllPoints();
+    row.selection:SetColorTexture(1, 0.82, 0, 0.25);
+    row.selection:Hide();
+    row:SetScript("OnClick", TWM_TileMoveRowClick);
+    return row;
+end
+
+local function TWM_TileToggleSetRow(row, side, kind, group, tile, checked, text, expanded)
+    local data = row.data or {};
+    row.data = data;
+    data.side, data.kind, data.group, data.tile = side, kind, group, tile;
+    row.check:SetChecked(checked);
+    row.move.text:SetText(side == "left" and ">" or "<");
+    row.label:SetText(text);
+    row.check:ClearAllPoints();
+    local labelLeft;
+    if(kind == "group") then
+        row.check:SetPoint("LEFT", row, "LEFT", 2, 0);
+        row.expand:Show();
+        row.expand.text:SetText(expanded and "-" or "+");
+        labelLeft = 38;
+    else
+        row.check:SetPoint("LEFT", row, "LEFT", 20, 0);
+        row.expand:Hide();
+        labelLeft = 40;
+    end
+    row.label:ClearAllPoints();
+    row.label:SetPoint("LEFT", row, "LEFT", labelLeft, 0);
+    row.label:SetPoint("RIGHT", row.move, "LEFT", -2, 0);
+    if(row.selection) then
+        local selection = tileMoveSelection;
+        row.selection:SetShown(selection ~= nil and side == "right" and selection.group == group.group
+            and selection.tile == (kind == "tile" and tile.tile or nil));
+    end
+end
+
+-- The global box of a tree: sets the boxes of all the tiles of the tree to its own new state
+-- (left: the tiles listed there; right: the saved tiles of this map).
+local function TWM_TileToggleAllClick(self)
+    local checked = self:GetChecked() and true or false;
+    local map, kind = TWM_TileToggleCurrentMap(), TWM_TileListKind();
+    if(self.side == "left") then
+        local off = TWM_TileToggleOffSet(map);
+        for _, group in ipairs(TWMFrame and TWMFrame.wmoDrawnGroups or {}) do
+            local id = group.group_id;
+            for _, tile in ipairs(group.tiles) do
+                if(not TWM_TileToggleInList(kind, map, id, tile[1])) then
+                    off[id .. "#" .. tile[1]] = (not checked) or nil;
+                end
+            end
+        end
+    else
+        for _, node in ipairs(TWM_TileListEntries(kind) or {}) do
+            if(TWM_TileToggleNodeOnMap(node, map)) then
+                for _, saved in ipairs(node.tiles) do saved.hidden = checked; end
+            end
+        end
+    end
+    TWM_TileToggleChanged();
+    TWM_TileToggleRefreshLists();
+end
+
+-- Fills both trees of the open tab ("Tile toggle": f.toggleView, "Tile move": f.moveView,
+-- each {left, right, all}), laid out the same way for its own saved list. Left: the groups
+-- drawn now (TWMFrame.wmoDrawnGroups, set by every layout in the debug mode) with their tiles
+-- that are not in the saved list. Right: the saved list. A group with its tiles listed under
+-- the "+".
+function TWM_TileToggleRefreshLists()
+    local f = TWMDebugFrame;
+    local view = f and (f.tab == "move" and f.moveView or f.tab == "toggle" and f.toggleView);
+    if(not view) then return; end
+    local kind = TWM_TileListKind();
+    local list = TWM_TileListEntries(kind) or {};
+    local map = TWM_TileToggleCurrentMap();
+    local inRight, off = {}, tileOffLeft[map] or {};
+
+    -- The selection (Tile move only) ends with the node or the tile in the move list, or on another map.
+    local selection = tileMoveSelection;
+    if(selection) then
+        local node = TWM_TileListFindNode("move", list, selection.group, map);
+        if(not (node and (not selection.tile or TWM_TileToggleFindTile(node, selection.tile)))) then
+            tileMoveSelection = nil;
+        end
+    end
+    for _, node in ipairs(list) do
+        if(TWM_TileToggleNodeOnMap(node, map)) then
+            for _, saved in ipairs(node.tiles) do inRight[node.group .. "#" .. saved.tile] = true; end
+        end
+    end
+
+    local left, n = view.left, 0;
+    local leftCount, leftAllOn = 0, true; -- all the tiles of the left tree, for its global box
+    for _, group in ipairs(TWMFrame and TWMFrame.wmoDrawnGroups or {}) do
+        local id = group.group_id;
+        local count, allOn = 0, true;
+        for _, tile in ipairs(group.tiles) do
+            local key = id .. "#" .. tile[1];
+            if(not inRight[key]) then
+                count = count + 1;
+                if(off[key]) then allOn = false; end
+            end
+        end
+        leftCount = leftCount + count;
+        if(not allOn) then leftAllOn = false; end
+        if(count > 0) then
+            local expanded = tileToggleExpanded.left[id];
+            n = n + 1;
+            TWM_TileToggleSetRow(left:GetRow(n), "left", "group", group, nil, allOn,
+                format("%s  %s (%d)", id, group.group_name or "", count), expanded);
+            if(expanded) then
+                for _, tile in ipairs(group.tiles) do
+                    local key = id .. "#" .. tile[1];
+                    if(not inRight[key]) then
+                        n = n + 1;
+                        TWM_TileToggleSetRow(left:GetRow(n), "left", "tile", group, tile, not off[key], tostring(tile[1]));
+                    end
+                end
+            end
+        end
+    end
+    left:Finish(n);
+    view.all.left:SetChecked(leftCount > 0 and leftAllOn);
+
+    -- Right: only the saved groups of the map open now.
+    local right = view.right;
+    n = 0;
+    local rightCount, rightAllHidden = 0, true;
+    for _, node in ipairs(list) do
+        if(TWM_TileToggleNodeOnMap(node, map)) then
+            local allHidden = #node.tiles > 0;
+            for _, saved in ipairs(node.tiles) do
+                rightCount = rightCount + 1;
+                if(saved.hidden == false) then allHidden = false; rightAllHidden = false; end
+            end
+            local expanded = tileToggleExpanded.right[node.group];
+            n = n + 1;
+            TWM_TileToggleSetRow(right:GetRow(n), "right", "group", node, nil, allHidden,
+                format("%s  %s (%d)", node.group, node.name or "", #node.tiles), expanded);
+            if(expanded) then
+                for _, saved in ipairs(node.tiles) do
+                    n = n + 1;
+                    TWM_TileToggleSetRow(right:GetRow(n), "right", "tile", node, saved, saved.hidden ~= false, tostring(saved.tile));
+                end
+            end
+        end
+    end
+    right:Finish(n);
+    view.all.right:SetChecked(rightCount > 0 and rightAllHidden);
+end
+
+-- A number for the export: two decimals, no trailing zeros.
+local function TWM_TileMoveNumber(value)
+    return (format("%.2f", value):gsub("%.?0+$", ""));
+end
+
+-- The saved lists as the Lua of Data_<Flavor>/mapdata_wmo_tile_toggle.lua (the Export tab):
+-- the toggle list, then the move list, under one version, the current date and time. The
+-- boxes of the lists are not written: every tile of a list is in it. Entries that no longer
+-- fit the data (the group, or a tile of it, is gone) get a warning comment.
+-- Returns the text, the number of groups and of tiles of the toggle list, the version, the
+-- number of groups and of tiles of the move list, and how many of those have been placed.
+local function TWM_TileToggleExportText()
+    local version = date("%Y-%m-%d %H:%M");
+    local lines = {
+        "-- HAND-KEPT, not generated: the Tile toggle and Tile move lists of the debug window",
+        "-- (\"Export\" tab), pasted here whole. Twm_TileToggle: WMO tiles (FileDataIDs) that are never",
+        "-- drawn, per WMO group (<WMOID>-<GroupNum>), on the given maps. Twm_TileMove: the tiles put",
+        "-- in another place, per map and group, {FileDataID, center x, center y [, yaw]} (Big",
+        "-- coordinates, the final center, the yaw in degrees as the data's own, only when the tile",
+        "-- was turned; just {FileDataID} for a tile listed but not placed yet). When",
+        "-- Twm_TileToggleVersion is not the saved TWMOption.TileToggleVersion, both saved lists are",
+        "-- replaced by these.",
+        format("Twm_TileToggleVersion = %q;", version),
+        "Twm_TileToggle = {",
+    };
+    local groups, tiles = 0, 0;
+    for _, node in ipairs(TWM_TileToggleEntries() or {}) do
+        local ids = {};
+        for _, saved in ipairs(node.tiles) do ids[#ids + 1] = saved.tile; end
+        if(#ids > 0) then
+            local maps = {};
+            for _, map in ipairs(node.maps) do maps[#maps + 1] = format("%q", map); end
+
+            local warning;
+            local known = TWM_TileToggleMapsOf(node.group);
+            if(not known) then
+                warning = "the group is not in the data";
+            else
+                local present = {};
+                for _, group in ipairs(Twm_WMOTiles[known[1]]) do
+                    if(group.group_id == node.group) then
+                        for _, tile in ipairs(group.tiles) do present[tile[1]] = true; end
+                    end
+                end
+                local missing = {};
+                for _, id in ipairs(ids) do
+                    if(not present[id]) then missing[#missing + 1] = id; end
+                end
+                if(#missing > 0) then warning = "not in the group: " .. table.concat(missing, ", "); end
+            end
+
+            lines[#lines + 1] = format("    {group = %q, name = %q, maps = {%s}, tiles = {%s}},%s",
+                node.group, node.name or "", table.concat(maps, ", "), table.concat(ids, ", "),
+                warning and ("  -- WARNING: " .. warning) or "");
+            groups, tiles = groups + 1, tiles + #ids;
+        end
+    end
+    lines[#lines + 1] = "};";
+    lines[#lines + 1] = "Twm_TileMove = {";
+
+    local moveGroups, moveTiles, placed = 0, 0, 0;
+    for _, node in ipairs(TWM_TileMoveEntries() or {}) do
+        if(#node.tiles > 0) then
+            local parts, missing = {}, {};
+            for _, saved in ipairs(node.tiles) do
+                if(saved.cx) then
+                    parts[#parts + 1] = format("{%d, %s, %s%s}", saved.tile, TWM_TileMoveNumber(saved.cx), TWM_TileMoveNumber(saved.cy),
+                        saved.yaw and (", " .. TWM_TileMoveNumber(saved.yaw)) or "");
+                    placed = placed + 1;
+                else
+                    parts[#parts + 1] = format("{%d}", saved.tile);
+                end
+                if(not TWM_TileMoveFindTuple(node.maps[1], node.group, saved.tile)) then missing[#missing + 1] = saved.tile; end
+            end
+            lines[#lines + 1] = format("    {map = %q, group = %q, name = %q, tiles = {%s}},%s",
+                node.maps[1], node.group, node.name or "", table.concat(parts, ", "),
+                #missing > 0 and ("  -- WARNING: not on the map: " .. table.concat(missing, ", ")) or "");
+            moveGroups, moveTiles = moveGroups + 1, moveTiles + #node.tiles;
+        end
+    end
+    lines[#lines + 1] = "};";
+    return table.concat(lines, "\n") .. "\n", groups, tiles, version, moveGroups, moveTiles, placed;
+end
+
+-- The debug window: no frame art, a flat dark background, a title strip to drag it by, a
+-- close button, tabs along the top and a grip in the corner to resize it. The checkboxes
+-- of the Settings tab flow into as many columns as the width holds, and the height is
+-- kept at least what the open tab needs.
+local TWM_DEBUG_TABS = {
+    {"settings", "Settings"},
+    {"toggle", "Tile toggle"},
+    {"move", "Tile move"},
+    {"export", "Export"},
+};
+local TWM_DEBUG_PAD = 10;
+local TWM_DEBUG_CONTENT_TOP = 50; -- title row and tab row
+local TWM_DEBUG_ROW = 24;
+local TWM_DEBUG_CHECK = 24;
+local TWM_DEBUG_COLUMN_GAP = 16;
+local TWM_DEBUG_MIN_WIDTH = 460;
+
+-- Puts the current export text into the Export tab.
+local function TWM_DebugExportRefresh(f)
+    local text, groups, tiles, version, moveGroups, moveTiles, placed = TWM_TileToggleExportText();
+    local edit = f.exportEdit;
+    edit.exportText = text;
+    edit:SetText(text);
+    edit:SetCursorPosition(0);
+    local lineCount = select(2, text:gsub("\n", "\n"));
+    edit:SetHeight(math.max(f.exportScroll:GetHeight(), lineCount * 14 + 10));
+    f.exportInfo:SetText(format("Version %s: toggle %d groups, %d tiles; move %d groups, %d tiles (%d placed). Select all, copy, paste whole into Data_<Flavor>\\mapdata_wmo_tile_toggle.lua",
+        version, groups, tiles, moveGroups, moveTiles, placed));
+end
+
+local function TWM_DebugLayoutWindow(f)
+    if(f.laying or not f.columnWidth) then return; end
+    f.laying = true;
+    local count = #TWM_DEBUG_FEATURES;
+    local columns = math.max(1, math.min(count, math.floor((f:GetWidth() - 2 * TWM_DEBUG_PAD) / f.columnWidth)));
+    local rows = math.ceil(count / columns);
+    for i, check in ipairs(f.checkList) do
+        local column, row = math.floor((i - 1) / rows), (i - 1) % rows;
+        check:ClearAllPoints();
+        check:SetPoint("TOPLEFT", f.panes.settings, "TOPLEFT", TWM_DEBUG_PAD + column * f.columnWidth, -4 - row * TWM_DEBUG_ROW);
+    end
+    local needed;
+    if(f.tab == "settings") then
+        needed = TWM_DEBUG_CONTENT_TOP + 4 + rows * TWM_DEBUG_ROW + TWM_DEBUG_PAD;
+    elseif(f.tab == "toggle" or f.tab == "move" or f.tab == "export") then
+        needed = TWM_DEBUG_CONTENT_TOP + 160;
+    else
+        needed = TWM_DEBUG_CONTENT_TOP + 60;
+    end
+    if(f:GetHeight() < needed) then f:SetHeight(needed); end
+    f.laying = false;
+end
+
+-- Shows the pane of the tab and marks its button; the tab is saved (TWMOption.DebugTab).
+local function TWM_DebugSelectTab(f, key)
+    -- Leaving the Tile move tab ends the drag mode (the selection, and a drag in progress).
+    if(f.tab == "move" and key ~= "move") then TWM_TileMoveEnd(); end
+    f.tab = key;
+    for tabKey, pane in pairs(f.panes) do
+        pane:SetShown(tabKey == key);
+    end
+    for tabKey, button in pairs(f.tabButtons) do
+        local active = tabKey == key;
+        button.underline:SetShown(active);
+        if(active) then button.text:SetTextColor(1, 0.82, 0); else button.text:SetTextColor(0.6, 0.6, 0.6); end
+    end
+    if(TWMOption) then TWMOption.DebugTab = key; end
+    if(key == "toggle" or key == "move") then TWM_TileToggleRefreshLists(); end
+    if(key == "export") then TWM_DebugExportRefresh(f); end
+    TWM_DebugLayoutWindow(f);
+end
+
+-- Position and size are kept in TWMOption.DebugWindow (like the checkboxes).
+local function TWM_DebugSaveWindow(f)
+    if(not TWMOption) then return; end
+    local point, _, relativePoint, x, y = f:GetPoint(1);
+    TWMOption.DebugWindow = {w = f:GetWidth(), h = f:GetHeight(), point = point, relativePoint = relativePoint, x = x, y = y};
+end
+
+-- The two trees of a tab (see TWM_TileToggleRefreshLists) with the global box of each in front
+-- of its title (it sets all the boxes of the tree); returns {left, right, all = {left, right}}.
+local function TWM_DebugCreateTreePane(pane, makeRow, rightText)
+    local view = {all = {}};
+    for _, side in ipairs({"left", "right"}) do
+        local all = CreateFrame("CheckButton", nil, pane, "UICheckButtonTemplate");
+        all:SetSize(TWM_TILETOGGLE_ROW, TWM_TILETOGGLE_ROW);
+        all.side = side;
+        all:SetScript("OnClick", TWM_TileToggleAllClick);
+        view.all[side] = all;
+    end
+    view.all.left:SetPoint("TOPLEFT", pane, "TOPLEFT", TWM_DEBUG_PAD, -2);
+    view.all.right:SetPoint("TOPLEFT", pane, "TOP", TWM_DEBUG_PAD / 2, -2);
+    local leftTitle = pane:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall");
+    leftTitle:SetPoint("LEFT", view.all.left, "RIGHT", 2, 0);
+    leftTitle:SetText("Drawn now (ticked = drawn)");
+    local rightTitle = pane:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall");
+    rightTitle:SetPoint("LEFT", view.all.right, "RIGHT", 2, 0);
+    rightTitle:SetText(rightText);
+    view.left = TWM_TileToggleCreateList(pane, makeRow);
+    view.left.scroll:SetPoint("TOPLEFT", pane, "TOPLEFT", TWM_DEBUG_PAD, -22);
+    view.left.scroll:SetPoint("BOTTOMRIGHT", pane, "BOTTOM", -TWM_DEBUG_PAD / 2, TWM_DEBUG_PAD);
+    view.right = TWM_TileToggleCreateList(pane, makeRow);
+    view.right.scroll:SetPoint("TOPLEFT", pane, "TOP", TWM_DEBUG_PAD / 2, -22);
+    view.right.scroll:SetPoint("BOTTOMRIGHT", pane, "BOTTOMRIGHT", -TWM_DEBUG_PAD, TWM_DEBUG_PAD);
+    -- The left list follows the layouts (they mark it out of date); at most 4 times a second,
+    -- and not while a tile is being dragged (the list is filled again when it is dropped).
+    local sinceRefresh = 0;
+    pane:SetScript("OnUpdate", function(_, elapsed)
+        sinceRefresh = sinceRefresh + elapsed;
+        if(toggleUIDirty and not tileMoveDrag and sinceRefresh >= 0.25) then
+            sinceRefresh = 0;
+            toggleUIDirty = false;
+            TWM_TileToggleRefreshLists();
+        end
+    end);
+    return view;
+end
+
+local function TWM_EnsureDebugWindow()
+    if(TWMDebugFrame) then return TWMDebugFrame; end
+    local f = CreateFrame("Frame", "TWMDebugFrame", UIParent);
+    f:SetFrameStrata("DIALOG");
+    f:SetMovable(true);
+    f:SetResizable(true);
+    f:SetClampedToScreen(true);
+    f:EnableMouse(true);
+    f:RegisterForDrag("LeftButton");
+    f:SetScript("OnDragStart", f.StartMoving);
+    f:SetScript("OnDragStop", function(self) self:StopMovingOrSizing(); TWM_DebugSaveWindow(self); end);
+
+    local background = f:CreateTexture(nil, "BACKGROUND");
+    background:SetAllPoints();
+    background:SetColorTexture(0.05, 0.05, 0.07, 0.92);
+
+    local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormal");
+    title:SetPoint("TOPLEFT", f, "TOPLEFT", TWM_DEBUG_PAD, -7);
+    title:SetText("TerrainWorldMap debug");
+
+    local close = CreateFrame("Button", nil, f);
+    close:SetSize(20, 20);
+    close:SetPoint("TOPRIGHT", f, "TOPRIGHT", -4, -3);
+    local closeText = close:CreateFontString(nil, "OVERLAY", "GameFontNormal");
+    closeText:SetPoint("CENTER");
+    closeText:SetText("X");
+    close:SetScript("OnEnter", function() closeText:SetTextColor(1, 0.2, 0.2); end);
+    close:SetScript("OnLeave", function() closeText:SetTextColor(1, 0.82, 0); end);
+    close:SetScript("OnClick", function() f:Hide(); end);
+
+    -- Tab buttons (the active one gold with an underline) and one pane per tab.
+    f.tabButtons, f.panes = {}, {};
+    local tabX = TWM_DEBUG_PAD;
+    for _, tab in ipairs(TWM_DEBUG_TABS) do
+        local button = CreateFrame("Button", nil, f);
+        button.text = button:CreateFontString(nil, "OVERLAY", "GameFontNormal");
+        button.text:SetPoint("CENTER");
+        button.text:SetText(tab[2]);
+        button:SetSize(button.text:GetStringWidth() + 20, 20);
+        button:SetPoint("TOPLEFT", f, "TOPLEFT", tabX, -26);
+        button.underline = button:CreateTexture(nil, "OVERLAY");
+        button.underline:SetHeight(2);
+        button.underline:SetPoint("BOTTOMLEFT");
+        button.underline:SetPoint("BOTTOMRIGHT");
+        button.underline:SetColorTexture(1, 0.82, 0, 1);
+        button:SetScript("OnClick", function() TWM_DebugSelectTab(f, tab[1]); end);
+        tabX = tabX + button:GetWidth() + 4;
+        f.tabButtons[tab[1]] = button;
+
+        local pane = CreateFrame("Frame", nil, f);
+        pane:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -TWM_DEBUG_CONTENT_TOP);
+        pane:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", 0, 0);
+        pane:Hide();
+        f.panes[tab[1]] = pane;
+    end
+
+    -- Tile toggle and Tile move panes: the groups drawn now on the left, the saved list of the
+    -- tab on the right (the tiles to hide, the tiles to move: two lists); the second one with a
+    -- selection in the right tree.
+    f.toggleView = TWM_DebugCreateTreePane(f.panes.toggle, TWM_TileToggleMakeRow,
+        "To hide (ticked = hidden now)");
+    f.moveView = TWM_DebugCreateTreePane(f.panes.move, TWM_TileMoveMakeRow,
+        "To move (ticked = hidden now)");
+
+    -- Export pane: the text of Data_<Flavor>/mapdata_wmo_tile_toggle.lua, to copy (read only).
+    local exportPane = f.panes.export;
+    f.exportInfo = exportPane:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall");
+    f.exportInfo:SetPoint("TOPLEFT", exportPane, "TOPLEFT", TWM_DEBUG_PAD, -8);
+    f.exportInfo:SetPoint("RIGHT", exportPane, "RIGHT", -170, 0);
+    f.exportInfo:SetJustifyH("LEFT");
+    f.exportInfo:SetWordWrap(false);
+    local selectAll = TWM_TileToggleSmallButton(exportPane, "Select all", 64);
+    selectAll:SetPoint("TOPRIGHT", exportPane, "TOPRIGHT", -TWM_DEBUG_PAD, -5);
+    local refresh = TWM_TileToggleSmallButton(exportPane, "Refresh", 56);
+    refresh:SetPoint("RIGHT", selectAll, "LEFT", -6, 0);
+    refresh:SetScript("OnClick", function() TWM_DebugExportRefresh(f); end);
+
+    local exportScroll = CreateFrame("ScrollFrame", nil, exportPane);
+    exportScroll:SetPoint("TOPLEFT", exportPane, "TOPLEFT", TWM_DEBUG_PAD, -26);
+    exportScroll:SetPoint("BOTTOMRIGHT", exportPane, "BOTTOMRIGHT", -TWM_DEBUG_PAD, TWM_DEBUG_PAD);
+    local exportBackground = exportScroll:CreateTexture(nil, "BACKGROUND");
+    exportBackground:SetAllPoints();
+    exportBackground:SetColorTexture(0, 0, 0, 0.35);
+    local edit = CreateFrame("EditBox", nil, exportScroll);
+    edit:SetMultiLine(true);
+    edit:SetAutoFocus(false);
+    edit:SetMaxLetters(0);
+    edit:SetFontObject("GameFontHighlightSmall");
+    edit:SetSize(1, 1);
+    -- Read only: what is typed is put back.
+    edit:SetScript("OnTextChanged", function(self, byUser)
+        if(byUser) then self:SetText(self.exportText or ""); end
+    end);
+    edit:SetScript("OnEscapePressed", edit.ClearFocus);
+    exportScroll:SetScrollChild(edit);
+    exportScroll:EnableMouseWheel(true);
+    exportScroll:SetScript("OnMouseWheel", function(self, delta)
+        local value = self:GetVerticalScroll() - delta * 42;
+        self:SetVerticalScroll(math.max(0, math.min(self:GetVerticalScrollRange(), value)));
+    end);
+    exportScroll:SetScript("OnSizeChanged", function(self, width) edit:SetWidth(width); end);
+    exportScroll:SetScript("OnShow", function(self) edit:SetWidth(math.max(1, self:GetWidth())); end);
+    selectAll:SetScript("OnClick", function() edit:SetFocus(); edit:HighlightText(); end);
+    f.exportEdit, f.exportScroll = edit, exportScroll;
+
+    f.checks, f.checkList = {}, {};
+    local labelWidth = 0;
+    for _, feature in ipairs(TWM_DEBUG_FEATURES) do
+        local check = CreateFrame("CheckButton", nil, f.panes.settings, "UICheckButtonTemplate");
+        check:SetSize(TWM_DEBUG_CHECK, TWM_DEBUG_CHECK);
+        local label = check:CreateFontString(nil, "OVERLAY", "GameFontHighlight");
+        label:SetPoint("LEFT", check, "RIGHT", 2, 0);
+        label:SetText(feature[2]);
+        labelWidth = math.max(labelWidth, label:GetStringWidth());
+        check:SetScript("OnClick", function(self)
+            TWM_DebugSetFeature(feature[1], self:GetChecked());
+            TWM_DebugRefresh();
+        end);
+        f.checks[feature[1]] = check;
+        f.checkList[#f.checkList + 1] = check;
+    end
+    f.columnWidth = TWM_DEBUG_CHECK + 2 + labelWidth + TWM_DEBUG_COLUMN_GAP;
+
+    -- The corner grip (the same art as the map window's own).
+    local grip = CreateFrame("Button", nil, f);
+    grip:SetSize(16, 16);
+    grip:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -2, 2);
+    grip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up");
+    grip:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down");
+    grip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight");
+    grip:SetScript("OnMouseDown", function() f:StartSizing("BOTTOMRIGHT"); end);
+    grip:SetScript("OnMouseUp", function() f:StopMovingOrSizing(); TWM_DebugSaveWindow(f); end);
+
+    f:SetResizeBounds(math.max(f.columnWidth + 2 * TWM_DEBUG_PAD, TWM_DEBUG_MIN_WIDTH), TWM_DEBUG_CONTENT_TOP + 60);
+    f:SetScript("OnSizeChanged", TWM_DebugLayoutWindow);
+
+    -- Saved size and position, else a window at the right of the screen.
+    local saved = TWMOption and TWMOption.DebugWindow;
+    if(saved and saved.w and saved.h and saved.point) then
+        f:SetSize(saved.w, saved.h);
+        f:SetPoint(saved.point, UIParent, saved.relativePoint or saved.point, saved.x or 0, saved.y or 0);
+    else
+        f:SetSize(math.max(2 * f.columnWidth + 2 * TWM_DEBUG_PAD, TWM_DEBUG_MIN_WIDTH), 320);
+        f:SetPoint("CENTER", UIParent, "CENTER", 360, 120);
+    end
+    local savedTab = TWMOption and TWMOption.DebugTab;
+    TWM_DebugSelectTab(f, f.panes[savedTab] and savedTab or "settings");
+
+    -- The window being open is the debug mode.
+    f:SetScript("OnShow", function() TWM_DebugTiles = true; TWM_DebugRefresh(); end);
+    f:SetScript("OnHide", function() TWM_TileMoveEnd(); TWM_DebugTiles = false; TWM_DebugRefresh(); end);
+    return f;
+end
+
+-- The checkboxes show the current feature set (a command may have turned one on).
+function TWM_ShowDebugWindow()
+    local f = TWM_EnsureDebugWindow();
+    TWM_DebugLoadFeatures();
+    for key, check in pairs(f.checks) do
+        check:SetChecked(TWM_DebugFeatures[key]);
+    end
+    f:Show();
+end
+
+function TWM_ToggleDebugWindow()
+    local f = TWM_EnsureDebugWindow();
+    if(f:IsShown()) then f:Hide(); else TWM_ShowDebugWindow(); end
 end
 
 -- Lazily creates 4 thin border-strip textures for a pooled tile texture,
@@ -673,20 +1824,33 @@ end
 local TWM_WMO_OVERLAY_HEIGHT_EPSILON = 0.05;
 
 -- Debug ("/twm debug"): a colored border per WMO tile, so overlapping/
--- adjacent tiles can be told apart on sight. Color is picked from this
--- small fixed pool purely by the group's draw rank (the same rank that
--- sets its frame level), so all tiles of a group share one color -- cycling
--- via modulo once the group count exceeds the pool.
-local TWM_WMO_DEBUG_COLOR_POOL = {
-    {1, 0, 0},     -- red
-    {0, 1, 0},     -- green
-    {0.2, 0.4, 1}, -- blue
-    {1, 1, 0},     -- yellow
-    {1, 0, 1},     -- magenta
-    {1, 1, 1},     -- white
-    {1, 0.5, 0},   -- orange
-    {0, 1, 1},     -- cyan
-};
+-- adjacent tiles can be told apart on sight. The color is a function of the
+-- group_id alone (a hue from a hash of it), so all tiles and the box of a group
+-- share one color that does not change while panning (the draw rank, which
+-- changes as groups enter and leave the view, was used before).
+local wmoGroupColors = {};
+
+local function TWM_WMODebugGroupColor(groupId)
+    local color = wmoGroupColors[groupId];
+    if(not color) then
+        local h = 5381;
+        for i = 1, #groupId do
+            h = (h * 33 + groupId:byte(i)) % 4294967296;
+        end
+        -- The golden ratio spreads ids that differ only in the last digit far apart.
+        local hue = (h * 0.6180339887498949) % 1 * 6;
+        local i = math.floor(hue);
+        local f = hue - i;
+        if(i == 0) then color = {1, f, 0};
+        elseif(i == 1) then color = {1 - f, 1, 0};
+        elseif(i == 2) then color = {0, 1, f};
+        elseif(i == 3) then color = {0, 1 - f, 1};
+        elseif(i == 4) then color = {f, 0, 1};
+        else color = {1, 0, 1 - f}; end
+        wmoGroupColors[groupId] = color;
+    end
+    return color;
+end
 
 -- The capitals' WMO tiles (Twm_CityWMOTiles, by uiMapID: what the world map
 -- draws on a city map) are also drawn on their continent's map here: one list
@@ -756,6 +1920,63 @@ local function TWM_WMOOverlay_HideGroupFrame(gf)
     end
 end
 
+-- Debug ("/twm debug"): the group's own bounding box (group.box, 4 Big corners
+-- from gen_wmo_tiles.js: the rectangle the group's tile blocks are laid out in), on
+-- the debug frame, as 4 solid lines in the color of the group's tile borders (so a box
+-- and its tiles match) but thicker than those; the group's own n-th set of 4 lines is
+-- kept between layouts.
+local TWM_WMO_GROUP_BOX_PX = 4;
+
+local function TWM_WMODebugGroupBox(frame, debugFrame, n, box, color, vf, Lx, Ly, z)
+    frame.wmoGroupBoxes = frame.wmoGroupBoxes or {};
+    local lines = frame.wmoGroupBoxes[n];
+    if(not lines) then
+        lines = {};
+        for i = 1, 4 do
+            lines[i] = debugFrame:CreateLine(nil, "OVERLAY", nil, 6); -- under the tile borders (7)
+            lines[i]:SetThickness(TWM_WMO_GROUP_BOX_PX);
+        end
+        frame.wmoGroupBoxes[n] = lines;
+    end
+    for _, line in ipairs(lines) do
+        line:SetColorTexture(color[1], color[2], color[3], 1);
+    end
+    TWM_PositionWMODebugCorners(lines, vf, box, Lx, Ly, z);
+end
+
+-- The group's group_id ("<WMOID>-<GroupNum>") as a label at the center of its box (the
+-- corners are the box's, so it is the same conversion as the box itself), in the group's
+-- color and larger than the FileDataID labels of the tiles.
+local function TWM_WMODebugGroupLabel(frame, debugFrame, n, group, color, vf, Lx, Ly, z)
+    frame.wmoGroupLabels = frame.wmoGroupLabels or {};
+    local label = frame.wmoGroupLabels[n];
+    if(not label) then
+        label = debugFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal");
+        label:SetDrawLayer("OVERLAY", 7);
+        frame.wmoGroupLabels[n] = label;
+    end
+    label:SetTextColor(color[1], color[2], color[3], 1);
+    TWM_PositionWMODebugLabel(label, vf, group.box, Lx, Ly, z, group.group_id);
+end
+
+-- Hides the boxes and the group labels from the n-th on (counted separately).
+local function TWM_WMODebugHideGroupBoxes(frame, from, fromLabel)
+    local boxes = frame.wmoGroupBoxes;
+    if(boxes) then
+        for n = from, #boxes do
+            for _, line in ipairs(boxes[n]) do
+                line:Hide();
+            end
+        end
+    end
+    local labels = frame.wmoGroupLabels;
+    if(labels) then
+        for n = fromLabel, #labels do
+            labels[n]:Hide();
+        end
+    end
+end
+
 -- Shared, never modified: a new table per tile on every layout was garbage.
 local TWM_WMO_ROTATION_PIVOT = {x = 0.5, y = 0.5};
 
@@ -797,6 +2018,12 @@ function TWM_WMOOverlay_Update(frame)
     local lm = frame:GetName();
     local vf = _G[lm.."ViewFrame"];
     local groups = Twm_WMOTiles and Twm_WMOTiles[frame.opt.Map];
+
+    -- The tiles under the cursor are looked up again after a layout (the pooled
+    -- textures show other tiles now), see TWM_WMODebugHover.
+    TWM_WMODebugHoverClear();
+    if(frame.wmoDebugTiles) then wipe(frame.wmoDebugTiles); end
+    vf.lastoux = nil; -- the cursor's tile is looked up on the next tick, not only once the mouse moves
     local Lx, Ly = frame.viewX or frame.opt.Location[1], frame.viewY or frame.opt.Location[2];
     local z = frame:GetZoom();
 
@@ -823,6 +2050,9 @@ function TWM_WMOOverlay_Update(frame)
         for _, gf in ipairs(frame.wmoGroupFrames or {}) do
             TWM_WMOOverlay_HideGroupFrame(gf);
         end
+        TWM_WMODebugHideGroupBoxes(frame, 1, 1);
+        if(frame.wmoDrawnGroups) then wipe(frame.wmoDrawnGroups); end
+        TWM_TileToggleMarkDirty();
         return;
     end
 
@@ -858,8 +2088,54 @@ function TWM_WMOOverlay_Update(frame)
     table.sort(ordered, TWM_WMOGroupOrderLess);
 
     local cutoff = frame.wmoOverlayHeightCutoff;
+
+    -- The groups for the "Tile toggle" tab of the debug window, in data order: the ones
+    -- with at least one tile on the screen (in the view, below the height cutoff, not
+    -- moved to the saved list), that is shown by the group menu; the tab lists all their
+    -- tiles. A tile unticked on the left still counts, or its group could not be ticked again.
+    local drawn = frame.wmoDrawnGroups;
+    if(not drawn) then
+        drawn = {};
+        frame.wmoDrawnGroups = drawn;
+    end
+    wipe(drawn);
+    if(TWM_DebugTiles) then
+        local inOrdered = frame.wmoDrawnSet or {};
+        frame.wmoDrawnSet = inOrdered;
+        wipe(inOrdered);
+        for _, entry in ipairs(ordered) do inOrdered[entry.group] = true; end
+
+        -- The view in Big coordinates.
+        local ax, ay = TWM_Mini2Big_Coord(Lx, Ly);
+        local bx, by = TWM_Mini2Big_Coord(Lx + vf:GetWidth() / z, Ly + vf:GetHeight() / z);
+        local xmin, xmax, ymin, ymax = math.min(ax, bx), math.max(ax, bx), math.min(ay, by), math.max(ay, by);
+        for _, group in ipairs(groups) do
+            if(inOrdered[group]) then
+                for _, tile in ipairs(group.tiles) do
+                    -- the bounding box of the tile's corners against the view, the cheap tests first
+                    if(not (cutoff and tile[7] and tile[7] > cutoff + TWM_WMO_OVERLAY_HEIGHT_EPSILON)
+                        and math.max(tile[8], tile[10], tile[12], tile[14]) >= xmin
+                        and math.min(tile[8], tile[10], tile[12], tile[14]) <= xmax
+                        and math.max(tile[9], tile[11], tile[13], tile[15]) >= ymin
+                        and math.min(tile[9], tile[11], tile[13], tile[15]) <= ymax
+                        and not TWM_TileToggleListHides(frame.opt.Map, group.group_id, tile[1])) then
+                        drawn[#drawn + 1] = group;
+                        break;
+                    end
+                end
+            end
+        end
+        TWM_TileToggleMarkDirty();
+    end
     local baseLevel = vf:GetFrameLevel() + 1;
-    local debugFrame = TWM_DebugTiles and TWM_WMOOverlay_EnsureDebugFrame(frame, vf) or nil;
+    local debugFrame = TWM_DebugAnyWMO() and TWM_WMOOverlay_EnsureDebugFrame(frame, vf) or nil;
+    -- The textures of the tiles drawn now, with their tile data (tex.wmoTile): what
+    -- the cursor is matched against.
+    local debugTiles;
+    if(TWM_DebugOn("hover")) then
+        debugTiles = frame.wmoDebugTiles or {};
+        frame.wmoDebugTiles = debugTiles;
+    end
 
     -- Tiles are anchored to a pan anchor that sits at the view's top-left
     -- (Lx, Ly) at this layout; TWM_WMOOverlay_Pan then moves just the anchor
@@ -872,20 +2148,34 @@ function TWM_WMOOverlay_Update(frame)
     end
     anchor:ClearAllPoints();
     anchor:SetPoint("TOPLEFT", vf, "TOPLEFT", 0, 0);
-    frame.wmoLayout = (not TWM_DebugTiles) and {Lx = Lx, Ly = Ly, z = z, map = frame.opt.Map} or nil;
+    frame.wmoLayout = (not TWM_DebugAnyWMO()) and {Lx = Lx, Ly = Ly, z = z, map = frame.opt.Map} or nil;
 
+    local boxLines = 0; -- group boxes drawn so far (TWM_WMODebugGroupBox)
+    local groupLabels = 0; -- group labels shown so far (TWM_WMODebugGroupLabel)
     for rank, entry in ipairs(ordered) do
       local gf = TWM_WMOOverlay_EnsureGroupFrame(frame, vf, rank);
       -- Stays below the debug frame (vf + TWM_WMO_FRAME_BAND) whatever the group count.
       gf:SetFrameLevel(baseLevel + math.min(rank - 1, TWM_WMO_FRAME_BAND - 3));
       gf:Show();
+      local allHidden = debugFrame and TWM_TileToggleHidesAll(frame.opt.Map, entry.group);
+      if(debugFrame and entry.group.box and TWM_DebugOn("groupBoxes") and not allHidden) then
+          boxLines = boxLines + 1;
+          TWM_WMODebugGroupBox(frame, debugFrame, boxLines, entry.group.box,
+              TWM_WMODebugGroupColor(entry.group.group_id), vf, Lx, Ly, z);
+      end
+      if(debugFrame and entry.group.box and TWM_DebugOn("groupLabels") and not allHidden) then
+          groupLabels = groupLabels + 1;
+          TWM_WMODebugGroupLabel(frame, debugFrame, groupLabels, entry.group,
+              TWM_WMODebugGroupColor(entry.group.group_id), vf, Lx, Ly, z);
+      end
       local tiles = entry.group.tiles;
       for k, tile in ipairs(tiles) do
         local tex = TWM_WMOOverlay_EnsureTexture(gf, k);
         local zval = tile[7];
 
         if((cutoff and zval and zval > cutoff + TWM_WMO_OVERLAY_HEIGHT_EPSILON)
-            or (cull and not TWM_WMOTileVisible(tile, z, cx1, cy1, cx2, cy2))) then
+            or (cull and not TWM_WMOTileVisible(tile, z, cx1, cy1, cx2, cy2))
+            or TWM_TileToggleHidesTile(frame.opt.Map, entry.group.group_id, tile[1])) then
             tex:Hide();
             TWM_HideTileDebugBorder(tex);
         else
@@ -933,19 +2223,34 @@ function TWM_WMOOverlay_Update(frame)
             tex:SetRotation(math.rad(-(yawDeg or 0)), TWM_WMO_ROTATION_PIVOT);
             tex:Show();
 
-            if(TWM_DebugTiles) then
+            if(debugFrame) then
                 -- Drawn from the tile's own real corners (tile[8..15]),
                 -- independent of the SetPoint/SetRotation call above -- see
                 -- TWM_PositionWMODebugCorners' own header for why.
-                local color = TWM_WMO_DEBUG_COLOR_POOL[((rank - 1) % #TWM_WMO_DEBUG_COLOR_POOL) + 1];
+                local color = TWM_WMODebugGroupColor(entry.group.group_id);
                 local corners = { tile[8], tile[9], tile[10], tile[11], tile[12], tile[13], tile[14], tile[15] };
-                local lines = TWM_EnsureWMODebugCorners(debugFrame, tex, color);
-                TWM_PositionWMODebugCorners(lines, vf, corners, Lx, Ly, z);
-                local label = TWM_EnsureWMODebugLabel(debugFrame, tex, color);
-                TWM_PositionWMODebugLabel(label, vf, corners, Lx, Ly, z, fileID);
+                if(TWM_DebugOn("wmoBorders")) then
+                    local lines = TWM_EnsureWMODebugCorners(debugFrame, tex, color);
+                    TWM_PositionWMODebugCorners(lines, vf, corners, Lx, Ly, z);
+                else
+                    TWM_HideWMODebugCorners(tex);
+                end
+                if(TWM_DebugOn("wmoLabels")) then
+                    local label = TWM_EnsureWMODebugLabel(debugFrame, tex, color);
+                    TWM_PositionWMODebugLabel(label, vf, corners, Lx, Ly, z, fileID);
+                else
+                    TWM_HideWMODebugLabel(tex);
+                end
+                if(debugTiles) then
+                    tex.wmoTile, tex.wmoGroupID, tex.wmoGroupName = tile, entry.group.group_id, entry.group.group_name;
+                    debugTiles[#debugTiles + 1] = tex;
+                else
+                    tex.wmoTile = nil;
+                end
             else
                 TWM_HideWMODebugCorners(tex);
                 TWM_HideWMODebugLabel(tex);
+                tex.wmoTile = nil;
             end
         end
       end
@@ -959,6 +2264,7 @@ function TWM_WMOOverlay_Update(frame)
     for rank = #ordered + 1, #(frame.wmoGroupFrames or {}) do
         TWM_WMOOverlay_HideGroupFrame(frame.wmoGroupFrames[rank]);
     end
+    TWM_WMODebugHideGroupBoxes(frame, boxLines + 1, groupLabels + 1);
 end
 
 -- Called when only the view position changed: with a valid layout at the same
@@ -979,7 +2285,7 @@ function TWM_WMOOverlay_Pan(frame)
             or math.abs(Lx - frame.wmoCullLx) > limit or math.abs(Ly - frame.wmoCullLy) > limit) then
             return TWM_WMOOverlay_Update(frame);
         end
-        if(not layout and not TWM_DebugTiles) then return; end -- nothing drawn
+        if(not layout and not TWM_DebugAnyWMO()) then return; end -- nothing drawn
     end
 
     if(not (layout and frame.wmoAnchor and layout.z == z and layout.map == frame.opt.Map)) then
@@ -1188,6 +2494,14 @@ local function TWM_GenerateWMOGroupMenu(dropdown, root)
 
     TWM_AddWMOGroupsCheckbox(root, frame, groups, TWM_OPTIONS_WMO_SHOW_ALL);
     root:CreateDivider();
+
+    -- "Group groups by name" off: a flat list, every group as "<WMOID>-<GroupNum>: <name>".
+    if(TWMOption.WMOGroupByName == false) then
+        for _, group in ipairs(groups) do
+            TWM_AddWMOGroupsCheckbox(root, frame, {group}, group.group_id..": "..group.group_name);
+        end
+        return;
+    end
 
     local byName, names = {}, {};
     for _, group in ipairs(groups) do
@@ -1435,7 +2749,9 @@ function TWM_UpdateOverlayButtons(frame)
             end
         end
 
-        if(TWMOption.WMOTileManagement and not groups.cull) then
+        -- A continent's (culled) list has hundreds of groups: the menu is offered
+        -- there only in the debug mode (whatever the option says).
+        if(groups.cull and TWM_DebugOn("groupMenu") or (TWMOption.WMOTileManagement and not groups.cull)) then
             TWM_EnsureWMOGroupDropdown(frame, groups);
         else
             TWM_HideWMOGroupDropdown(frame);
@@ -1721,7 +3037,7 @@ local function TWM_SetPlateButtonTextures(button, normal, pushed, disabled)
     button:GetHighlightTexture():SetTexture(TWM_PLATE_HIGHLIGHT);
 end
 
--- Slash commands: /twm [show | hide | center | follow on|off | reset [all] | options | overlay on|off | debug].
+-- Slash commands: /twm [show | hide | center | follow on|off | reset [all] | options | overlay on|off | debug | tile <id>].
 -- Without an argument the window is toggled.
 local TWM_SLASH_HELP = {
     "/twm - toggle the window",
@@ -1731,7 +3047,8 @@ local TWM_SLASH_HELP = {
     "/twm reset - reset the window position and size; /twm reset all - also all settings",
     "/twm options - open the settings",
     "/twm overlay on|off - terrain overlay on the World Map",
-    "/twm debug - toggle the tile debug labels",
+    "/twm debug - open or close the debug window (checkboxes for the debug features)",
+    "/twm tile <FileDataID> [...] - find WMO tiles and keep them blinking (debug); /twm tile - stop",
 };
 
 local TWM_SLASH_COMMANDS = {
@@ -1739,7 +3056,8 @@ local TWM_SLASH_COMMANDS = {
     show = function() TWMFrame:Show(); end,
     hide = function() TWMFrame:Hide(); end,
     options = function() TWMOption_Toggle(); end,
-    debug = function() TWM_ToggleTileDebug(); end,
+    debug = function() TWM_ToggleDebugWindow(); end,
+    tile = function(argument) return TWM_PinWMOTiles(argument); end,
     center = function()
         local wasHidden = not TWMFrame:IsShown();
         TWMFrame:Show();
@@ -1901,6 +3219,9 @@ function TWMFrameTemplate:OnEvent(event, ...)
         if(TWMOption.AutoHideControls == nil) then
             TWMOption.AutoHideControls = true;
         end
+
+        -- The shipped Tile toggle list replaces the saved one when its version differs.
+        TWM_TileToggleLoad();
 
         -- Stale saved data from before BigTWMFrame was removed.
         if(TWMOption.Frames) then
@@ -2798,7 +4119,7 @@ function TWMFrameTemplate:SetLocation(x,y,forceupdate,forcePointsUpdate)
     -- only re-textures the entering column/row; every other texture already
     -- shows its tile. "/twm debug" keeps the plain slot order its labels
     -- assume. A change of pool mode, map or a forced update re-textures all.
-    local ring = not TWM_DebugTiles;
+    local ring = not TWM_DebugOn("adtTiles");
     local forceTextures = forceupdate or mymap ~= self.lastmap or ring ~= self.tileRing;
     self.tileRing = ring;
 
@@ -2832,7 +4153,7 @@ function TWMFrameTemplate:SetLocation(x,y,forceupdate,forcePointsUpdate)
                 -- live zone name the client reports at that spot. Only the
                 -- TEXT is set here -- position and Show/Hide are handled
                 -- once, unconditionally, at the end of this function.
-                if(TWM_DebugTiles) then
+                if(TWM_DebugOn("adtTiles")) then
                     if(not tex.debugLabel) then
                         tex.debugLabel = vf:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge");
                         tex.debugLabel:SetJustifyH("CENTER");
@@ -2926,12 +4247,13 @@ function TWMFrameTemplate:SetLocation(x,y,forceupdate,forcePointsUpdate)
     -- shown/hidden and how they're cropped without necessarily touching
     -- their tile art.
     -- Skipped entirely unless debug is (or just was) on.
-    local debugPass = TWM_DebugTiles or self.tileDebugDrawn;
-    self.tileDebugDrawn = TWM_DebugTiles or nil;
+    local debugAdt = TWM_DebugOn("adtTiles");
+    local debugPass = debugAdt or self.tileDebugDrawn;
+    self.tileDebugDrawn = debugAdt or nil;
     for hw = 1, debugPass and wzoom_real or 0 do
         for hh = 1, hzoom_real do
             local tex = texturelayout[hw][hh];
-            if(TWM_DebugTiles and tex:IsShown()) then
+            if(debugAdt and tex:IsShown()) then
                 TWM_ShowTileDebugBorder(TWM_EnsureTileDebugBorder(vf, tex));
             else
                 TWM_HideTileDebugBorder(tex);
@@ -2958,7 +4280,7 @@ function TWMFrameTemplate:SetLocation(x,y,forceupdate,forcePointsUpdate)
             -- its tile's one true center regardless of how much of the
             -- tile is actually cropped into view.
             if(tex.debugLabel) then
-                if(TWM_DebugTiles and tex:IsShown()) then
+                if(debugAdt and tex:IsShown()) then
                     local centerX = zoom*(hw-1) - px + zoom/2;
                     local centerY = -zoom*(hh-1) + py - zoom/2;
                     tex.debugLabel:ClearAllPoints();
@@ -3187,6 +4509,11 @@ local function TWM_EnsureCursorCoordLabel()
     f:SetSize(1, 1);
     f.text = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall");
     f.text:SetPoint("TOPLEFT");
+    -- Translucent background, so the text can be read over the tiles.
+    f.background = f:CreateTexture(nil, "BACKGROUND");
+    f.background:SetColorTexture(0, 0, 0, 0.6);
+    f.background:SetPoint("TOPLEFT", f.text, "TOPLEFT", -4, 4);
+    f.background:SetPoint("BOTTOMRIGHT", f.text, "BOTTOMRIGHT", 4, -4);
     TWM_CursorCoordLabel = f;
     return f;
 end
@@ -3223,9 +4550,231 @@ function TWM_HideCursorCoordCopyBox()
     TWM_CursorCoordCopyBox:Hide();
 end
 
+-- Debug ("/twm debug"): the WMO tiles under the cursor blink and their FileDataIDs
+-- (and groups) are listed next to the cursor, the one whose center is nearest first.
+-- A tile is matched against its own real corners (tile[8..15], so a turned tile is
+-- hit exactly as drawn).
+local TWM_WMO_HOVER_BLINK_HZ = 3;
+local TWM_WMO_HOVER_BLINK_ALPHA = 0.1;
+
+local hoverTextures = {};
+local hoverCopies = {};
+
+-- Whether the Big point lies inside the tile's quad (a point on an edge counts).
+local function TWM_WMOTileContains(tile, bx, by)
+    local sign;
+    for i = 0, 3 do
+        local ax, ay = tile[8 + i * 2], tile[9 + i * 2];
+        local nx, ny = tile[8 + ((i + 1) % 4) * 2], tile[9 + ((i + 1) % 4) * 2];
+        local cross = (nx - ax) * (by - ay) - (ny - ay) * (bx - ax);
+        if(cross ~= 0) then
+            local positive = cross > 0;
+            if(sign == nil) then
+                sign = positive;
+            elseif(sign ~= positive) then
+                return false;
+            end
+        end
+    end
+    return true;
+end
+
+-- The border of a tile (the 4 lines of TWM_EnsureWMODebugCorners).
+local function TWM_WMODebugSetBorderAlpha(tex, alpha)
+    for _, line in ipairs(tex.debugCorners or {}) do
+        line:SetAlpha(alpha);
+    end
+end
+
+-- The tile drawn once more on a frame above every group frame: the group frames'
+-- levels are the tiles' stacking, so this copy lies over all other tiles whatever
+-- their order. It is anchored to the same pan anchor as the tile, so it follows a pan.
+local function TWM_WMODebugHoverCopy(frame, i, tex)
+    local vf = _G[frame:GetName().."ViewFrame"];
+    local hf = frame.wmoHoverFrame;
+    if(not hf) then
+        hf = CreateFrame("Frame", nil, vf);
+        hf:SetSize(1, 1);
+        hf:SetPoint("TOPLEFT", vf, "TOPLEFT", 0, 0);
+        hf.copies = {};
+        frame.wmoHoverFrame = hf;
+    end
+    -- Above the group frames (up to vf + TWM_WMO_FRAME_BAND - 2), below the debug frame.
+    hf:SetFrameLevel(vf:GetFrameLevel() + TWM_WMO_FRAME_BAND - 1);
+    local copy = hf.copies[i];
+    if(not copy) then
+        copy = hf:CreateTexture(nil, "OVERLAY");
+        copy:SetTexCoord(0, 1, 1, 1, 0, 0, 1, 0); -- as TWM_WMOOverlay_EnsureTexture
+        hf.copies[i] = copy;
+    end
+    copy:SetTexture(tex.wmoTile[1]);
+    copy:ClearAllPoints();
+    copy:SetPoint(tex:GetPoint(1));
+    copy:SetSize(tex:GetSize());
+    copy:SetRotation(math.rad(-(tex.wmoTile[6] or 0)), TWM_WMO_ROTATION_PIVOT);
+    return copy;
+end
+
+-- Adds the tile to the blinking ones (once).
+function TWM_WMODebugHoverAdd(frame, tex)
+    for _, other in ipairs(hoverTextures) do
+        if(other == tex) then return; end
+    end
+    hoverTextures[#hoverTextures + 1] = tex;
+    hoverCopies[#hoverTextures] = TWM_WMODebugHoverCopy(frame, #hoverTextures, tex);
+end
+
+-- The blinking stops and the tiles are drawn normally again.
+function TWM_WMODebugHoverClear()
+    for i = #hoverTextures, 1, -1 do
+        TWM_WMODebugSetBorderAlpha(hoverTextures[i], 1);
+        hoverTextures[i] = nil;
+        hoverCopies[i]:Hide();
+        hoverCopies[i] = nil;
+    end
+end
+
+-- Blinks the tiles under the cursor: the copy over all tiles is shown and hidden,
+-- the border dims; every tick, the cursor need not move.
+function TWM_WMODebugHoverBlink()
+    if(#hoverTextures == 0) then return; end
+    local on = math.floor(GetTime() * TWM_WMO_HOVER_BLINK_HZ * 2) % 2 == 0;
+    for i, tex in ipairs(hoverTextures) do
+        TWM_WMODebugSetBorderAlpha(tex, on and 1 or TWM_WMO_HOVER_BLINK_ALPHA);
+        hoverCopies[i]:SetShown(on);
+    end
+end
+
+-- Every tile under the Big point (bx, by) among the tiles drawn now
+-- (frame.wmoDebugTiles) blinks and is listed, nearest center first; returns the text for
+-- them (one line per tile), nil if none.
+function TWM_WMODebugHover(frame, bx, by)
+    TWM_WMODebugHoverClear();
+    -- The tiles named by "/twm tile" blink wherever the cursor is.
+    for _, tex in ipairs(frame.wmoDebugTiles or {}) do
+        if(tex.wmoTile and tex:IsShown() and frame.wmoPinned and frame.wmoPinned[tex.wmoTile[1]]) then
+            TWM_WMODebugHoverAdd(frame, tex);
+        end
+    end
+
+    local found = {};
+    for _, tex in ipairs(frame.wmoDebugTiles or {}) do
+        local tile = tex.wmoTile;
+        if(tile and tex:IsShown() and TWM_WMOTileContains(tile, bx, by)) then
+            tex.hoverDistance = (tile[2] - bx)^2 + (tile[3] - by)^2;
+            found[#found + 1] = tex;
+        end
+    end
+    if(#found == 0) then return nil; end
+    table.sort(found, function(a, b) return a.hoverDistance < b.hoverDistance; end);
+
+    local lines = {};
+    for _, tex in ipairs(found) do
+        local tile = tex.wmoTile;
+        TWM_WMODebugHoverAdd(frame, tex);
+        lines[#lines + 1] = format("tile %d  group %s %s  (%.0fx%.0f)",
+            tile[1], tostring(tex.wmoGroupID), tex.wmoGroupName or "", tile[4], tile[5]);
+    end
+    return table.concat(lines, "\n");
+end
+
+-- "/twm tile <FileDataID> [...]": switches the debug mode on, centers the view on the
+-- first of those WMO tiles of the current map and keeps all of them blinking over the
+-- other tiles (see TWM_WMODebugHover); lists their groups and where else they are
+-- when not here. Without an ID the blinking stops. Returns false for a bad argument.
+function TWM_PinWMOTiles(argument)
+    local frame = TWMFrame;
+    local vf = _G[frame:GetName().."ViewFrame"];
+    if(argument == "") then
+        frame.wmoPinned = nil;
+        TWM_WMODebugHoverClear();
+        vf.lastoux = nil;
+        return true;
+    end
+
+    local wanted, ids = {}, {};
+    for id in argument:gmatch("%d+") do
+        id = tonumber(id);
+        if(not wanted[id]) then
+            wanted[id] = true;
+            ids[#ids + 1] = id;
+        end
+    end
+    if(#ids == 0) then return false; end
+
+    local first;
+    local found = {};
+    for _, group in ipairs(Twm_WMOTiles and Twm_WMOTiles[frame.opt.Map] or {}) do
+        for _, tile in ipairs(group.tiles) do
+            if(wanted[tile[1]]) then
+                found[tile[1]] = true;
+                first = first or tile;
+                print(format("tile %d: group %s %s, center %.1f, %.1f", tile[1],
+                    tostring(group.group_id), group.group_name or "", tile[2], tile[3]));
+            end
+        end
+    end
+    for _, id in ipairs(ids) do
+        if(not found[id]) then
+            local maps = {};
+            for map, groups in pairs(Twm_WMOTiles or {}) do
+                for _, group in ipairs(groups) do
+                    for _, tile in ipairs(group.tiles) do
+                        if(tile[1] == id) then maps[#maps + 1] = tostring(map); break; end
+                    end
+                end
+            end
+            table.sort(maps);
+            print(format("tile %d is not on this map%s", id,
+                #maps > 0 and (" (it is on: " .. table.concat(maps, ", ") .. ")") or ", nor on any other"));
+        end
+    end
+
+    frame.wmoPinned = wanted;
+    if(not frame:IsShown()) then frame:Show(); end
+    -- The tiles are only found (and blink) while the hover feature of the debug window is on.
+    TWM_DebugSetFeature("hover", true);
+    TWM_ShowDebugWindow();
+    TWM_DebugRefresh();
+    if(first) then
+        if(frame.opt.track) then TWMFrame_StopTracking(frame); end
+        if(frame:GetZoom() < 256) then frame:SetZoom(256, true); end
+        local z = frame:GetZoom();
+        local mx, my = TWM_Big2Mini_Coord(first[2], first[3]);
+        frame:SetLocation(mx - vf:GetWidth() / 2 / z, my - vf:GetHeight() / 2 / z, true);
+    end
+    TWM_WMODebugHoverClear();
+    vf.lastoux = nil;
+end
+
 function TWM_HideCursorCoordLabel()
     if(TWM_CursorCoordLabel) then TWM_CursorCoordLabel:Hide(); end
     TWM_HideCursorCoordCopyBox();
+    TWM_WMODebugHoverClear();
+end
+
+-- The Big coordinates under the cursor, in the ViewFrame of TWMFrame.
+function TWM_CursorBigCoords(self)
+    local x, y = GetCursorPosition();
+    -- The same view position the WMO tiles are laid out for.
+    local rx, ry = TWMFrame.viewX or TWMFrame.opt.Location[1], TWMFrame.viewY or TWMFrame.opt.Location[2];
+    local zoom = TWMFrame.opt.Zoom;
+    local scale = self:GetEffectiveScale();
+    local sx = x / scale;
+    local sy = y / scale;
+
+    -- Screen pixels -> mini coordinate at the cursor, not the viewport's
+    -- own center (contrast TWMFrameTemplate:GetZoneIDs, which does the
+    -- same conversion for the CENTER). x increases rightward same as
+    -- screen space; y is the opposite of WoW's own bottom-up screen axis
+    -- (mini-y increases downward, matching Location's own convention --
+    -- see TWM_WMOOverlay_Update's (Ly-my)*z for the same relationship used
+    -- the other direction). This used to read a hardcoded `512` here
+    -- instead of the ViewFrame's own real (user-resizable) height -- wrong
+    -- for any window not left at its exact original size.
+    rx = rx + (sx - self:GetLeft())/zoom;
+    ry = ry + (self:GetTop() - sy)/zoom;
+    return TWM_Mini2Big_Coord(rx, ry);
 end
 
 function TWMFrameViewFrame_UpdateCursorCoord(self)
@@ -3235,40 +4784,35 @@ function TWMFrameViewFrame_UpdateCursorCoord(self)
         self.lastoux = x;
         self.lastouy = y;
 
-        local rx, ry = unpack(TWMFrame.opt.Location);
-        local zoom = TWMFrame.opt.Zoom;
-        local scale = self:GetEffectiveScale();
-        local sx = x / scale;
-        local sy = y / scale;
-
-        -- Screen pixels -> mini coordinate at the cursor, not the viewport's
-        -- own center (contrast TWMFrameTemplate:GetZoneIDs, which does the
-        -- same conversion for the CENTER). x increases rightward same as
-        -- screen space; y is the opposite of WoW's own bottom-up screen axis
-        -- (mini-y increases downward, matching Location's own convention --
-        -- see TWM_WMOOverlay_Update's (Ly-my)*z for the same relationship used
-        -- the other direction). This used to read a hardcoded `512` here
-        -- instead of the ViewFrame's own real (user-resizable) height -- wrong
-        -- for any window not left at its exact original size.
-        rx = rx + (sx - self:GetLeft())/zoom;
-        ry = ry + (self:GetTop() - sy)/zoom;
-        local bigx, bigy = TWM_Mini2Big_Coord(rx, ry);
+        local bigx, bigy = TWM_CursorBigCoords(self);
 
         local label = TWM_EnsureCursorCoordLabel();
-        label.text:SetText(format("%.1f, %.1f", bigx, bigy));
-        local uiscale = UIParent:GetEffectiveScale();
-        label:ClearAllPoints();
-        label:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x/uiscale + 16, y/uiscale - 16);
-        label:Show();
+        -- The first line is what Ctrl copies (see the copy box below).
+        label.coordText = format("%.1f, %.1f", bigx, bigy);
+        local tileText = TWM_DebugOn("hover") and TWM_WMODebugHover(TWMFrame, bigx, bigy) or nil;
+        local text = (TWM_DebugOn("cursor") and tileText) and (label.coordText .. "\n" .. tileText)
+            or (TWM_DebugOn("cursor") and label.coordText) or tileText;
+        if(text) then
+            label.text:SetText(text);
+            local uiscale = UIParent:GetEffectiveScale();
+            label:ClearAllPoints();
+            label:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x/uiscale + 16, y/uiscale - 16);
+            label:Show();
+        else
+            label:Hide();
+        end
     end
+
+    -- The tiles under the cursor blink whether or not it moves.
+    if(TWM_DebugOn("hover")) then TWM_WMODebugHoverBlink(); end
 
     -- Checked every tick, independent of the mouse-moved gate above (the
     -- user holding Ctrl with the cursor perfectly still must still work) --
     -- see TWM_EnsureCursorCoordCopyBox's own header for the mechanism.
-    if(TWM_CursorCoordLabel and TWM_CursorCoordLabel:IsShown()) then
+    if(TWM_DebugOn("cursor") and TWM_CursorCoordLabel and TWM_CursorCoordLabel:IsShown()) then
         if(IsControlKeyDown()) then
             local copyBox = TWM_EnsureCursorCoordCopyBox();
-            copyBox:SetText(TWM_CursorCoordLabel.text:GetText());
+            copyBox:SetText(TWM_CursorCoordLabel.coordText or TWM_CursorCoordLabel.text:GetText());
             copyBox:ClearAllPoints();
             copyBox:SetPoint("TOPLEFT", TWM_CursorCoordLabel, "TOPLEFT", 0, 0);
             copyBox:Show();
@@ -3278,6 +4822,111 @@ function TWMFrameViewFrame_UpdateCursorCoord(self)
             TWM_HideCursorCoordCopyBox();
         end
     end
+end
+
+-- Tile move: a left drag that starts on one of the selected tiles of the "Tile move" tab
+-- (the group's drawn tiles, or the one tile) moves all of them by the same amount instead of
+-- panning the view (the hooks are in the ViewFrame's drag scripts, Templates.xml). With Shift
+-- held when the drag starts the tiles are turned instead, as one body, about the center of mass
+-- of the selection (a single tile about its own center), by the angle the cursor goes round that
+-- point, in whole degrees: the yaw of the first tile always ends on a whole number. The tiles
+-- follow the cursor; when the button is released their final centers (and yaw, when turned)
+-- are saved in their entries of the move list and the overlays are laid out again.
+
+-- Where the drag puts a tile: its final center and yaw.
+local function TWM_TileMoveDragResult(drag, entry)
+    if(not drag.rotate) then return entry.cx + drag.dx, entry.cy + drag.dy, entry.yaw; end
+    local turn = math.rad(drag.delta);
+    local cos, sin = math.cos(turn), math.sin(turn);
+    local rx, ry = entry.cx - drag.px, entry.cy - drag.py;
+    return drag.px + rx * cos - ry * sin, drag.py + rx * sin + ry * cos, entry.yaw + drag.delta;
+end
+
+function TWM_TileMoveDragStart(vf)
+    tileMoveDrag = nil;
+    local f = TWMDebugFrame;
+    if(not (tileMoveSelection and f and f:IsShown() and f.tab == "move" and vf:GetParent() == TWMFrame
+        and IsMouseButtonDown("LeftButton"))) then
+        return false;
+    end
+    local tiles = TWM_TileMoveSelected();
+    if(not tiles) then return false; end
+    local bx, by = TWM_CursorBigCoords(vf);
+    local hit;
+    for _, entry in ipairs(tiles) do
+        if(TWM_WMOTileContains(entry.tile, bx, by)) then hit = true; break; end
+    end
+    if(not hit) then return false; end
+    -- The pivot of a turn: the center of mass of the selection, the tiles weighted by their area.
+    local px, py, mass = 0, 0, 0;
+    for _, entry in ipairs(tiles) do
+        local tile = entry.tile;
+        entry.cx, entry.cy, entry.yaw = tile[2], tile[3], tile[6] or 0;
+        local area = tile[4] * tile[5];
+        px, py, mass = px + entry.cx * area, py + entry.cy * area, mass + area;
+    end
+    px, py = px / mass, py / mass;
+    tileMoveDrag = {x = bx, y = by, dx = 0, dy = 0, tiles = tiles, rotate = IsShiftKeyDown() and true or false,
+        px = px, py = py, a0 = math.deg(math.atan2(by - py, bx - px)), delta = 0};
+    return true;
+end
+
+-- Every tick of the ViewFrame: the tiles follow the cursor; the drag ends with the button.
+function TWM_TileMoveDragUpdate(vf)
+    local drag = tileMoveDrag;
+    if(not drag) then return; end
+    if(not IsMouseButtonDown("LeftButton")) then
+        TWM_TileMoveDragStop();
+        return;
+    end
+    local bx, by = TWM_CursorBigCoords(vf);
+    if(drag.rotate) then
+        local ax, ay = bx - drag.px, by - drag.py;
+        if(ax * ax + ay * ay < 1) then return; end -- right on the pivot: no angle
+        local delta = (math.deg(math.atan2(ay, ax)) - drag.a0 + 180) % 360 - 180;
+        local yaw = drag.tiles[1].yaw;
+        delta = math.floor(yaw + delta + 0.5) - yaw; -- the first tile's yaw on a whole degree
+        if(delta == drag.delta) then return; end
+        drag.delta = delta;
+    else
+        local dx, dy = bx - drag.x, by - drag.y;
+        if(dx == drag.dx and dy == drag.dy) then return; end
+        drag.dx, drag.dy = dx, dy;
+    end
+    drag.changed = true;
+    for _, entry in ipairs(drag.tiles) do
+        TWM_TileMovePlace(entry.tile, TWM_TileMoveDragResult(drag, entry));
+    end
+    TWM_WMOOverlay_Update(TWMFrame);
+end
+
+-- Ends the drag: the final centers (two decimals), and yaws when turned, are saved. Returns
+-- whether there was a drag.
+function TWM_TileMoveDragStop()
+    local drag = tileMoveDrag;
+    if(not drag) then return false; end
+    tileMoveDrag = nil;
+    if(drag.changed) then
+        for _, entry in ipairs(drag.tiles) do
+            local cx, cy, yaw = TWM_TileMoveDragResult(drag, entry);
+            cx, cy = math.floor(cx * 100 + 0.5) / 100, math.floor(cy * 100 + 0.5) / 100;
+            entry.saved.cx, entry.saved.cy = cx, cy;
+            if(drag.rotate) then
+                yaw = math.floor(yaw * 100 + 0.5) / 100;
+                entry.saved.yaw = yaw;
+            end
+            TWM_TileMovePlace(entry.tile, cx, cy, yaw);
+        end
+        TWM_TileToggleChanged();
+    end
+    TWM_TileToggleRefreshLists();
+    return true;
+end
+
+-- The drag mode is off: nothing is selected, a drag in progress is ended.
+function TWM_TileMoveEnd()
+    TWM_TileMoveDragStop();
+    tileMoveSelection = nil;
 end
 
 -- Follow mode (Goto Player toggled on, view on a continent): the view is

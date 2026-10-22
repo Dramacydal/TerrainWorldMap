@@ -57,8 +57,12 @@
 // Twm_WMOTiles["<name>"] itself is an array of GROUPS, not a flat tile
 // array (WMO tile group management -- lets the addon show a per-group
 // checkbox list, TerrainWorldMap.lua's TWM_EnsureWMOGroupCheckboxes):
-// {group_id, group_name, tiles = {<tile tuple>, ...}}, sorted by (wmoId,
-// GroupNum) ascending. group_id is "<wmoId>-<GroupNum>" (a string) -- NOT
+// {group_id, group_name, [group_internal_name,] box = {x1,y1, x2,y2, x3,y3, x4,y4},
+// tiles = {<tile tuple>, ...}}, sorted by (wmoId, GroupNum) ascending. box is the
+// group's own MOGP bounding box (the rectangle its tile blocks are laid out in) as 4
+// Big-coordinate corners in the same order as a tile's: (min.x, max.y), (min.x, min.y),
+// (max.x, min.y), (max.x, max.y) of the local box through the same transform; a group
+// drawn by several placements keeps the box of the first. group_id is "<wmoId>-<GroupNum>" (a string) -- NOT
 // just WMOMinimapTexture.csv's own GroupNum by itself, because a map can
 // have more than one WMO placed on it (e.g. PVPLordaeron: the actual arena
 // building plus an unrelated second building), and each placement numbers
@@ -182,7 +186,29 @@ const MINI2BIG = 1600 / 3; // 533.3333..., matches TerrainWorldMap.lua's MINI2BI
 const MAP_ORIGIN = 32 * MINI2BIG; // 17066.666...
 const PPU = 2; // pixels per world unit for WMO minimap tiles (fixed, not derived per-group)
 const TILE_UNITS = 256 / PPU; // 128 model-units per 256px tile
+const BLOCK_EPSILON = 0.01; // model units
+// EXPERIMENTAL, OFF -- not used. Both filters below were inferred from Stormwind's
+// data, not from any documented rule, so they stay disabled until a source backs them.
+const EXPERIMENTAL_BLOCK_FILTER = false;
+const EXPERIMENTAL_UNREACHABLE_FILTER = false;
+// MOGP flag 0x80 ("unreachable" on wowdev.wiki, which gives no description). In
+// Stormwind it marks backdrop groups (TreeFacades*, Cathy_Facade01, Bazaarfacade03,
+// mageTowerFacade, "mountains"), but that reading is a guess.
+const MOGP_FLAG_UNREACHABLE = 0x80;
 const ROT_EPSILON = 0.05; // degrees -- MODF rotation floats aren't always exactly 0.0
+
+// WMOMinimapTexture (and the client's own file names, <wmoId>_<group>_<bx>_<by>.blp)
+// list for many groups blocks that start beyond the group's own bounding box: a
+// 21x21-unit group with a full 2x2 set of 256px blocks. Their images are copies of
+// other groups' tiles (Stormwind's The Park groups 220-222 carry copies of group
+// 218's blocks), so drawn at "group min + block * 128" they show up as shifted
+// duplicates. A group has ceil(extent / 128) blocks per axis, no more; the first
+// block of an axis is always real. box[0] pairs with blockX, box[1] with blockY.
+function isBlockOutsideGroup(t, box) {
+	const extentX = Math.abs(box.max[0] - box.min[0]), extentY = Math.abs(box.max[1] - box.min[1]);
+	return (t.blockX > 0 && t.blockX * TILE_UNITS >= extentX - BLOCK_EPSILON)
+		|| (t.blockY > 0 && t.blockY * TILE_UNITS >= extentY - BLOCK_EPSILON);
+}
 
 // Every MODF entry (deduped by uniqueId -- one placement spanning several ADT tiles repeats; distinct placements of the same WMO don't) across a map's own _obj0.adt files --
 // only the ones the WDT's own MAIN/MAID chunk actually declares as real,
@@ -294,6 +320,21 @@ function readWmoId(rootWmoPath) {
 	return null;
 }
 
+// How many groups the WMO root file itself declares (MOHD offset 4, the nGroups
+// right after nMaterials). WMOMinimapTexture can name a GroupNum beyond it.
+function readWmoGroupCount(rootWmoPath) {
+	const buf = fs.readFileSync(rootWmoPath);
+	let offset = 0;
+	while (offset + 8 <= buf.length) {
+		const magic = buf.readUInt32LE(offset);
+		const size = buf.readUInt32LE(offset + 4);
+		const dataStart = offset + 8;
+		if (magic === ID_MOHD) return buf.readUInt32LE(dataStart + 4);
+		offset = dataStart + size;
+	}
+	return null;
+}
+
 function readCString(buf, offset) {
 	let end = offset;
 	while (end < buf.length && buf[end] !== 0) end++;
@@ -353,6 +394,8 @@ function groupBoundingBox(groupFilePath) {
 		if (magic === ID_MOGP) {
 			return {
 				nameOffset: buf.readInt32LE(dataStart),
+					// MOGP header flags (offset 8, after nameOffset and descriptiveNameOffset).
+					flags: buf.readUInt32LE(dataStart + 8),
 			// WMOAreaTable.WMOGroupID (MOGP header, offset 56).
 			wmoGroupID: buf.readUInt32LE(dataStart + 56),
 				min:[buf.readFloatLE(dataStart + 12), buf.readFloatLE(dataStart + 16), buf.readFloatLE(dataStart + 20)],
@@ -720,11 +763,13 @@ async function main() {
 	if (wantedWmoPaths.length > 0) ensureExtractedPaths({ ...extractOpts, paths: wantedWmoPaths });
 
 	const wmoIdByNameId = {};
+	const groupCountByNameId = {};
 	const groupNamesByNameId = {};
 	for (const [nameId, wmoPath] of Object.entries(idToPath)) {
 		const localPath = path.join(flavorDirPath, wmoPath);
 		if (!fs.existsSync(localPath)) continue;
 		wmoIdByNameId[nameId] = readWmoId(localPath);
+		groupCountByNameId[nameId] = readWmoGroupCount(localPath);
 		groupNamesByNameId[nameId] = readWmoNameBlob(localPath);
 	}
 
@@ -734,6 +779,26 @@ async function main() {
 	ensureDb2Csv({ ...extractOpts, table: 'WMOMinimapTexture', proxy: opts.proxy });
 	const { findCsv } = require('./csv');
 	const tilesByWmoId = loadWmoMinimapTexture(findCsv(flavorDirPath, 'WMOMinimapTexture.'));
+
+	// A WMOMinimapTexture row whose GroupNum is not one of the WMO's own groups
+	// (>= MOHD nGroups) points at a group the WMO root does not list -- the table is
+	// stale against the WMO, or the group files on disk are newer than the root
+	// (Anniversary's Naxxramas: root says 65 groups, files and tiles go up to 71, and
+	// dropping them made the map worse). WARNING ONLY, the rows are kept. Logged once
+	// per WMO.
+	const tilesOfPlacedWmo = (() => {
+		const cache = new Map();
+		return (nameId, wmoId) => {
+			if (cache.has(nameId)) return cache.get(nameId);
+			const all = tilesByWmoId.get(String(wmoId)) || [];
+			const nGroups = groupCountByNameId[nameId];
+			const beyond = nGroups == null ? [] : all.filter(t => t.groupNum >= nGroups);
+			if (beyond.length > 0)
+				console.error(`  (warning: ${idToPath[nameId]}: ${beyond.length} of ${all.length} WMOMinimapTexture rows name a group beyond the WMO's ${nGroups} groups (${[...new Set(beyond.map(t => t.groupNum))].sort((a, b) => a - b).join(',')}) -- kept)`);
+			cache.set(nameId, all);
+			return all;
+		};
+	})();
 
 	// WMOAreaTable.csv: the in-game area name of a group, keyed by
 	// "<WMOID>|<WMOGroupID>" (WMOGroupID is stored in the group file's MOGP
@@ -786,8 +851,8 @@ async function main() {
 			const wmoPath = idToPath[p.nameId];
 			const wmoId = wmoIdByNameId[p.nameId];
 			if (!wmoPath || wmoId == null) continue;
-			const tiles = tilesByWmoId.get(String(wmoId));
-			if (!tiles || tiles.length === 0) continue;
+			const tiles = tilesOfPlacedWmo(p.nameId, wmoId);
+			if (tiles.length === 0) continue;
 			for (const g of new Set(tiles.map(t => t.groupNum)))
 				neededPaths.add(wmoPath.replace(/\.wmo$/i, `_${String(g).padStart(3, '0')}.wmo`));
 			for (const t of tiles) {
@@ -900,6 +965,7 @@ async function main() {
 		// after the collection loop, below.
 		const placements = [...placementsByMap[mapName]].sort((a, b) => a.pos[1] - b.pos[1]);
 		const mapTiles = [];
+		let droppedOutsideGroup = 0, droppedUnreachable = 0;
 
 		for (const p of placements) {
 			const wmoPath = idToPath[p.nameId];
@@ -910,8 +976,8 @@ async function main() {
 				console.error(`  (skipping ${mapName}'s ${wmoPath} -- couldn't read its own WMOID from MOHD, not extracted locally?)`);
 				continue;
 			}
-			const tiles = tilesByWmoId.get(String(wmoId));
-			if (!tiles || tiles.length === 0) continue; // no minimap art baked for this WMO at all
+			const tiles = tilesOfPlacedWmo(p.nameId, wmoId);
+			if (tiles.length === 0) continue; // no minimap art baked for this WMO at all
 
 			const pitchRollMag = Math.max(Math.abs(p.rot[0]), Math.abs(p.rot[2]));
 			if (pitchRollMag > (cityRegions ? CITY_ROT_EPSILON : ROT_EPSILON)) {
@@ -919,6 +985,13 @@ async function main() {
 				continue;
 			}
 			const { toBig, anchorHeight } = placementTransform(p, mapName);
+			// A group's own box as 4 Big corners (same order as a tile's c1..c4).
+			const groupBoxCorners = {};
+			const boxCornersOf = (g, box) => groupBoxCorners[g] || (groupBoxCorners[g] = (() => {
+				const x1 = Math.min(box.min[0], box.max[0]), x2 = Math.max(box.min[0], box.max[0]);
+				const yNear = Math.min(box.min[1], box.max[1]), yFar = Math.max(box.min[1], box.max[1]);
+				return [toBig(yFar, x1), toBig(yNear, x1), toBig(yNear, x2), toBig(yFar, x2)];
+			})());
 
 			// One group file per distinct groupNum referenced by its tiles.
 			const groupNums = [...new Set(tiles.map(t => t.groupNum))];
@@ -978,6 +1051,14 @@ async function main() {
 				if (skipGroupIdSet.has(`${wmoId}-${t.groupNum}`)) continue;
 				// City mode: tiles outside every city were never extracted.
 				if (cityRegions && !neededTileFiles.has(t.fileID)) continue;
+				if (EXPERIMENTAL_BLOCK_FILTER && isBlockOutsideGroup(t, box)) {
+					droppedOutsideGroup++;
+					continue;
+				}
+				if (EXPERIMENTAL_UNREACHABLE_FILTER && (box.flags & MOGP_FLAG_UNREACHABLE)) {
+					droppedUnreachable++;
+					continue;
+				}
 
 				// Real crop size (see this file's header) replaces the
 				// nominal TILE_UNITS for THIS tile's own span. X: localX1 is
@@ -1108,11 +1189,13 @@ async function main() {
 					// re-derivation went wrong once already; don't repeat
 					// it for the one thing meant to check it).
 					corners: [c1, c2, c3, c4],
+					groupBox: boxCornersOf(t.groupNum, box),
 				});
 			}
 		}
 
-		console.error(`${mapName}: ${mapTiles.length} WMO minimap tiles placed`);
+		console.error(`${mapName}: ${mapTiles.length} WMO minimap tiles placed`
+			+ (droppedOutsideGroup + droppedUnreachable > 0 ? ` (more dropped: ${droppedOutsideGroup} block beyond its group's own box, ${droppedUnreachable} in "unreachable" groups)` : ''));
 		if (mapTiles.length === 0) continue;
 
 		// Sort by height ascending within each group -- cosmetic/readability
@@ -1142,7 +1225,7 @@ async function main() {
 			if (output.tiles.length === 0) continue;
 			const byGroup = new Map();
 			for (const t of output.tiles) {
-				if (!byGroup.has(t.groupId)) byGroup.set(t.groupId, { groupName: t.groupName, internalName: t.internalName, wmoId: t.wmoId, groupNum: t.groupNum, tiles: [] });
+				if (!byGroup.has(t.groupId)) byGroup.set(t.groupId, { groupName: t.groupName, internalName: t.internalName, wmoId: t.wmoId, groupNum: t.groupNum, box: t.groupBox, tiles: [] });
 				byGroup.get(t.groupId).tiles.push(t);
 			}
 			const groupIds = [...byGroup.keys()].sort((a, b) => {
@@ -1162,6 +1245,7 @@ async function main() {
 					const internalName = group.internalName.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 					fullOutput += `        group_internal_name = "${internalName}",\n`;
 				}
+				fullOutput += `        box = {${group.box.map(c => `${c[0]}, ${c[1]}`).join(', ')}},\n`;
 				fullOutput += `        tiles = {\n`;
 				for (const t of group.tiles) {
 					const corners = t.corners.map(c => `${c[0]}, ${c[1]}`).join(', ');

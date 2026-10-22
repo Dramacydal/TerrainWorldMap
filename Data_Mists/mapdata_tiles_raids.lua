@@ -1198,3 +1198,38 @@ Twm_WDTValidTiles["OrgrimmarRaid"] = {
 -- underwater" option). TerrainWorldMap.lua feature-detects the
 -- underwater-texture option/menu-entry on whether this table is non-empty
 -- (declared once, centrally, in mapdata_zones.lua -- see Twm_WDTValidTiles above).
+
+Twm_NoLiquidTiles["Firelands1"] = {
+    ["30x29"] = true,
+    ["30x30"] = true,
+    ["30x31"] = true,
+    ["30x32"] = true,
+    ["30x33"] = true,
+    ["31x29"] = true,
+    ["31x30"] = true,
+    ["31x31"] = true,
+    ["31x32"] = true,
+    ["31x33"] = true,
+    ["32x29"] = true,
+    ["32x30"] = true,
+    ["32x31"] = true,
+    ["32x32"] = true,
+    ["32x33"] = true,
+    ["33x29"] = true,
+    ["33x30"] = true,
+    ["33x31"] = true,
+    ["33x32"] = true,
+    ["33x33"] = true,
+}
+
+Twm_NoLiquidTiles["MoguExteriorRaid"] = {
+    ["22x40"] = true,
+    ["22x41"] = true,
+    ["22x42"] = true,
+    ["23x40"] = true,
+    ["23x41"] = true,
+    ["23x42"] = true,
+    ["24x40"] = true,
+    ["24x41"] = true,
+    ["24x42"] = true,
+}

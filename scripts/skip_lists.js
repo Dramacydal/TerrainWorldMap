@@ -159,11 +159,9 @@ const skipTileFileDataId = {
 	// independently via wow.export (separate tool, same underlying data)
 	// producing the same bad tiles, so this is real bad source data, not a
 	// bug in this pipeline's own math.
-	wow_anniversary: [
-		'528239', '528240', '528241', '528242', '528243', // RazorfenDowns group 1, blockX=1 column
+	wow_anniversary: [		
 	],
 	wow_classic: [
-		'2257516', '2257481', '2257487', '2257463', '2257458', '2257455', '2257467', // Wailing Caverns (kl_wailing)
 	],
 	wow_classic_beta: [
 	],
@@ -179,8 +177,6 @@ const skipWmoGroups = {
 	wow_classic: [
 	],
 	wow_classic_beta: [
-		'1356-10', // Razorfen Downs "gongshow"
-		'1193-19', // Razorfen Kraul "trench001"
 	],
 };
 
