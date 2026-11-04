@@ -540,7 +540,10 @@ Entries are copied unchanged when their target exists in the target flavor
 (same MapID for a dungeon/raid, same name for a continent) and, for an entry
 inside an instance map, that map exists there too (same directory and MapID).
 Instances that exist only in the target flavor (Forever-only dungeons) get no
-entrance marker.
+entrance marker from this script: Forever's are kept by hand in
+`Data_Forever/mapdata_poi_instances_extra.lua` (loaded right after the generated
+file, appends to `Twm_instances`; an entrance on the continent plus an exit marker
+inside the instance, coordinates found in game), so a regeneration does not lose them.
 
 ## Step 7 — `gen_poi_flightmasters.js`: flight master markers + routes (`Twm_flightmasters`, `Twm_taxipaths`, `Twm_taxipathnodes`)
 

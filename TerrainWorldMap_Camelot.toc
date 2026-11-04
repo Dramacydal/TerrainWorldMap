@@ -30,6 +30,7 @@ Data_Forever\mapdata_poi_areas.lua
 Data_Forever\mapdata_poi_battlegrounds_areas.lua
 Data_Forever\mapdata_poi_graveyards.lua
 Data_Forever\mapdata_poi_instances.lua
+Data_Forever\mapdata_poi_instances_extra.lua
 Data_Forever\mapdata_poi_flightmasters.lua
 Data_Forever\mapdata_tiles_continents.lua
 Data_Forever\mapdata_tiles_battlegrounds.lua
