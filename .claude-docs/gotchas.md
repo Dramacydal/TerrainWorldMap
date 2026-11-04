@@ -100,7 +100,7 @@ ADT terrain) use a **completely unrelated** system:
   shortcut doesn't apply — the actual `MODF` rotation has to be applied honestly.
 - **FileDataID is global, but content is per-build.** The same
   `world/minimaps/wmo/dungeon/.../foo_000_00_00.blp` FileDataID returned visibly
-  different bytes when extracted from `wow_classic_beta` vs `wow_anniversary` for the
+  different bytes when extracted from `wowf` vs `wow_anniversary` for the
   literal same dungeon (Stockade) — and the WMO root file itself differed too (27
   groups in one build, 26 in the other). Extracting the WMO root, the
   `WMOMinimapTexture` DB2 rows, and the BLP tiles must all come from **the same

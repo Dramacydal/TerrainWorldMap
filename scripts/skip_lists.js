@@ -4,7 +4,7 @@
 // they turn up. Every list starts empty; grow incrementally.
 //
 // Keyed by product code (see README.md's "Product codes" table:
-// wow_classic_era/wow_anniversary/wow_classic/wow_classic_beta) -> array of
+// wow_classic_era/wow_anniversary/wow_classic/wowf) -> array of
 // Map.csv `ID` values (not Directory names -- the numeric ID is what's
 // visible directly in Map.csv/Wowhead without having to re-derive the exact
 // Directory casing every time). Add a trailing comment with the map's name
@@ -83,7 +83,7 @@ const skipMaps = {
 	],
 	wow_classic: [
 	],
-	wow_classic_beta: [
+	wowf: [
 		'29', // CashTest
 		'13', // Test Dungeon
 	],
@@ -112,7 +112,7 @@ const skipAdtTiles = {
 		'725', // The Stonecore
 		'757', // Baradin Hold
 	],
-	wow_classic_beta: [
+	wowf: [
 		'129', // Razorfen Downs
 		'189', // Scarlet Monastery
 		'3065', // The Hall of Thanes
@@ -142,7 +142,7 @@ const skipWmoTiles = {
 		'560', // The Escape From Durnholde
 		'859', // Zul'Gurub
 	],
-	wow_classic_beta: [
+	wowf: [
 		'209', // Zul'Farrak
 		'269', // Caverns of Time
 		'309', // Zul'Gurub,
@@ -163,7 +163,7 @@ const skipTileFileDataId = {
 	],
 	wow_classic: [
 	],
-	wow_classic_beta: [
+	wowf: [
 	],
 };
 
@@ -176,7 +176,7 @@ const skipWmoGroups = {
 	],
 	wow_classic: [
 	],
-	wow_classic_beta: [
+	wowf: [
 	],
 };
 
@@ -202,7 +202,7 @@ const checkedWmoAreasByMap = {
 			[-348.3, -169.5, 436.8, 570.1],
 		],
 	},
-	wow_classic_beta: {
+	wowf: {
 		'289': [ // Scholomance
 			[-192.4, -108.2, 292.9, 362.9],
 		],

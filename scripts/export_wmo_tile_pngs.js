@@ -22,7 +22,7 @@ const FLAVOR_DATA_DIR = {
 	wow_classic_era: 'Data_Vanilla',
 	wow_anniversary: 'Data_TBC',
 	wow_classic: 'Data_Mists',
-	wow_classic_beta: 'Data_Forever',
+	wowf: 'Data_Forever',
 };
 
 function parseArgs(argv) {

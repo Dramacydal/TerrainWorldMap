@@ -2,7 +2,7 @@
 
 TerrainWorldMap overlays the game's own minimap terrain tiles onto the World Map, so you see the actual landscape instead of Blizzard's stylized map illustration. It also adds a standalone, resizable map window for browsing the whole world outside the World Map UI.
 
-Currently supports **Classic Era (Vanilla)**, **Classic Anniversary (TBC)**, **Mists of Pandaria Classic**, and **WoW: Forever (Classic+, beta)** — all in one addon.
+Currently supports **Classic Era (Vanilla)**, **Classic Anniversary (TBC)**, **Mists of Pandaria Classic**, and **WoW: Forever (Classic+)** — all in one addon.
 
 **Lightweight** — it draws the terrain from the minimap images already stored in your game client instead of bundling its own map art, so it adds almost nothing to your addon folder's size or your loading screens.
 
@@ -39,7 +39,7 @@ Currently supports **Classic Era (Vanilla)**, **Classic Anniversary (TBC)**, **M
 - **Classic Era** (Vanilla)
 - **Anniversary** (TBC)
 - **Mists of Pandaria Classic**
-- **WoW: Forever** (Classic+, beta — entrance markers cover the classic dungeons and raids; the Forever-only dungeons have none yet)
+- **WoW: Forever** (Classic+ — entrance markers cover the classic dungeons and raids; the Forever-only dungeons have none yet)
 
 ## Credits
 

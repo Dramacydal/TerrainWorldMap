@@ -3,7 +3,7 @@
 Overlays the real minimap terrain tiles onto WoW's own World Map, and provides
 an movable/resizable minimap-style map window.
 
-Single addon for any version - Vanilla (classic_era), TBC (anniversary), MoP Classic (classic), WoW: Forever (classic_beta)
+Single addon for any version - Vanilla (classic_era), TBC (anniversary), MoP Classic (classic), WoW: Forever (forever)
 
 Lightweight by design — it reuses the terrain images already present in
 your game client instead of shipping its own map art, so it adds almost

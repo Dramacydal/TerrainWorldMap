@@ -1,5 +1,5 @@
 -- uiMapIDs for the top-level continents TerrainWorldMap knows how to render,
--- for WoW Forever (wow_classic_beta). Kalimdor/Azeroth are the same stable
+-- for WoW Forever (wowf). Kalimdor/Azeroth are the same stable
 -- IDs every other flavor already uses. "2991" (Zephras Isle, no proper
 -- flavor-specific directory name assigned by Blizzard yet in this beta --
 -- see gen_mapareas.js's continent list) was derived from

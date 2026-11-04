@@ -54,7 +54,7 @@ const WOWHEAD_DOMAIN_BY_FLAVOR = {
 	wow_classic_era: 'classic',
 	wow_anniversary: 'tbc',
 	wow_classic: 'mop-classic',
-	wow_classic_beta: 'forever',
+	wowf: 'forever',
 };
 
 // {areaID: box} for every Zone UiMapAssignment row (UI_MAP_TYPE_ZONE, or

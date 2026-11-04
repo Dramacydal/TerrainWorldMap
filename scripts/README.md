@@ -75,12 +75,10 @@ editions, so re-check `.build.info` if a code below stops matching):
 | Vanilla | `wow_classic_era` | `Data_Vanilla` |
 | TBC | `wow_anniversary` | `Data_TBC` |
 | Mists | `wow_classic` | `Data_Mists` |
-| Forever | `wow_classic_beta` | `Data_Forever` |
+| Forever | `wowf` | `Data_Forever` |
 
-Forever (WoW: Forever, Classic+) is still in beta as of this writing --
-`wow_classic_beta` is the product code for now, but expect Blizzard to swap
-it for a permanent one at launch (re-check `.build.info` if it stops
-matching). Its continent list is `Azeroth`/`Kalimdor`/`2991` -- `2991` is
+Forever (WoW: Forever, Classic+) is installed in `_forever_` and its product
+code in `.build.info` is `wowf` (it was `wow_classic_beta` in the beta). Its continent list is `Azeroth`/`Kalimdor`/`2991` -- `2991` is
 Zephras Isle, a new beta zone with no proper flavor-specific directory name
 assigned yet (just its own numeric `Map.ID`, used as-is as the continent
 key). No Outland/Northrend -- this flavor's world is Classic-era Kalimdor
@@ -424,7 +422,7 @@ domain matching the target flavor, not a mismatched one:
 
 This script downloads the right domain itself, keyed off `--flavor`
 (`wow_classic_era`→`classic`, `wow_anniversary`→`tbc`, `wow_classic`→`mop-classic`,
-`wow_classic_beta`→`forever`), into `<work-dir>/<flavor>/spirit_healer.html` —
+`wowf`→`forever`), into `<work-dir>/<flavor>/spirit_healer.html` —
 `curl -A "Mozilla/5.0" <url>` under the hood, cached same as everything else.
 Pass `--wowhead-html <saved page.html>` to override this with your own saved
 copy instead (offline work, manual testing, or a flavor not in the table
