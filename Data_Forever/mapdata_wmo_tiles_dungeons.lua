@@ -15956,7 +15956,7 @@ Twm_WMOTiles["2959"] = {
     },
     {
         group_id = "18950-6",
-        group_name = "The Linguist's Lounge",
+        group_name = "Runeweaver Lounge",
         group_internal_name = "room05",
         box = {347.64527660545104, 213.9490253707879, 350.52273139519684, 203.21017214011368, 338.9794982876721, 200.11718533035602, 336.1020434979263, 210.85603856103023},
         tiles = {
@@ -15965,7 +15965,7 @@ Twm_WMOTiles["2959"] = {
     },
     {
         group_id = "18950-7",
-        group_name = "Dalaran Exchange",
+        group_name = "Dalaran Visitor's Center",
         group_internal_name = "shoproom03",
         box = {352.5898666024535, 230.26107568920534, 359.5737885545117, 204.19661306588, 337.05899768351526, 198.16381874042807, 330.07507573145705, 224.2282813637534},
         tiles = {
@@ -15992,7 +15992,7 @@ Twm_WMOTiles["2959"] = {
     },
     {
         group_id = "18950-10",
-        group_name = "The Linguist's Lounge",
+        group_name = "Runeweaver Lounge",
         group_internal_name = "room01",
         box = {324.6376019561988, 295.9787650760268, 327.5150571778937, 285.2399102332895, 315.97184249394724, 282.1469283600937, 313.09438727225233, 292.885783202831},
         tiles = {
@@ -16001,7 +16001,7 @@ Twm_WMOTiles["2959"] = {
     },
     {
         group_id = "18950-11",
-        group_name = "Wands and Wonder",
+        group_name = "The Wonder Works",
         group_internal_name = "shoproom01",
         box = {333.58882647802665, 299.8159895741191, 340.57274768960053, 273.7515297143305, 318.057957739783, 267.71873563570665, 311.0740365282091, 293.78319549549525},
         tiles = {
@@ -16316,7 +16316,7 @@ Twm_WMOTiles["2959"] = {
     },
     {
         group_id = "18950-51",
-        group_name = "The Linguist's Lounge",
+        group_name = "Runeweaver Lounge",
         group_internal_name = "middleroom",
         box = {287.5515031848408, 276.06474980318944, 292.69065824496045, 256.8850802851922, 274.0661551630907, 251.89468098943834, 268.927000102971, 271.0743505074356},
         tiles = {
@@ -16325,7 +16325,7 @@ Twm_WMOTiles["2959"] = {
     },
     {
         group_id = "18950-52",
-        group_name = "The Linguist's Lounge",
+        group_name = "Runeweaver Lounge",
         group_internal_name = "room03",
         box = {283.6824147529503, 285.8132734162672, 286.5598699129382, 275.0744188038246, 275.0166653619598, 271.98143964573785, 272.13921020197193, 282.72029425818045},
         tiles = {
@@ -16334,7 +16334,7 @@ Twm_WMOTiles["2959"] = {
     },
     {
         group_id = "18950-53",
-        group_name = "The Linguist's Lounge",
+        group_name = "Runeweaver Lounge",
         group_internal_name = "room04",
         box = {271.16175912760485, 265.3045626153688, 274.2547376686214, 253.76136036733766, 263.51588443794714, 250.88390557759192, 260.4229058969306, 262.42710782562307},
         tiles = {

@@ -1,6 +1,14 @@
 
 TerrainWorldMap ChangeLog
 ================
+2.2.0 (November 5, 2026)
+----------------------------
+- Updated to the released WoW: Forever (build 1.60.1.70790). Minor flight path and locale changes.
+- Added: entrance markers on the Eastern Kingdoms map, and exit markers
+  inside, for four Forever dungeons: The Hall of Thanes, Excavation
+  Site: Wetlands, Ruins of Lordaeron and City of Dalaran. More Forever dungeons and raids
+  markers will be added when corresponding dungeons/raids are released.
+
 2.1.1 (October 23, 2026)
 ----------------------------
 - Update to latest forever
