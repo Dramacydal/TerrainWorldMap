@@ -91,9 +91,19 @@ and Eastern Kingdoms plus this one new island so far.
 ```
 
 - **`-WorkDir`** (required) — output root; gets `WorkDir/CASCConsole`
-  (CASCConsole.exe + the community listfile, shared across every flavor)
+  (CASCConsole.exe, the community listfile and `TactKey.csv`, shared across every flavor)
 - **`-Proxy`** (optional) — curl `-x/--proxy` format: `scheme://[user:password@]host[:port]` (`http`, `https`, `socks4`, `socks4a`, `socks5`, `socks5h`)
 - **`-Force`** (optional) — re-download CASCConsole/listfile even if already present
+
+`TactKey.csv` is built from the public key list ([wowdev/TACTKeys](https://github.com/wowdev/TACTKeys),
+`WoW.txt`), one `<key name>;<key>` per line. CASCConsole (CascLib's `KeyService.LoadKeys`)
+reads it from the folder it runs in (`WorkDir/CASCConsole`) on top of the keys compiled into
+`CascLib.dll`. A client build whose files need a key the DLL does not have prints
+`Error (unknown keyname ...)` for them and does not extract them (a new Forever build had
+the WDT/ADT of five new dungeons behind such a key, so they came out as maps with no tiles).
+The list only grows, so this step runs on every `init_workdir.ps1` run (it is not skipped like
+the tool and the listfile); re-run the script after a new client build, an existing
+`TactKey.csv` is kept if the download fails.
 
 That's all this script does — no product/flavor, no DB2 CSVs, no WDT/ADT
 extraction. Every other script below takes `--work-dir <dir>` (this same

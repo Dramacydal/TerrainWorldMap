@@ -1,6 +1,13 @@
 
 TerrainWorldMap ChangeLog
 ================
+2.3.0 (November 7, 2026)
+----------------------------
+- Updated to WoW: Forever build 1.60.1.70840.
+- Added: five new Forever dungeons: The Drowned City, Blackmaw Hold, Alcaz Prison,
+  The Shaper's Terrace and Krol'dok Stronghold, with entrance markers on the
+  continent map and exit markers inside.
+
 2.2.0 (November 5, 2026)
 ----------------------------
 - Updated to the released WoW: Forever (build 1.60.1.70790). Minor flight path and locale changes.

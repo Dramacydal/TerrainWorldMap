@@ -2,15 +2,17 @@
 <#
 .SYNOPSIS
 	Prepares a WORKDIR with the tools every gen_*.js/parse_wdt.js script needs
-	to self-extract its own data: the CASCConsole tool and the community
-	listfile, both shared across every flavor. Does NOT download any
+	to self-extract its own data: the CASCConsole tool, the community
+	listfile and the TACT keys (TactKey.csv, read by CASCConsole from its own
+	folder -- without a key CASCConsole cannot extract the files encrypted with
+	it, "unknown keyname"), all shared across every flavor. Does NOT download any
 	product-specific data (DB2 CSVs, WDT/ADT/WMO files, locale exports) --
 	each script now fetches/extracts exactly what it needs itself into
 	<WorkDir>/<flavor>/ via scripts/extract.js, given --work-dir,
 	--client-dir (or --online) and --flavor.
 
 .PARAMETER WorkDir
-	Root working directory. Gets WorkDir/CASCConsole (tool + listfile) --
+	Root working directory. Gets WorkDir/CASCConsole (tool + listfile + TactKey.csv) --
 	every gen_*.js/parse_wdt.js script reads this directly via --work-dir.
 
 .PARAMETER Proxy
@@ -42,6 +44,7 @@ $ErrorActionPreference = 'Stop'
 
 $CASCCONSOLE_URL = 'https://github.com/Dramacydal/CASCExplorer/releases/download/build-latest/CASCConsole.zip'
 $LISTFILE_URL = 'https://github.com/wowdev/wow-listfile/releases/latest/download/community-listfile.csv'
+$TACTKEYS_URL = 'https://raw.githubusercontent.com/wowdev/TACTKeys/master/WoW.txt'
 
 $cascDir = Join-Path $WorkDir 'CASCConsole'
 New-Item -ItemType Directory -Force -Path $cascDir | Out-Null
@@ -89,7 +92,50 @@ Step "Community listfile" {
 		Write-Host "    already present, skipping (use -Force to re-download)"
 		return
 	}
-	Invoke-Curl @('-o', $listfilePath, $LISTFILE_URL)
+	# Downloaded to a temporary file and renamed over listfile.csv only once curl succeeded: a failed
+	# or interrupted download (the file is ~150MB) must not leave a truncated listfile that the
+	# "already present" check above would then accept as good.
+	$listfileTmp = "$listfilePath.part"
+	try {
+		Invoke-Curl @('-o', $listfileTmp, $LISTFILE_URL)
+		Move-Item -Path $listfileTmp -Destination $listfilePath -Force
+	} finally {
+		Remove-Item -Path $listfileTmp -ErrorAction SilentlyContinue
+	}
+}
+
+# CASCConsole (CascLib's KeyService.LoadKeys) reads TactKey.csv from the folder it runs in,
+# one "<16 hex key name>;<32 hex key>" per line, on top of the keys compiled into CascLib.dll.
+# A key a client build needs but CascLib.dll lacks shows up as "Error (unknown keyname ...)"
+# for the files it protects (new maps' WDT/ADT in a fresh Forever build were such). The list
+# is small and only grows with the builds, so it is fetched on every run (not skipped like the
+# tool and the listfile). Everything is written to temporary files and TactKey.csv is only
+# replaced (renamed over) once the download and the conversion succeeded, so a failure at any
+# point leaves the previous TactKey.csv as it was (or none), never a broken one.
+Step "TACT keys" {
+	$keysPath = Join-Path $cascDir 'TactKey.csv'
+	$txtTmp = Join-Path $cascDir 'WoW.txt.part'
+	$csvTmp = Join-Path $cascDir 'TactKey.csv.part'
+	try {
+		Invoke-Curl @('-o', $txtTmp, $TACTKEYS_URL)
+		# "NAME KEY [comment]" -> "NAME;KEY"
+		$lines = foreach ($line in Get-Content $txtTmp) {
+			if ($line -match '^([0-9A-Fa-f]{16})\s+([0-9A-Fa-f]{32})\b') {
+				"$($Matches[1].ToUpper());$($Matches[2].ToUpper())"
+			}
+		}
+		if (-not $lines) {
+			throw "No keys found in the download -- the format of $TACTKEYS_URL changed?"
+		}
+		Set-Content -Path $csvTmp -Value $lines -Encoding ascii
+		Move-Item -Path $csvTmp -Destination $keysPath -Force
+		Write-Host "    $(@($lines).Count) keys written to TactKey.csv"
+	} catch {
+		if (-not (Test-Path $keysPath)) { throw }
+		Write-Warning "TACT keys update failed, keeping the existing TactKey.csv: $($_.Exception.Message)"
+	} finally {
+		Remove-Item -Path $txtTmp, $csvTmp -ErrorAction SilentlyContinue
+	}
 }
 
 Write-Host ""

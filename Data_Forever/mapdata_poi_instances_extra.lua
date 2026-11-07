@@ -28,3 +28,23 @@ add("2999", {"Exit", 0, "Eastern Kingdoms", 155.00, 1805.00, "Azeroth", 175.00, 
 -- City of Dalaran: outside and inside X 377 Y 524 Z 45
 add("Azeroth", {"Dungeon", 2959, "City of Dalaran", 524.00, 377.00, "2959", 524.00, 377.00});
 add("2959", {"Exit", 0, "Eastern Kingdoms", 524.00, 377.00, "Azeroth", 524.00, 377.00});
+
+-- The Drowned City (Eastern Kingdoms): outside X -12354 Y 853 Z -74, inside X -13288 Y 2193 Z -47
+add("Azeroth", {"Dungeon", 2970, "The Drowned City", 853.00, -12354.00, "2970", 2193.00, -13288.00});
+add("2970", {"Exit", 0, "Eastern Kingdoms", 2193.00, -13288.00, "Azeroth", 853.00, -12354.00});
+
+-- Alcaz Prison (Kalimdor): outside X -2527 Y -4927 Z 24, inside X -8797 Y 2848 Z 28
+add("Kalimdor", {"Dungeon", 2994, "Alcaz Prison", -4927.00, -2527.00, "2994", 2848.00, -8797.00});
+add("2994", {"Exit", 1, "Kalimdor", 2848.00, -8797.00, "Kalimdor", -4927.00, -2527.00});
+
+-- Blackmaw Hold (Kalimdor): outside X 4551 Y -5054 Z 168, inside X 3376 Y 3786 Z 310
+add("Kalimdor", {"Dungeon", 2974, "Blackmaw Hold", -5054.00, 4551.00, "2974", 3786.00, 3376.00});
+add("2974", {"Exit", 1, "Kalimdor", 3786.00, 3376.00, "Kalimdor", -5054.00, 4551.00});
+
+-- The Shaper's Terrace (Kalimdor): outside X -6102 Y -1250 Z -140, inside X -5924 Y -970 Z 66
+add("Kalimdor", {"Dungeon", 3001, "The Shaper's Terrace", -1250.00, -6102.00, "3001", -970.00, -5924.00});
+add("3001", {"Exit", 1, "Kalimdor", -970.00, -5924.00, "Kalimdor", -1250.00, -6102.00});
+
+-- Krol'dok Stronghold (Eastern Kingdoms): outside and inside X -7671 Y -3708 Z 160
+add("Azeroth", {"Dungeon", 3039, "Krol'dok Stronghold", -3708.00, -7671.00, "3039", -3708.00, -7671.00});
+add("3039", {"Exit", 0, "Eastern Kingdoms", -3708.00, -7671.00, "Azeroth", -3708.00, -7671.00});

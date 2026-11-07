@@ -31,6 +31,23 @@
 
 Twm_DungeonNames = {
     {
+        key = "2994",
+        mapID = "2994",
+        expansion = "0",
+        name = {
+            enUS = "Alcaz Prison",
+            esES = "Prisión de Alcaz",
+            esMX = "Prisión de Alcaz",
+            frFR = "Prison d’Alcaz",
+            itIT = "Alcaz Prison",
+            koKR = "알카즈 감옥",
+            ptBR = "Prisão de Alcaz",
+            ruRU = "Тюрьма Алькац",
+            zhCN = "奥卡兹监狱",
+            zhTW = "奧卡茲監獄",
+        },
+    },
+    {
         key = "Blackfathom",
         mapID = "48",
         expansion = "0",
@@ -46,6 +63,23 @@ Twm_DungeonNames = {
             ruRU = "Непроглядная Пучина",
             zhCN = "黑暗深渊",
             zhTW = "黑澗深淵",
+        },
+    },
+    {
+        key = "2974",
+        mapID = "2974",
+        expansion = "0",
+        name = {
+            enUS = "Blackmaw Hold",
+            esES = "Bastión Faucenegra",
+            esMX = "Bastión Faucenegra",
+            frFR = "Repaire des Noiregueules",
+            itIT = "Blackmaw Hold",
+            koKR = "검은아귀 요새",
+            ptBR = "Gruta Bocanera",
+            ruRU = "Крепость Черночревов",
+            zhCN = "黑喉要塞",
+            zhTW = "黑喉要塞",
         },
     },
     {
@@ -324,6 +358,23 @@ Twm_DungeonNames = {
             ruRU = "Склепы Каражана",
             zhCN = "卡拉赞墓穴",
             zhTW = "卡拉贊墓穴",
+        },
+    },
+    {
+        key = "3039",
+        mapID = "3039",
+        expansion = "0",
+        name = {
+            enUS = "Krol'dok Stronghold",
+            esES = "Bastión Krol'dok",
+            esMX = "Bastión de Krol'dok",
+            frFR = "Bastion Krol’dok",
+            itIT = "Krol'dok Stronghold",
+            koKR = "크롤도크 보루",
+            ptBR = "Fortaleza de Krol'Dok",
+            ruRU = "Крепость Крол'док",
+            zhCN = "克罗多克要塞",
+            zhTW = "克羅多克要塞",
         },
     },
     {
@@ -629,6 +680,23 @@ Twm_DungeonNames = {
         },
     },
     {
+        key = "2970",
+        mapID = "2970",
+        expansion = "0",
+        name = {
+            enUS = "The Drowned City",
+            esES = "La Ciudad Sumergida",
+            esMX = "La Ciudad Anegada",
+            frFR = "La cité Submergée",
+            itIT = "The Drowned City",
+            koKR = "가라앉은 도시",
+            ptBR = "A Cidade Afogada",
+            ruRU = "Затонувший город",
+            zhCN = "沉没之城",
+            zhTW = "沉沒之城",
+        },
+    },
+    {
         key = "3065",
         mapID = "3065",
         expansion = "0",
@@ -680,6 +748,35 @@ Twm_DungeonNames = {
             ruRU = "Тлеющая низина",
             zhCN = "灼热盆地",
             zhTW = "焦灼盆地",
+        },
+    },
+    {
+        key = "3001",
+        mapID = "3001",
+        expansion = "0",
+        name = {
+            enUS = "The Shaper's Terrace",
+            esES = "El Bancal del Creador",
+            esMX = "El Bancal del Creador",
+            frFR = "La terrasse du Façonneur",
+            itIT = "The Shaper's Terrace",
+            koKR = "구체자의 정원",
+            ptBR = "O Terraço do Moldador",
+            ruRU = "Терраса Создателя",
+            zhCN = "塑造者之台",
+            zhTW = "塑造者殿堂",
+        },
+        alias = {
+            enUS = {"Excavation Site - Bael Modan"},
+            esES = {"Excavación de Bael Modan"},
+            esMX = {"Sitio de Excavación: Bael Modan"},
+            frFR = {"Excavations – Bael Modan"},
+            itIT = {"Excavation Site - Bael Modan"},
+            koKR = {"발굴 현장 - 바엘 모단"},
+            ptBR = {"Sítio de Escavação - Bael Modan"},
+            ruRU = {"Раскопки – Бейл Модан"},
+            zhCN = {"挖掘场 - 巴尔莫丹"},
+            zhTW = {"挖掘場 - 巴爾莫丹"},
         },
     },
     {
@@ -798,6 +895,18 @@ Twm_mapareas["2998"] = {
 Twm_mapareas["2999"] = {
     [0] = {1066.6666666666667, -533.3333333333334, 2666.666666666667, 1066.6666666666667},    --RuinsofLordaeron
 }
+Twm_mapareas["2970"] = {
+    [0] = {4266.666666666667, 1066.6666666666667, -12266.666666666668, -14400.000000000002},    --TheDrownedCity
+}
+Twm_mapareas["2974"] = {
+    [0] = {4266.666666666667, 1600, 4266.666666666667, 1600},    --BlackmawHold
+}
+Twm_mapareas["3001"] = {
+    [0] = {0, -2133.3333333333335, -4800, -6933.333333333334},    --TheShaper'sTerrace
+}
+Twm_mapareas["3039"] = {
+    [0] = {-3200, -5333.333333333334, -6400, -8000.000000000001},    --Krol'dokStronghold
+}
 Twm_mapareas["StormwindJail"] = {
     [0] = {151.8212127685547, -181.46065521240234, 197.2987518310547, -67.9884033203125},    --StormwindStockade
 }
@@ -839,4 +948,7 @@ Twm_mapareas["DireMaul"] = {
 }
 Twm_mapareas["3065"] = {
     [0] = {249.25826517741007, -390.74173482258993, 616.9227701822929, -118.26458867390829},    --TheHallofThanes
+}
+Twm_mapareas["2994"] = {
+    [0] = {3011.851069132488, 2768.458367029827, -8718.165379842121, -8986.430535634358},    --AlcazPrison
 }

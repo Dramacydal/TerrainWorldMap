@@ -726,6 +726,13 @@ async function main() {
 			placementsByMap[mapName] = [];
 			continue;
 		}
+		// A map can have a Map.csv row (so it is a candidate) while the client ships none of its files
+		// (the dir exists, parse_wdt.js made it, but there is no WDT).
+		if (!fs.existsSync(path.join(mapDir, `${mapName}.wdt`))) {
+			console.error(`WARNING: ${mapName} -- no world/maps/${mapName}/${mapName}.wdt after extraction (this client does not ship the map), skipping`);
+			placementsByMap[mapName] = [];
+			continue;
+		}
 		const validTileKeys = new Set(getValidTiles(path.join(mapDir, `${mapName}.wdt`), 'obj0ADT'));
 		let placements = findModfPlacements(mapDir, validTileKeys, cityTileKeys[mapName]);
 		if (placements.length === 0) {

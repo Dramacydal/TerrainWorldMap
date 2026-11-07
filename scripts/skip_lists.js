@@ -116,6 +116,7 @@ const skipAdtTiles = {
 		'129', // Razorfen Downs
 		'189', // Scarlet Monastery
 		'3065', // The Hall of Thanes
+		'2994', // Alcaz Prison (WMO only)
 	],
 };
 
@@ -148,6 +149,7 @@ const skipWmoTiles = {
 		'309', // Zul'Gurub,
 		'509', // Ruins of Ahn'Qiraj
 		'2999', // Ruins of Lordaeron (dungeon, Directory "2999")
+		'2998', // Excavation Site: Wetlands (ADT only)
 	],
 };
 
