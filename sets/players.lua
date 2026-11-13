@@ -3,6 +3,21 @@ local set = {name="players", internal = {}};
 local eventframe;
 local unitlocations = {};
 
+-- The name to show for a unit. In WoW: Forever (Twm_UnitSurnames, Data_Forever/mapdata_poi.lua)
+-- a character has a surname and UnitName returns it as the second value (name, surname) -- in
+-- the other flavors that value is the realm, which is not shown --, so the name is put
+-- together the way the game's own UI does it (NameUtil.FormatUnitNameForDisplay).
+local function UnitDisplayName(unit)
+    local name, surname = UnitName(unit);
+    if(Twm_UnitSurnames and name and surname and surname ~= "") then
+        if(NameUtil and NameUtil.FormatUnitNameForDisplay) then
+            return NameUtil.FormatUnitNameForDisplay(unit);
+        end
+        return name .. " " .. surname;
+    end
+    return name;
+end
+
 local addpoint = function(name, unit)
     TWMPoints_AddMobilePoint(nil, name, unit, nil, nil);
 
@@ -152,7 +167,7 @@ end
 -- The unit's name in its class color plus its class icon; plain name and no
 -- icon when the class is unknown.
 function set.setuplegend(point, env, dat)
-    local name = UnitName(dat.name);
+    local name = UnitDisplayName(dat.name);
     local class = select(2, UnitClass(dat.name));
     local color = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class];
 

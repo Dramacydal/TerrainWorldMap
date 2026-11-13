@@ -214,7 +214,9 @@ one-off/no-workdir use, but `parse_wdt.js` below reads the JSON by default.)
 
 No script writes this file, and none of the steps here regenerate it (it is
 loaded by every `.toc` right after `mapdata_continents.lua`). Edit it by
-hand when a flavor gains or loses a continent-level map. It holds two tables:
+hand when a flavor gains or loses a continent-level map. It holds two tables (Forever's
+also sets the flag `Twm_UnitSurnames = true`: its characters have a surname, returned as
+the second value of `UnitName`, and `sets/players.lua` then shows the full name):
 
 - **`Twm_ContinentMapID`** — `{ [<Map.csv Directory>] = <uiMapID> }`, one entry
   per continent/standalone island that `candidates/continents.json` (see

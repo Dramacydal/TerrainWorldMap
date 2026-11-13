@@ -12,30 +12,60 @@
 -- at frame level 2000), so it renders strictly between the two.
 --
 -- Toggle with "/twm overlay on" / "/twm overlay off".
+--
+-- The same overlay is also drawn on the Battlefield Minimap (BattlefieldMapFrame, Shift+M:
+-- the small zoomable map of the current zone or battleground, a MapCanvas frame like
+-- WorldMapFrame), once its load-on-demand addon is loaded: one "instance" per map frame
+-- (`instances`). The module-level locals below (mapFrame, overlay, backdrop, texturePool,
+-- cityGroupFrames) always belong to the instance Activate() was last called with, so the
+-- drawing code needs no frame argument; every entry point that draws activates its instance
+-- first. All instances follow the same options and the same on/off switch.
 
+local instances = {};
+local mapFrame;
 local overlay;
 local backdrop;
 local texturePool = {};
+local cityGroupFrames = {}; -- see DrawCityWMOTiles
 local worldMapButton;
 
-local function GetOverlayFrame()
-    if(overlay) then return overlay; end
+local function Activate(inst)
+    mapFrame, overlay, backdrop = inst.mapFrame, inst.overlay, inst.backdrop;
+    texturePool, cityGroupFrames = inst.texturePool, inst.cityGroupFrames;
+end
 
-    overlay = CreateFrame("Frame", "TWMWorldMapOverlay", WorldMapFrame:GetCanvas());
-    overlay:SetAllPoints(WorldMapFrame:GetCanvas());
-    overlay:SetFrameLevel(500);
-    overlay:Hide();
+-- Blizzard's own map art is drawn by the canvas' "detail layers" (mapFrame.detailLayerPool),
+-- which the canvas creates and shows again on every map change. While the overlay draws tiles
+-- on a frame (inst.artHidden, set by RefreshInstance) they are hidden, so the art does not
+-- show through the overlay when its opacity is lowered (the Battlefield Minimap's slider).
+local function ApplyBlizzardArt(inst)
+    local pool = inst.mapFrame.detailLayerPool;
+    if(not pool) then return; end
+    for layer in pool:EnumerateActive() do
+        layer:SetShown(not inst.artHidden);
+    end
+end
+
+local function GetOverlayFrame(inst)
+    if(inst.overlay) then return inst.overlay; end
+
+    local canvas = inst.mapFrame:GetCanvas();
+    local f = CreateFrame("Frame", inst.name, canvas);
+    f:SetAllPoints(canvas);
+    f:SetFrameLevel(500);
+    f:Hide();
+    inst.overlay = f;
 
     -- Solid backing under every tile, so gaps (ocean/edge cells with no
     -- WDT-valid tile, or areas not yet covered by an inset) show black
     -- instead of Blizzard's own map art bleeding through from below. Only
     -- meaningful on zone/continent maps -- hidden on the cosmic map (see
-    -- RefreshOverlay), which we never have tiles for anyway.
-    backdrop = overlay:CreateTexture(nil, "BACKGROUND");
-    backdrop:SetAllPoints(overlay);
-    backdrop:SetColorTexture(0, 0, 0, 1);
+    -- RefreshInstance), which we never have tiles for anyway.
+    inst.backdrop = f:CreateTexture(nil, "BACKGROUND");
+    inst.backdrop:SetAllPoints(f);
+    inst.backdrop:SetColorTexture(0, 0, 0, 1);
 
-    return overlay;
+    return f;
 end
 
 local function AcquireTexture(i)
@@ -58,13 +88,15 @@ end
 -- See TWM_SetTileFilter below for why this needs to run as its own pass,
 -- separate from (and before) the rebuild that follows it.
 local function ClearOverlayTileTextures()
-    for i = 1, #texturePool do
-        texturePool[i]:SetTexture(nil);
+    for _, inst in ipairs(instances) do
+        for i = 1, #inst.texturePool do
+            inst.texturePool[i]:SetTexture(nil);
+        end
     end
 end
 
 local function ShowExplorationPins()
-    for pin in WorldMapFrame:EnumeratePinsByTemplate("MapExplorationPinTemplate") do
+    for pin in mapFrame:EnumeratePinsByTemplate("MapExplorationPinTemplate") do
         pin:Show();
     end
 end
@@ -200,7 +232,6 @@ end
 -- depth), the tile content turned by the fixed SetTexCoord below, the tile
 -- itself by its yaw. The tiles are in Big coordinates, mapped to the overlay's
 -- pixels like DrawTiles maps the terrain.
-local cityGroupFrames = {};
 local CITY_WMO_ROTATION_PIVOT = {x = 0.5, y = 0.5};
 
 local function HideCityWMOTiles()
@@ -335,15 +366,18 @@ local function DrawOrphanChildren(continent, parentMapID, targetX1, targetY1, ta
     return idx;
 end
 
-local function RefreshOverlay()
-    if(not overlay or not overlay:IsShown()) then return; end
+local function RefreshInstance(inst)
+    if(not inst.overlay or not inst.overlay:IsShown()) then return; end
+    Activate(inst);
     HideCityWMOTiles();
 
-    local mapID = WorldMapFrame:GetMapID();
+    local mapID = mapFrame:GetMapID();
     if(not mapID) then
         ReleaseTexturesFrom(1);
         backdrop:Hide();
         ShowExplorationPins();
+        inst.artHidden = false;
+        ApplyBlizzardArt(inst);
         return;
     end
 
@@ -381,10 +415,11 @@ local function RefreshOverlay()
         -- otherwise show through on top of our baked tiles wherever the
         -- player has explored. Since we're replacing Blizzard's art
         -- entirely for this map, suppress it.
-        for pin in WorldMapFrame:EnumeratePinsByTemplate("MapExplorationPinTemplate") do
+        for pin in mapFrame:EnumeratePinsByTemplate("MapExplorationPinTemplate") do
             pin:Hide();
         end
         backdrop:Show();
+        inst.artHidden = true;
 
         idx = DrawTiles(continent, bx1, bx2, by1, by2, 0, 0, frameW, frameH, idx);
 
@@ -435,7 +470,7 @@ local function RefreshOverlay()
         end
 
         if(idx > 0) then
-            for pin in WorldMapFrame:EnumeratePinsByTemplate("MapExplorationPinTemplate") do
+            for pin in mapFrame:EnumeratePinsByTemplate("MapExplorationPinTemplate") do
                 pin:Hide();
             end
             backdrop:Show();
@@ -443,9 +478,18 @@ local function RefreshOverlay()
             backdrop:Hide();
             ShowExplorationPins();
         end
+        inst.artHidden = idx > 0;
     end
 
     ReleaseTexturesFrom(idx+1);
+    ApplyBlizzardArt(inst);
+end
+
+-- Every map frame's overlay.
+local function RefreshOverlay()
+    for _, inst in ipairs(instances) do
+        RefreshInstance(inst);
+    end
 end
 
 -- Draws the overlay again (the tile toggle list of the debug window changed).
@@ -456,13 +500,17 @@ end
 function TWM_SetWorldMapOverlay(enabled, silent)
     TWMOption.WorldMapOverlay = enabled;
 
-    local f = GetOverlayFrame();
-    if(enabled) then
-        f:Show();
-        RefreshOverlay();
-    else
-        f:Hide();
-        ShowExplorationPins();
+    for _, inst in ipairs(instances) do
+        if(enabled) then
+            inst.overlay:Show();
+            RefreshInstance(inst);
+        else
+            inst.overlay:Hide();
+            Activate(inst);
+            ShowExplorationPins();
+            inst.artHidden = false;
+            ApplyBlizzardArt(inst);
+        end
     end
 
     if(worldMapButton) then
@@ -628,9 +676,57 @@ function TWMWorldMapButtonMixin:Refresh()
     self.Icon:SetAlpha(enabled and 1 or 0.5);
 end
 
+-- Draws the overlay on a map frame (WorldMapFrame, BattlefieldMapFrame): its own overlay
+-- frame and tile pool, redrawn when the frame changes its map or is shown.
+local function AddInstance(name, frame)
+    local inst = {name = name, mapFrame = frame, texturePool = {}, cityGroupFrames = {}};
+    instances[#instances + 1] = inst;
+    GetOverlayFrame(inst);
+
+    hooksecurefunc(frame, "OnMapChanged", function() RefreshInstance(inst); end);
+    frame:HookScript("OnShow", function() RefreshInstance(inst); end);
+
+    -- The frame's opacity (the Battlefield Minimap's slider) is the canvas' "global alpha", which
+    -- only reaches Blizzard's own detail layers and pins -- not a frame of ours -- so the overlay
+    -- follows it itself.
+    -- (Every flavor's MapCanvas has these -- Era, Anniversary, Mists, Forever --, the checks only
+    -- keep a client without one from erroring at login.)
+    if(frame.GetGlobalAlpha and frame.SetGlobalAlpha) then
+        inst.overlay:SetAlpha(frame:GetGlobalAlpha());
+        hooksecurefunc(frame, "SetGlobalAlpha", function(_, alpha) inst.overlay:SetAlpha(alpha); end);
+    end
+
+    -- The canvas builds and shows its detail layers (Blizzard's map art) again on a map change.
+    if(frame.RefreshDetailLayers) then
+        hooksecurefunc(frame, "RefreshDetailLayers", function() ApplyBlizzardArt(inst); end);
+    end
+
+    if(TWMOption.WorldMapOverlay) then
+        inst.overlay:Show();
+        RefreshInstance(inst);
+    end
+    return inst;
+end
+
+local battlefieldInstance;
+local function AddBattlefieldMapInstance()
+    if(battlefieldInstance or not BattlefieldMapFrame) then return; end
+    battlefieldInstance = AddInstance("TWMBattlefieldMapOverlay", BattlefieldMapFrame);
+end
+
 local initFrame = CreateFrame("Frame");
 initFrame:RegisterEvent("PLAYER_LOGIN");
-initFrame:SetScript("OnEvent", function()
+initFrame:SetScript("OnEvent", function(self, event, addonName)
+    -- The Battlefield Minimap's addon is load-on-demand (first Shift+M, or at login when the
+    -- map is set to be shown): hooked at once if it is there, else when it gets loaded.
+    if(event == "ADDON_LOADED") then
+        if(addonName == "Blizzard_BattlefieldMap") then
+            self:UnregisterEvent("ADDON_LOADED");
+            AddBattlefieldMapInstance();
+        end
+        return;
+    end
+
     if(TWMOption.WorldMapOverlay == nil) then
         TWMOption.WorldMapOverlay = true;
     end
@@ -641,14 +737,12 @@ initFrame:SetScript("OnEvent", function()
         TWMOption.WorldMapOverlayWorldView = false;
     end
 
-    GetOverlayFrame();
+    AddInstance("TWMWorldMapOverlay", WorldMapFrame);
 
-    hooksecurefunc(WorldMapFrame, "OnMapChanged", RefreshOverlay);
-    WorldMapFrame:HookScript("OnShow", RefreshOverlay);
-
-    if(TWMOption.WorldMapOverlay) then
-        overlay:Show();
-        RefreshOverlay();
+    if(BattlefieldMapFrame) then
+        AddBattlefieldMapInstance();
+    else
+        self:RegisterEvent("ADDON_LOADED");
     end
 
     worldMapButton = LibStub("Krowi_WorldMapButtons-1.4"):Add("TWMWorldMapButtonTemplate", "BUTTON");

@@ -17,6 +17,10 @@ Twm_ContinentMapID = {
     ["2991"] = 2665,         -- Zephras Isle
 };
 
+-- Forever characters have a surname: UnitName returns (name, surname), where the other flavors
+-- return (name, realm). sets/players.lua shows the full name only where this is set.
+Twm_UnitSurnames = true;
+
 -- TerrainWorldMap map mapping
 -- Display_Name - Actual Map Folder Name
 -- Display name is resolved live via C_Map.GetMapInfo so it always matches

@@ -441,6 +441,23 @@ shown only while `C_Seasons.GetActiveSeason()` equals the listed season (where
 `C_Seasons` does not exist, e.g. Forever, they stay hidden). When only one
 expansion is left in a category the expansion submenu level is skipped.
 
+## Overlay on the stock map frames (`WorldMapOverlay.lua`)
+
+The terrain mosaic is drawn over Blizzard's own map art on two `MapCanvas` frames: the
+World Map (`WorldMapFrame`, M) and the Battlefield Minimap (`BattlefieldMapFrame`, Shift+M,
+the small zoomable map of the current zone or battleground). One "instance" per frame
+(`instances`): its own overlay frame (on `frame:GetCanvas()`), backdrop, tile pool and city
+group frames; the module locals `mapFrame/overlay/backdrop/texturePool/cityGroupFrames`
+belong to the instance `Activate(inst)` was last called with, so `RefreshInstance(inst)`
+and the draw functions take no frame argument. The frame redraws on `OnMapChanged` and
+`OnShow`. While tiles are drawn on a frame, Blizzard's own art (the canvas' detail layers,
+`mapFrame.detailLayerPool`) is hidden (`inst.artHidden`, `ApplyBlizzardArt`, re-applied by a hook
+on `RefreshDetailLayers`, which shows the layers again on every map change), so it does not
+show through the overlay when the frame's opacity is lowered; the overlay's own alpha follows
+the canvas' global alpha (a hook on `SetGlobalAlpha`). All instances share the options and the on/off switch (`WorldMapOverlay`); the
+Battlefield Minimap's addon (`Blizzard_BattlefieldMap`) is load-on-demand, so its instance is
+added at login if `BattlefieldMapFrame` exists, else on that addon's `ADDON_LOADED`.
+
 ## Capital-city WMO tiles on the world map (`Twm_CityWMOTiles`)
 
 The "Draw tiles on city maps" option has three modes (`TWM_GetCityMapTilesMode`,

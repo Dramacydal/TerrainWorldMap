@@ -1,6 +1,12 @@
 
 TerrainWorldMap ChangeLog
 ================
+2.4.0 (November 12, 2026)
+----------------------------
+- Added: real terrain on the Battlefield Minimap (Shift+M) instead of the standard
+  artwork.
+- Added: WoW: Forever players on the map are shown with their full name (name and surname).
+
 2.3.0 (November 7, 2026)
 ----------------------------
 - Updated to WoW: Forever build 1.60.1.70840.
