@@ -41,6 +41,7 @@ Spline.lua
 FlightPaths.lua
 TerrainWorldMap.lua
 WorldMapOverlay.lua
+WorldMapZoom.lua
 WorldMapButton.xml
 Templates.xml
 TerrainWorldMap.xml

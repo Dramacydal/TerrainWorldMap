@@ -458,6 +458,34 @@ the canvas' global alpha (a hook on `SetGlobalAlpha`). All instances share the o
 Battlefield Minimap's addon (`Blizzard_BattlefieldMap`) is load-on-demand, so its instance is
 added at login if `BattlefieldMapFrame` exists, else on that addon's `ADDON_LOADED`.
 
+## Extra zoom of the World Map and the Battlefield Minimap (`WorldMapZoom.lua`)
+
+Hooks `CreateZoomLevels` of `WorldMapFrame.ScrollContainer` and `BattlefieldMapFrame.ScrollContainer`
+(hooked at login, or when the frame appears: `ADDON_LOADED`) and appends zoom levels after Blizzard's
+last one, up to a chosen multiple of the zoom at which the whole map fits the window (`baseScale`),
+with the same step ratio as Blizzard's last step (at most 30 extra levels). Settings ("World Map"
+tab, first three entries): `WorldMapZoomIncrease` (default on), `WorldMapZoomLevel` (3..30, default
+8, only meaningful while the first is on -- greyed out otherwise), `WorldMapZoomRestore` (default on,
+independent: the World Map reopens at the zoom and position it was closed with, saved on `OnHide`,
+applied on `OnShow` and again from `ResetZoom` for half a second, since a resize right after opening
+resets the zoom; the pan is set exactly after `InstantPanAndZoom`: the Classic clients' version has no
+4th "ignore scale ratio" argument and blends the pan with the current scroll, which made the map drift
+a little with every reopen). A change of a setting builds the levels again (`container:OnCanvasSizeChanged()`
+-> `CreateZoomLevels` -> the hook). Formerly the separate WorldMapZoomMax addon, which must not be
+loaded together with this (both would extend the levels).
+
+The Classic clients (Era, Anniversary, Mists) switch the World Map's mouse wheel off in
+`Blizzard_WorldMap.xml` (the scroll container's `OnMouseWheel` is `nop`, "Disable mouse wheel
+scrolling"; Forever's XML has no such override), although the maps have zoom levels (art style 1:
+x1..x2.14, 4 levels, `UiMapArtStyleLayer`). `SetupWheelZoom` wraps the container's wheel script: the
+original runs, and one frame later (`C_Timer.After(0)`), if neither `targetScale` nor `currentScale`
+changed meanwhile, the map goes one zoom level in/out at the cursor (`GetCurrentZoomRange` +
+`InstantPanAndZoom`). The delay is what keeps a notch from being taken twice: Leatrix Maps zooms the
+same way from its own hook on this script (it runs after the wrapped script, in the same dispatch),
+and the stock handler of Forever moves `targetScale`; by the next frame every one of them has
+run, and only a notch nobody handled is handled here. The Battlefield Minimap's wheel is not
+touched (stock).
+
 ## Capital-city WMO tiles on the world map (`Twm_CityWMOTiles`)
 
 The "Draw tiles on city maps" option has three modes (`TWM_GetCityMapTilesMode`,

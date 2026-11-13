@@ -6,6 +6,10 @@ TerrainWorldMap ChangeLog
 - Added: real terrain on the Battlefield Minimap (Shift+M) instead of the standard
   artwork.
 - Added: WoW: Forever players on the map are shown with their full name (name and surname).
+- Added: increased maximum zoom of the World Map and the Battlefield Minimap (Shift+M), on by
+  default. The zoom level can be set from 3 to 30 in the "World Map" settings, and
+  "Restore zoom level at open" brings the World Map back with the zoom and position it was
+  closed with.
 
 2.3.0 (November 7, 2026)
 ----------------------------

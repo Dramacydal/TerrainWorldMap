@@ -9,6 +9,7 @@ Currently supports **Classic Era (Vanilla)**, **Classic Anniversary (TBC)**, **M
 ## Features
 
 - **Real terrain overlay on the World Map** — for continents and battlegrounds alike.
+- **More zoom on the World Map and the Battlefield Minimap (Shift+M)** — mouse wheel zoom on the World Map in the Classic clients, where the game switches it off; a higher maximum zoom, adjustable from 3 to 30 in the settings; and an option to reopen the World Map with the zoom and position it was closed with.
 - **Standalone browser window** — a movable, resizable, zoomable minimap-style view. The map fills the window under a semi-transparent header (map selectors, Goto Player, options) and footer (zoom, terrain and WMO toggles), with a category-organized map selector (Continents/Battlegrounds/Dungeons/Raids/Scenarios/Arenas), adjustable transparency and icon size. Shift+Click on Goto Player turns on follow mode (continents only).
 - **Battlegrounds** — Alterac Valley, Warsong Gulch, Arathi Basin, Eye of the Storm (plus Wintergrasp and Battle for Tol Barad on Mists, Darkspear Islands on WoW: Forever), each with real terrain, named landmarks.
 - **Instance maps in the standalone window** — dungeons, raids, scenarios and arenas, with their real layouts (WMO tiles). Show Terrain / Show WMO Layers toggles, a height cutoff slider and a WMO Tile Management menu control what is drawn.
@@ -23,7 +24,7 @@ Currently supports **Classic Era (Vanilla)**, **Classic Anniversary (TBC)**, **M
 
 ## Usage
 
-- Can be used with your favorite World Map addon, ones supporting zoom (like LeatrixMaps) are recommended.
+- Can be used together with your favorite World Map addon.
 - World Map button — left-click to toggle the terrain overlay, right-click for a menu.
 - Minimap button — left-click to toggle the window, right-click for a menu.
 - `/twm` — toggle the standalone map window; `/twm show` / `/twm hide` show or hide it.

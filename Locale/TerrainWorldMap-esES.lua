@@ -33,6 +33,12 @@ TWM_DEBUG_TILES_OFF = "TerrainWorldMap: etiquetas de depuración de teselas DESA
 
 TWM_OPTIONS_VERSION = "Versión %s";
 TWM_OPTIONS_TAB_WORLDMAP = "Mapa del mundo";
+TWM_OPTIONS_WORLDMAP_ZOOM_INCREASE = "Aumentar el nivel de zoom";
+TWM_OPTIONS_WORLDMAP_ZOOM_LEVEL = "Nivel de zoom";
+TWM_OPTIONS_WORLDMAP_ZOOM_RESTORE = "Restaurar el nivel de zoom al abrir";
+TWM_TOOLTIP_OPT_WORLDMAPZOOMINCREASE = "Permite acercar el mapa del mundo y el minimapa del campo de batalla más de lo que permite normalmente el juego.";
+TWM_TOOLTIP_OPT_WORLDMAPZOOMLEVEL = "El zoom máximo, como múltiplo de la vista en la que todo el mapa cabe en la ventana (x1).";
+TWM_TOOLTIP_OPT_WORLDMAPZOOMRESTORE = "Al volver a abrir el mapa del mundo se restaura el zoom y la posición con los que se cerró.";
 TWM_OPTIONS_TAB_BROWSER = "Ventana independiente";
 TWM_OPTIONS_TAB_INTEGRATIONS = "Integraciones";
 TWM_OPTIONS_LEATRIXMAPS_CLICK = "Abrir mapa de instancia al hacer clic";

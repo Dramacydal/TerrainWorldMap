@@ -16,6 +16,11 @@ nothing to your addon folder's size or your loading screens.
   capital city maps the city's buildings can be drawn over the terrain too
   (Off / On / On + Buildings); the standalone window shows them on
   continent maps too, when zoomed in.
+- **More zoom on the World Map and the Battlefield Minimap** (Shift+M) — a
+  higher maximum zoom, adjustable from 3 to 30 in the settings; mouse wheel
+  zoom on the World Map in the Classic clients, where the game switches it
+  off; and an option to reopen the World Map with the zoom and position it
+  was closed with.
 - **Standalone map window** — movable, resizable, zoomable; the map fills
   the window under a semi-transparent header (map selectors, Goto Player,
   options) and footer (zoom, terrain/WMO toggles). Jump to any zone or to

@@ -37,6 +37,12 @@ TWM_DEBUG_TILES_OFF = "TerrainWorldMap: Kachel-Debug-Beschriftungen AUS";
 
 TWM_OPTIONS_VERSION = "Version %s";
 TWM_OPTIONS_TAB_WORLDMAP = "Weltkarte";
+TWM_OPTIONS_WORLDMAP_ZOOM_INCREASE = "Zoomstufe erh\195\182hen";
+TWM_OPTIONS_WORLDMAP_ZOOM_LEVEL = "Zoomstufe";
+TWM_OPTIONS_WORLDMAP_ZOOM_RESTORE = "Zoomstufe beim \195\150ffnen wiederherstellen";
+TWM_TOOLTIP_OPT_WORLDMAPZOOMINCREASE = "Erlaubt es, die Weltkarte und die Schlachtfeld-Minikarte weiter heranzuzoomen, als es das Spiel normalerweise zul\195\164sst.";
+TWM_TOOLTIP_OPT_WORLDMAPZOOMLEVEL = "Der maximale Zoom als Vielfaches der Ansicht, in der die ganze Karte ins Fenster passt (x1).";
+TWM_TOOLTIP_OPT_WORLDMAPZOOMRESTORE = "Beim erneuten \195\150ffnen der Weltkarte werden Zoom und Position wiederhergestellt, mit denen sie geschlossen wurde.";
 TWM_OPTIONS_TAB_BROWSER = "Browser";
 TWM_OPTIONS_TAB_INTEGRATIONS = "Integrationen";
 TWM_OPTIONS_LEATRIXMAPS_CLICK = "Instanzkarte per Klick \195\182ffnen";

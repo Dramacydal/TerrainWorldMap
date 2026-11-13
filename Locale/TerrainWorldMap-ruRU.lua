@@ -28,6 +28,12 @@ TWM_DEBUG_TILES_OFF = "TerrainWorldMap: отладочные метки тайл
 
 TWM_OPTIONS_VERSION = "Версия %s";
 TWM_OPTIONS_TAB_WORLDMAP = "Карта мира";
+TWM_OPTIONS_WORLDMAP_ZOOM_INCREASE = "Увеличить уровень зума";
+TWM_OPTIONS_WORLDMAP_ZOOM_LEVEL = "Уровень зума";
+TWM_OPTIONS_WORLDMAP_ZOOM_RESTORE = "Восстанавливать уровень зума при открытии";
+TWM_TOOLTIP_OPT_WORLDMAPZOOMINCREASE = "Позволяет приближать карту мира и мини-карту поля боя сильнее, чем это обычно позволяет игра.";
+TWM_TOOLTIP_OPT_WORLDMAPZOOMLEVEL = "Максимальный зум в кратностях вида, при котором вся карта помещается в окне (x1).";
+TWM_TOOLTIP_OPT_WORLDMAPZOOMRESTORE = "При повторном открытии карты мира возвращаются масштаб и положение, с которыми она была закрыта.";
 TWM_OPTIONS_TAB_BROWSER = "Браузер";
 TWM_OPTIONS_TAB_INTEGRATIONS = "Интеграции";
 TWM_OPTIONS_LEATRIXMAPS_CLICK = "Открывать карту инстанса по клику";

@@ -47,8 +47,8 @@ local function AddSlider(tab, variable, name, tooltip, default, minValue, maxVal
     options:SetLabelFormatter(MinimalSliderWithSteppersMixin.Label.Right, function(value)
         return string.format("%." .. decimals .. "f", value);
     end);
-    Settings.CreateSlider(tab.category, setting, options, tooltip);
-    return setting;
+    local initializer = Settings.CreateSlider(tab.category, setting, options, tooltip);
+    return setting, initializer;
 end
 
 -- choices: {{value, label, tooltip}, ...}; the values are of the default's type
@@ -113,6 +113,26 @@ TWMSettingsCategory = mainTab.category;
 --
 
 local worldMapTab = CreateTab(TWM_OPTIONS_TAB_WORLDMAP, mainTab);
+
+-- Zoom of the World Map and of the Battlefield Minimap (WorldMapZoom.lua).
+local zoomIncreaseSetting, zoomIncreaseInitializer = AddCheckbox(worldMapTab, "WorldMapZoomIncrease",
+    TWM_OPTIONS_WORLDMAP_ZOOM_INCREASE, TWM_TOOLTIP_OPT_WORLDMAPZOOMINCREASE, true,
+    TWM_IsWorldMapZoomIncreased,
+    function(value) TWM_SetWorldMapZoomIncrease(value); end);
+
+-- Only matters while the extra zoom is on (indented under it, greyed out otherwise).
+local _, zoomLevelInitializer = AddSlider(worldMapTab, "WorldMapZoomLevel",
+    TWM_OPTIONS_WORLDMAP_ZOOM_LEVEL, TWM_TOOLTIP_OPT_WORLDMAPZOOMLEVEL, 8, 3, 30, 1, 0,
+    TWM_GetWorldMapZoomLevel,
+    function(value) TWM_SetWorldMapZoomLevel(value); end);
+zoomLevelInitializer:SetParentInitializer(zoomIncreaseInitializer, function()
+    return zoomIncreaseSetting:GetValue();
+end);
+
+AddCheckbox(worldMapTab, "WorldMapZoomRestore",
+    TWM_OPTIONS_WORLDMAP_ZOOM_RESTORE, TWM_TOOLTIP_OPT_WORLDMAPZOOMRESTORE, true,
+    TWM_IsWorldMapZoomRestored,
+    function(value) TWM_SetWorldMapZoomRestore(value); end);
 
 AddCheckbox(worldMapTab, "ChildMapTiles", TWM_MENU_CHILDMAP_TILES, TWM_TOOLTIP_OPT_CHILDMAPTILES, true,
     GlobalOptionGetter("WorldMapOverlayChildMaps", true),

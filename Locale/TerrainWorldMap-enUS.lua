@@ -33,6 +33,12 @@ TWM_DEBUG_TILES_OFF = "TerrainWorldMap: tile debug labels OFF";
 
 TWM_OPTIONS_VERSION = "Version %s";
 TWM_OPTIONS_TAB_WORLDMAP = "World Map";
+TWM_OPTIONS_WORLDMAP_ZOOM_INCREASE = "Increase zoom level";
+TWM_OPTIONS_WORLDMAP_ZOOM_LEVEL = "Zoom level";
+TWM_OPTIONS_WORLDMAP_ZOOM_RESTORE = "Restore zoom level at open";
+TWM_TOOLTIP_OPT_WORLDMAPZOOMINCREASE = "Lets you zoom the world map and the battlefield minimap in further than the game normally allows.";
+TWM_TOOLTIP_OPT_WORLDMAPZOOMLEVEL = "The maximum zoom, as a multiple of the zoom at which the whole map fits the window (x1).";
+TWM_TOOLTIP_OPT_WORLDMAPZOOMRESTORE = "When the world map is opened again, it comes back with the zoom and position it was closed with.";
 TWM_OPTIONS_TAB_BROWSER = "Browser";
 TWM_OPTIONS_TAB_INTEGRATIONS = "Integrations";
 TWM_OPTIONS_LEATRIXMAPS_CLICK = "Open instance map on icon click";

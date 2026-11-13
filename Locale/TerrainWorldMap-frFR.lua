@@ -29,6 +29,12 @@ TWM_DEBUG_TILES_OFF = "TerrainWorldMap : étiquettes de débogage des tuiles DÉ
 
 TWM_OPTIONS_VERSION = "Version %s";
 TWM_OPTIONS_TAB_WORLDMAP = "Carte du monde";
+TWM_OPTIONS_WORLDMAP_ZOOM_INCREASE = "Augmenter le niveau de zoom";
+TWM_OPTIONS_WORLDMAP_ZOOM_LEVEL = "Niveau de zoom";
+TWM_OPTIONS_WORLDMAP_ZOOM_RESTORE = "Restaurer le niveau de zoom à l'ouverture";
+TWM_TOOLTIP_OPT_WORLDMAPZOOMINCREASE = "Permet de zoomer sur la carte du monde et sur la mini-carte du champ de bataille plus loin que ne le permet normalement le jeu.";
+TWM_TOOLTIP_OPT_WORLDMAPZOOMLEVEL = "Le zoom maximal, en multiple de la vue où la carte entière tient dans la fenêtre (x1).";
+TWM_TOOLTIP_OPT_WORLDMAPZOOMRESTORE = "À la réouverture de la carte du monde, le zoom et la position qu'elle avait à sa fermeture sont rétablis.";
 TWM_OPTIONS_TAB_BROWSER = "Fenêtre autonome";
 TWM_OPTIONS_TAB_INTEGRATIONS = "Intégrations";
 TWM_OPTIONS_LEATRIXMAPS_CLICK = "Ouvrir la carte de l'instance au clic";
